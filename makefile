@@ -10,7 +10,7 @@ clean:
 	rm -f libsubstrate.dylib postrm preinst
 
 libsubstrate.dylib: MobileSubstrate.mm makefile
-	$(target)g++ -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -init _MSInitialize -lobjc -framework CoreFoundation
+	$(target)g++ -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -init _MSInitialize -lobjc -framework CoreFoundation -install_name /usr/lib/libsubstrate.dylib
 
 %: %.m makefile
 	$(target)gcc -g0 -O2 -Wall -Werror -o $@ $(filter %.m,$^) -framework CoreFoundation -framework Foundation -lobjc

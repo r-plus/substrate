@@ -3,7 +3,7 @@ Priority: optional
 Section: System
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: iphoneos-arm
-Version: 0.9.2554-1
+Version: 0.9.2555-1
 Description: simpler DYLD_INSERT_LIBRARIES setup
 Name: Mobile Substrate
 Author: Jay Freeman (saurik) <saurik@saurik.com>
