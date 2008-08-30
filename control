@@ -3,9 +3,9 @@ Priority: optional
 Section: System
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: iphoneos-arm
-Version: 0.9.2519-1
+Version: 0.9.2554-1
 Description: simpler DYLD_INSERT_LIBRARIES setup
- Will provide error handling and fallback support for the insertion of dynamic libraries to SpringBoard. Right now it only eases the process of the insertion and does not provide any other benefits.
 Name: Mobile Substrate
 Author: Jay Freeman (saurik) <saurik@saurik.com>
 Tag: role::developer
+Depiction: http://cydia.saurik.com/info/mobilesubstrate/
