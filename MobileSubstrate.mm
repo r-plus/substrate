@@ -47,11 +47,84 @@
 #include <unistd.h>
 
 // ldr pc, [pc, #-4]
-#define ldr_pc_$pc_m4$ 0xe51ff004
+#define A$ldr_pc_$pc_m4$ 0xe51ff004
+
+#define T$bx_pc 0x4778
+#define T$nop 0x46c0
 
 extern "C" void __clear_cache (char *beg, char *end);
 
-void MSHookFunction(void *symbol, void *replace, void **result) {
+static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
+    if (symbol == NULL)
+        return;
+    if (result != NULL)
+        NSLog(@"MS:Error:MSHookFunctionThumb(, , !NULL)");
+
+    int page = getpagesize();
+    uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
+    uintptr_t base = address / page * page;
+
+    mach_port_t self = mach_task_self();
+
+    if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
+        NSLog(@"MS:Error:vm_protect():%d", error);
+        return;
+    }
+
+    uint16_t *thumb = reinterpret_cast<uint16_t *>(symbol);
+
+    uint16_t backup[6];
+    memcpy(backup, thumb, sizeof(uint16_t) * 6);
+
+    thumb[0] = T$bx_pc;
+
+    unsigned align;
+    if ((address & 0x2) != 0)
+        align = 0;
+    else {
+        align = 1;
+        thumb[1] = T$nop;
+    }
+
+    uint32_t *arm = reinterpret_cast<uint32_t *>(thumb + 1 + align);
+
+    arm[0] = A$ldr_pc_$pc_m4$;
+    arm[1] = reinterpret_cast<uint32_t>(replace);
+
+    __clear_cache(reinterpret_cast<char *>(thumb), reinterpret_cast<char *>(thumb + 1 + align + 4));
+
+    if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
+        NSLog(@"MS:Error:vm_protect():%d", error);
+
+#if 0
+    if (result != NULL) {
+        uint32_t *buffer = reinterpret_cast<uint32_t *>(mmap(
+            NULL, sizeof(uint32_t) * 5,
+            PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE,
+            -1, 0
+        ));
+
+        if (buffer == MAP_FAILED) {
+            NSLog(@"WB:Error:mmap():%d", errno);
+            return;
+        }
+
+        buffer[0] = A$bx_pc;
+        buffer[0] = backup[0];
+        buffer[1] = backup[1];
+        buffer[3] = reinterpret_cast<uint32_t>(code + 2);
+
+        if (mprotect(buffer, sizeof(uint32_t) * 5, PROT_READ | PROT_EXEC) == -1) {
+            NSLog(@"MS:Error:mprotect():%d", errno);
+            return;
+        }
+
+        *result = buffer;
+    }
+#endif
+}
+
+static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     if (symbol == NULL)
         return;
 
@@ -68,7 +141,7 @@ void MSHookFunction(void *symbol, void *replace, void **result) {
     uint32_t *code = reinterpret_cast<uint32_t *>(symbol);
     uint32_t backup[2] = {code[0], code[1]};
 
-    code[0] = ldr_pc_$pc_m4$;
+    code[0] = A$ldr_pc_$pc_m4$;
     code[1] = reinterpret_cast<uint32_t>(replace);
 
     __clear_cache(reinterpret_cast<char *>(code), reinterpret_cast<char *>(code + 2));
@@ -90,7 +163,7 @@ void MSHookFunction(void *symbol, void *replace, void **result) {
 
         buffer[0] = backup[0];
         buffer[1] = backup[1];
-        buffer[2] = ldr_pc_$pc_m4$;
+        buffer[2] = A$ldr_pc_$pc_m4$;
         buffer[3] = reinterpret_cast<uint32_t>(code + 2);
 
         if (mprotect(buffer, sizeof(uint32_t) * 4, PROT_READ | PROT_EXEC) == -1) {
@@ -100,6 +173,13 @@ void MSHookFunction(void *symbol, void *replace, void **result) {
 
         *result = buffer;
     }
+}
+
+void MSHookFunction(void *symbol, void *replace, void **result) {
+    if ((reinterpret_cast<uintptr_t>(symbol) & 0x1) == 0)
+        return MSHookFunctionARM(symbol, replace, result);
+    else
+        return MSHookFunctionThumb(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(symbol) & ~0x1), replace, result);
 }
 
 void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {

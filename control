@@ -3,8 +3,8 @@ Priority: optional
 Section: System
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: iphoneos-arm
-Version: 0.9.2555-1
-Description: simpler DYLD_INSERT_LIBRARIES setup
+Version: 0.9.2560-1
+Description: powerful code insertion platform
 Name: Mobile Substrate
 Author: Jay Freeman (saurik) <saurik@saurik.com>
 Tag: role::developer
