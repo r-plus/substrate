@@ -175,14 +175,14 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     }
 }
 
-void MSHookFunction(void *symbol, void *replace, void **result) {
+extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
     if ((reinterpret_cast<uintptr_t>(symbol) & 0x1) == 0)
         return MSHookFunctionARM(symbol, replace, result);
     else
         return MSHookFunctionThumb(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(symbol) & ~0x1), replace, result);
 }
 
-void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
+extern "C" void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
     if (_class == nil)
         return;
 
@@ -220,6 +220,14 @@ void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
 
   done:
     free(methods);
+}
+
+extern "C" void _Z13MSHookMessageP10objc_classP13objc_selectorPFP11objc_objectS4_S2_zEPKc(Class _class, SEL sel, IMP imp, const char *prefix) {
+    return MSHookMessage(_class, sel, imp, prefix);
+}
+
+extern "C" void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **result) {
+    return MSHookFunction(symbol, replace, result);
 }
 
 #define Path_ @"/Library/MobileSubstrate/DynamicLibraries"
