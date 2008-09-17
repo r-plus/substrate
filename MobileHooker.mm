@@ -43,14 +43,16 @@
 #include <objc/runtime.h>
 #include <sys/mman.h>
 
-#include <dlfcn.h>
 #include <unistd.h>
 
-// ldr pc, [pc, #-4]
-#define A$ldr_pc_$pc_m4$ 0xe51ff004
+#define A$ldr_pc_$pc_m4$ 0xe51ff004 // ldr pc, [pc, #-4]
+#define A$ldr_r0_$pc$    0xe59f0000 // ldr r0, [pc]
+#define A$stmia_sp$_$r0$ 0xe8ad0001 // stmia sp!, {r0}
+#define A$bx_r0          0xe12fff10 // bx r0
 
-#define T$bx_pc 0x4778
-#define T$nop 0x46c0
+#define T$pop_$r0$ 0xbc01 // pop {r0}
+#define T$bx_pc    0x4778 // bx pc
+#define T$nop      0x46c0 // nop
 
 extern "C" void __clear_cache (char *beg, char *end);
 
@@ -73,15 +75,16 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
     uint16_t *thumb = reinterpret_cast<uint16_t *>(symbol);
 
-    uint16_t backup[6];
-    memcpy(backup, thumb, sizeof(uint16_t) * 6);
+    uint16_t backup[7];
+    memcpy(backup, thumb, sizeof(uint16_t) * 7);
 
     thumb[0] = T$bx_pc;
 
     unsigned align;
-    if ((address & 0x2) != 0)
+    if ((address & 0x2) != 0) {
         align = 0;
-    else {
+        backup[6] = T$nop;
+    } else {
         align = 1;
         thumb[1] = T$nop;
     }
@@ -91,15 +94,20 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     arm[0] = A$ldr_pc_$pc_m4$;
     arm[1] = reinterpret_cast<uint32_t>(replace);
 
-    __clear_cache(reinterpret_cast<char *>(thumb), reinterpret_cast<char *>(thumb + 1 + align + 4));
+    uint16_t *target = reinterpret_cast<uint16_t *>(arm + 2);
+    target[0] = T$pop_$r0$;
+
+    unsigned used = 1 + align + 4 + 1;
+
+    __clear_cache(reinterpret_cast<char *>(thumb), reinterpret_cast<char *>(thumb + used));
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         NSLog(@"MS:Error:vm_protect():%d", error);
 
 #if 0
     if (result != NULL) {
-        uint32_t *buffer = reinterpret_cast<uint32_t *>(mmap(
-            NULL, sizeof(uint32_t) * 5,
+        uint16_t *buffer = reinterpret_cast<uint16_t *>(mmap(
+            NULL, sizeof(uint16_t) * 8 + sizeof(uint32_t) * 4,
             PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE,
             -1, 0
         ));
@@ -109,17 +117,21 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
             return;
         }
 
-        buffer[0] = A$bx_pc;
-        buffer[0] = backup[0];
-        buffer[1] = backup[1];
-        buffer[3] = reinterpret_cast<uint32_t>(code + 2);
+        memcpy(buffer, backup, sizeof(backup));
+        buffer[7] = T$bx_pc;
+
+        uint32_t *transfer = reinterpret_cast<uint32_t *>(buffer + 8);
+        transfer[0] = A$stmia_sp$_$r0$;
+        transfer[1] = A$ldr_r0_$pc$;
+        transfer[2] = A$bx_r0;
+        transfer[3] = reinterpret_cast<uint32_t>(target) + 1;
 
         if (mprotect(buffer, sizeof(uint32_t) * 5, PROT_READ | PROT_EXEC) == -1) {
             NSLog(@"MS:Error:mprotect():%d", errno);
             return;
         }
 
-        *result = buffer;
+        *result = reinterpret_cast<uint8_t *>(buffer) + 1;
     }
 #endif
 }
@@ -191,17 +203,19 @@ extern "C" void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix
         return;
 
     const char *name = sel_getName(sel);
-    size_t namelen = strlen(name);
-
-    size_t fixlen = strlen(prefix);
-
-    char newname[fixlen + namelen + 1];
-    memcpy(newname, prefix, fixlen);
-    memcpy(newname + fixlen, name, namelen + 1);
-
     const char *type = method_getTypeEncoding(method);
-    if (!class_addMethod(_class, sel_registerName(newname), method_getImplementation(method), type))
-        NSLog(@"WB:Error: failed to rename [%s %s]", class_getName(_class), name);
+
+    if (prefix != NULL) {
+        size_t namelen = strlen(name);
+        size_t fixlen = strlen(prefix);
+
+        char newname[fixlen + namelen + 1];
+        memcpy(newname, prefix, fixlen);
+        memcpy(newname + fixlen, name, namelen + 1);
+
+        if (!class_addMethod(_class, sel_registerName(newname), method_getImplementation(method), type))
+            NSLog(@"WB:Error: failed to rename [%s %s]", class_getName(_class), name);
+    }
 
     unsigned int count;
     Method *methods = class_copyMethodList(_class, &count);
@@ -228,24 +242,4 @@ extern "C" void _Z13MSHookMessageP10objc_classP13objc_selectorPFP11objc_objectS4
 
 extern "C" void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **result) {
     return MSHookFunction(symbol, replace, result);
-}
-
-#define Path_ @"/Library/MobileSubstrate/DynamicLibraries"
-
-extern "C" void MSInitialize() {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    NSLog(@"MS:Notice: Installing MobileSubstrate...");
-
-    NSFileManager *manager = [NSFileManager defaultManager];
-    for (NSString *dylib in [manager contentsOfDirectoryAtPath:Path_ error:NULL])
-        if ([dylib hasSuffix:@".dylib"]) {
-            NSLog(@"MS:Notice: Loading %@", dylib);
-            void *handle = dlopen([[NSString stringWithFormat:@"%@/%@", Path_, dylib] UTF8String], RTLD_LAZY | RTLD_GLOBAL);
-            if (handle == NULL) {
-                NSLog(@"MS:Error: %s", dlerror());
-                continue;
-            }
-        }
-
-    [pool release];
 }

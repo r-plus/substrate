@@ -36,8 +36,15 @@ static inline void MSHookFunction(Type_ *symbol, Type_ *replace) {
 }
 
 template <typename Type_>
-void MSHookSymbol(Type_ *&value, const char *name, void *handle) {
+static inline void MSHookSymbol(Type_ *&value, const char *name, void *handle) {
     value = reinterpret_cast<Type_ *>(dlsym(handle, name));
+}
+
+template <typename Type_>
+static inline Type_ &MSHookIvar(id self, const char *name) {
+    Ivar ivar(class_getInstanceVariable([self class], name));
+    void *pointer(ivar == NULL ? NULL : reinterpret_cast<char *>(self) + ivar_getOffset(ivar));
+    return *reinterpret_cast<Type_ *>(pointer);
 }
 
 #endif

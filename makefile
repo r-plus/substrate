@@ -4,13 +4,19 @@ else
 target := $(PKG_TARG)-
 endif
 
-all: libsubstrate.dylib postrm preinst
+all: libsubstrate.dylib MobileSafety.dylib MobileSubstrate.dylib postrm preinst
 
 clean:
 	rm -f libsubstrate.dylib postrm preinst
 
-libsubstrate.dylib: MobileSubstrate.mm makefile
-	$(target)g++ -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -init _MSInitialize -lobjc -framework CoreFoundation -install_name /usr/lib/libsubstrate.dylib
+libsubstrate.dylib: MobileHooker.mm makefile
+	$(target)g++ -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -install_name /usr/lib/libsubstrate.dylib
+
+MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
+	$(target)g++ -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -init _MSSafety -L. -lsubstrate -I.
+
+MobileSubstrate.dylib: MobileLoader.mm makefile libsubstrate.dylib
+	$(target)g++ -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I.
 
 %: %.m makefile
 	$(target)gcc -g0 -O2 -Wall -Werror -o $@ $(filter %.m,$^) -framework CoreFoundation -framework Foundation -lobjc
@@ -20,7 +26,8 @@ package:
 	mkdir -p mobilesubstrate/DEBIAN
 	cp -a control preinst postrm mobilesubstrate/DEBIAN
 	mkdir -p mobilesubstrate/Library/MobileSubstrate/DynamicLibraries
-	ln -s /usr/lib/libsubstrate.dylib mobilesubstrate/Library/MobileSubstrate/MobileSubstrate.dylib
+	cp -a MobileSafety.dylib mobilesubstrate/Library/MobileSubstrate
+	cp -a MobileSubstrate.dylib mobilesubstrate/Library/MobileSubstrate
 	mkdir -p mobilesubstrate/usr/include
 	cp -a substrate.h mobilesubstrate/usr/include
 	mkdir -p mobilesubstrate/usr/lib
