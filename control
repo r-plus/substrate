@@ -3,7 +3,7 @@ Priority: optional
 Section: System
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Architecture: iphoneos-arm
-Version: 0.9.2587-1
+Version: 0.9.2643-1
 Description: powerful code insertion platform
 Name: Mobile Substrate
 Author: Jay Freeman (saurik) <saurik@saurik.com>

@@ -61,7 +61,7 @@ static void MSAlert(id self, SEL sel) {
     [[(id) objc_getClass("SBAlertItemsController") sharedInstance] activateAlertItem:
         [[(id) objc_getClass("SBDismissOnlyAlertItem") alloc]
             initWithTitle:@"Mobile Substrate Safe Mode"
-            body:@"We apologize for the inconvenience, but SpringBoard has just crashed.\n\nA recent software installation, upgrade, or removal might have been the cause of this.\n\nYour device is now running in Safe Mode. All extensions that support this safety system are disabled.\n\nReboot (or restart SpringBoard) to return to the normal mode."
+            body:@"We apologize for the inconvenience, but SpringBoard has just crashed.\n\nA recent software installation, upgrade, or removal might have been the cause of this.\n\nIf you are using IntelliScreen, then it probably crashed.\n\nYour device is now running in Safe Mode. All extensions that support this safety system are disabled.\n\nReboot (or restart SpringBoard) to return to the normal mode."
     ]];
 }
 

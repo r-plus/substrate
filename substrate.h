@@ -1,19 +1,29 @@
 #ifndef SUBSTRATE_H_
 #define SUBSTRATE_H_
 
+#ifdef __cplusplus
 extern "C" {
+#endif
     #include <mach-o/nlist.h>
+#ifdef __cplusplus
 }
+#endif
 
 #include <objc/runtime.h>
 #include <dlfcn.h>
+
+#ifdef __cplusplus
+#define _default(value) = value
+#else
+#define _default(value)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void MSHookFunction(void *symbol, void *replace, void **result);
-void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix);
+void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix _default(NULL));
 
 #ifdef __cplusplus
 }
@@ -53,7 +63,7 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
     static type (*_ ## name)(args); \
     static type $ ## name(args)
 
-#define Foundation "/System/Library/Frameworks/Foundation.framework/Foundation"
-#define UIKit "/System/Library/Frameworks/UIKit.framework/UIKit"
+#define Foundation_f "/System/Library/Frameworks/Foundation.framework/Foundation"
+#define UIKit_f "/System/Library/Frameworks/UIKit.framework/UIKit"
 
 #endif//SUBSTRATE_H_

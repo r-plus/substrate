@@ -47,6 +47,9 @@
 #include <unistd.h>
 
 #include <objc/runtime.h>
+#include <substrate.h>
+
+#define ForSaurik 0
 
 static char MSWatch[PATH_MAX];
 

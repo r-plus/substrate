@@ -45,6 +45,7 @@
 
 #include <unistd.h>
 
+#ifdef __arm__
 #define A$ldr_pc_$pc_m4$ 0xe51ff004 // ldr pc, [pc, #-4]
 #define A$ldr_r0_$pc$    0xe59f0000 // ldr r0, [pc]
 #define A$stmia_sp$_$r0$ 0xe8ad0001 // stmia sp!, {r0}
@@ -104,7 +105,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         NSLog(@"MS:Error:vm_protect():%d", error);
 
-#if 0
+#if 1
     if (result != NULL) {
         uint16_t *buffer = reinterpret_cast<uint16_t *>(mmap(
             NULL, sizeof(uint16_t) * 8 + sizeof(uint32_t) * 4,
@@ -193,6 +194,13 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
     else
         return MSHookFunctionThumb(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(symbol) & ~0x1), replace, result);
 }
+#endif
+
+#ifdef __i386__
+extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
+    NSLog(@"MS:Error:x86");
+}
+#endif
 
 extern "C" void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
     if (_class == nil)
@@ -236,6 +244,7 @@ extern "C" void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix
     free(methods);
 }
 
+#if defined(__APPLE__) && defined(__arm__)
 extern "C" void _Z13MSHookMessageP10objc_classP13objc_selectorPFP11objc_objectS4_S2_zEPKc(Class _class, SEL sel, IMP imp, const char *prefix) {
     return MSHookMessage(_class, sel, imp, prefix);
 }
@@ -243,3 +252,4 @@ extern "C" void _Z13MSHookMessageP10objc_classP13objc_selectorPFP11objc_objectS4
 extern "C" void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **result) {
     return MSHookFunction(symbol, replace, result);
 }
+#endif
