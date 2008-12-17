@@ -204,16 +204,16 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
 extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
     if (_class == nil)
-        return;
+        return NULL;
 
     Method method = class_getInstanceMethod(_class, sel);
     if (method == nil)
-        return;
+        return NULL;
 
     const char *name = sel_getName(sel);
     const char *type = method_getTypeEncoding(method);
 
-    IMP imp = method_getImplementation(method);
+    IMP old = method_getImplementation(method);
 
     if (prefix != NULL) {
         size_t namelen = strlen(name);
@@ -223,7 +223,7 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
         memcpy(newname, prefix, fixlen);
         memcpy(newname + fixlen, name, namelen + 1);
 
-        if (!class_addMethod(_class, sel_registerName(newname), imp, type))
+        if (!class_addMethod(_class, sel_registerName(newname), old, type))
             NSLog(@"MS:Error: failed to rename [%s %s]", class_getName(_class), name);
     }
 
@@ -244,12 +244,12 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
 
   done:
     free(methods);
-    return imp;
+    return old;
 }
 
 #if defined(__APPLE__) && defined(__arm__)
 extern "C" void _Z13MSHookMessageP10objc_classP13objc_selectorPFP11objc_objectS4_S2_zEPKc(Class _class, SEL sel, IMP imp, const char *prefix) {
-    return MSHookMessage(_class, sel, imp, prefix);
+    MSHookMessage(_class, sel, imp, prefix);
 }
 
 extern "C" void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **result) {
