@@ -202,7 +202,7 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 }
 #endif
 
-extern "C" void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
+extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
     if (_class == nil)
         return;
 
@@ -213,6 +213,8 @@ extern "C" void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix
     const char *name = sel_getName(sel);
     const char *type = method_getTypeEncoding(method);
 
+    IMP imp = method_getImplementation(method);
+
     if (prefix != NULL) {
         size_t namelen = strlen(name);
         size_t fixlen = strlen(prefix);
@@ -221,7 +223,7 @@ extern "C" void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix
         memcpy(newname, prefix, fixlen);
         memcpy(newname + fixlen, name, namelen + 1);
 
-        if (!class_addMethod(_class, sel_registerName(newname), method_getImplementation(method), type))
+        if (!class_addMethod(_class, sel_registerName(newname), imp, type))
             NSLog(@"WB:Error: failed to rename [%s %s]", class_getName(_class), name);
     }
 
@@ -242,6 +244,7 @@ extern "C" void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix
 
   done:
     free(methods);
+    return imp;
 }
 
 #if defined(__APPLE__) && defined(__arm__)

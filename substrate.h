@@ -23,13 +23,18 @@ extern "C" {
 #endif
 
 void MSHookFunction(void *symbol, void *replace, void **result);
-void MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix _default(NULL));
+IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix _default(NULL));
 
 #ifdef __cplusplus
 }
 #endif
 
 #ifdef __cplusplus
+
+template <typename Type_>
+static inline Type_ *MSHookMessage(Class _class, SEL sel, Type_ *imp, const char *prefix = NULL) {
+    return reinterpret_cast<Type_ *>(MSHookMessage(_class, sel, reinterpret_cast<IMP>(imp), prefix));
+}
 
 template <typename Type_>
 static inline void MSHookFunction(Type_ *symbol, Type_ *replace, Type_ **result) {
