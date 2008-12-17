@@ -114,7 +114,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         ));
 
         if (buffer == MAP_FAILED) {
-            NSLog(@"WB:Error:mmap():%d", errno);
+            NSLog(@"MS:Error:mmap():%d", errno);
             return;
         }
 
@@ -170,7 +170,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
         ));
 
         if (buffer == MAP_FAILED) {
-            NSLog(@"WB:Error:mmap():%d", errno);
+            NSLog(@"MS:Error:mmap():%d", errno);
             return;
         }
 
@@ -224,7 +224,7 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
         memcpy(newname + fixlen, name, namelen + 1);
 
         if (!class_addMethod(_class, sel_registerName(newname), imp, type))
-            NSLog(@"WB:Error: failed to rename [%s %s]", class_getName(_class), name);
+            NSLog(@"MS:Error: failed to rename [%s %s]", class_getName(_class), name);
     }
 
     unsigned int count;
@@ -235,7 +235,7 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
 
     if (imp != NULL)
         if (!class_addMethod(_class, sel, imp, type))
-            NSLog(@"WB:Error: failed to rename [%s %s]", class_getName(_class), name);
+            NSLog(@"MS:Error: failed to rename [%s %s]", class_getName(_class), name);
     goto done;
 
   found:
