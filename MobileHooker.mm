@@ -105,7 +105,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         NSLog(@"MS:Error:vm_protect():%d", error);
 
-#if 1
+#if 0
     if (result != NULL) {
         uint16_t *buffer = reinterpret_cast<uint16_t *>(mmap(
             NULL, sizeof(uint16_t) * 8 + sizeof(uint32_t) * 4,
