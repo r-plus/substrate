@@ -66,7 +66,7 @@ void SafeModeAlertItem$alertSheet$buttonClicked$(id self, SEL sel, id sheet, int
         break;
 
         case 3:
-            [UIApp openURL:[NSURL URLWithString:@"http://cydia.saurik.com/safemode/"]];
+            [UIApp applicationOpenURL:[NSURL URLWithString:@"http://cydia.saurik.com/safemode/"] asPanel:NO];
         break;
     }
 
