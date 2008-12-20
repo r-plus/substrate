@@ -105,16 +105,23 @@ extern "C" void MSInitialize() {
             struct sigaction action;
             memset(&action, 0, sizeof(action));
             action.sa_sigaction = &MSAction;
-            action.sa_flags = SA_SIGINFO | SA_RESETHAND;
+            action.sa_flags = SA_SIGINFO;
             if (stacked)
                 action.sa_flags |= SA_ONSTACK;
             sigemptyset(&action.sa_mask);
 
-            sigaction(SIGTRAP, &action, NULL);
-            sigaction(SIGABRT, &action, NULL);
-            sigaction(SIGILL, &action, NULL);
-            sigaction(SIGBUS, &action, NULL);
-            sigaction(SIGSEGV, &action, NULL);
+            struct sigaction old;
+
+#define HookSignal(signum) \
+    sigaction(signum, NULL, &old); { \
+        sigaction(signum, &action, NULL); \
+    }
+
+            HookSignal(SIGTRAP)
+            HookSignal(SIGABRT)
+            HookSignal(SIGILL)
+            HookSignal(SIGBUS)
+            HookSignal(SIGSEGV)
         }
 
         NSString *dylibs(@"/Library/MobileSubstrate/DynamicLibraries");

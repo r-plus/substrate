@@ -162,30 +162,33 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         NSLog(@"MS:Error:vm_protect():%d", error);
 
-    if (result != NULL) {
-        uint32_t *buffer = reinterpret_cast<uint32_t *>(mmap(
-            NULL, sizeof(uint32_t) * 4,
-            PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE,
-            -1, 0
-        ));
+    if (result != NULL)
+        if (backup[0] == A$ldr_pc_$pc_m4$)
+            *result = reinterpret_cast<void *>(backup[1]);
+        else {
+            uint32_t *buffer = reinterpret_cast<uint32_t *>(mmap(
+                NULL, sizeof(uint32_t) * 4,
+                PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE,
+                -1, 0
+            ));
 
-        if (buffer == MAP_FAILED) {
-            NSLog(@"MS:Error:mmap():%d", errno);
-            return;
+            if (buffer == MAP_FAILED) {
+                NSLog(@"MS:Error:mmap():%d", errno);
+                return;
+            }
+
+            buffer[0] = backup[0];
+            buffer[1] = backup[1];
+            buffer[2] = A$ldr_pc_$pc_m4$;
+            buffer[3] = reinterpret_cast<uint32_t>(code + 2);
+
+            if (mprotect(buffer, sizeof(uint32_t) * 4, PROT_READ | PROT_EXEC) == -1) {
+                NSLog(@"MS:Error:mprotect():%d", errno);
+                return;
+            }
+
+            *result = buffer;
         }
-
-        buffer[0] = backup[0];
-        buffer[1] = backup[1];
-        buffer[2] = A$ldr_pc_$pc_m4$;
-        buffer[3] = reinterpret_cast<uint32_t>(code + 2);
-
-        if (mprotect(buffer, sizeof(uint32_t) * 4, PROT_READ | PROT_EXEC) == -1) {
-            NSLog(@"MS:Error:mprotect():%d", errno);
-            return;
-        }
-
-        *result = buffer;
-    }
 }
 
 extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {

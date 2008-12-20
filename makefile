@@ -4,22 +4,22 @@ else
 target := $(PKG_TARG)-
 endif
 
-all: libsubstrate.dylib MobileSafety.dylib MobileSubstrate.dylib postrm preinst
+all: libsubstrate.dylib MobileSafety.dylib MobileSubstrate.dylib MobileUnions.dylib postrm preinst
 
 clean:
 	rm -f libsubstrate.dylib postrm preinst
 
 libsubstrate.dylib: MobileHooker.mm makefile
 	$(target)g++ -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -install_name /usr/lib/libsubstrate.dylib
+	ldid -S $@
 
-MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
-	$(target)g++ -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -init _MSSafety -L. -lsubstrate -I.
-
-MobileSubstrate.dylib: MobileLoader.mm makefile libsubstrate.dylib
-	$(target)g++ -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I.
+%.dylib: %.mm makefile libsubstrate.dylib
+	$(target)g++ -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I. -framework UIKit
+	ldid -S $@
 
 %: %.m makefile
 	$(target)gcc -g0 -O2 -Wall -Werror -o $@ $(filter %.m,$^) -framework CoreFoundation -framework Foundation -lobjc
+	ldid -S $@
 
 package:
 	rm -rf mobilesubstrate
@@ -27,6 +27,7 @@ package:
 	cp -a control preinst postrm mobilesubstrate/DEBIAN
 	mkdir -p mobilesubstrate/Library/MobileSubstrate/DynamicLibraries
 	cp -a MobileSafety.dylib mobilesubstrate/Library/MobileSubstrate
+	#cp -a MobileUnions.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobileSubstrate.dylib mobilesubstrate/Library/MobileSubstrate
 	mkdir -p mobilesubstrate/usr/include
 	cp -a substrate.h mobilesubstrate/usr/include

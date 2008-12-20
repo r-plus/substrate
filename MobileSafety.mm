@@ -38,31 +38,84 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CGGeometry.h>
+#import <UIKit/UIKit.h>
+
+#import <SpringBoard/SBAlertItem.h>
+#import <SpringBoard/SBAlertItemsController.h>
+#import <SpringBoard/SBContentLayer.h>
+#import <SpringBoard/SBStatusBarController.h>
+#import <SpringBoard/SBStatusBarTimeView.h>
 
 #include <substrate.h>
 
 @protocol MobileSubstrate
-- (id) sharedInstance;
-- (void) activateAlertItem:(id)item;
-- (id) initWithTitle:(NSString *)title body:(NSString *)body;
 - (id) ms$initWithSize:(CGSize)size;
-- (void) ms$drawRect:(CGRect)rect;
-- (id) darkGrayColor;
-- (void) setBackgroundColor:(id)color;
 - (int) ms$maxIconColumns;
 @end
 
-static void MSAlert(id self, SEL sel) {
-    static bool loaded = false;
-    if (!loaded)
-        loaded = true;
-    else return;
+Class $SafeModeAlertItem;
+Class $SBAlertItemsController;
 
-    [[(id) objc_getClass("SBAlertItemsController") sharedInstance] activateAlertItem:
-        [[(id) objc_getClass("SBDismissOnlyAlertItem") alloc]
-            initWithTitle:@"Mobile Substrate Safe Mode"
-            body:@"We apologize for the inconvenience, but SpringBoard has just crashed.\n\nA recent software installation, upgrade, or removal might have been the cause of this.\n\nIf you are using IntelliScreen, then it probably crashed.\n\nYour device is now running in Safe Mode. All extensions that support this safety system are disabled.\n\nReboot (or restart SpringBoard) to return to the normal mode."
-    ]];
+void SafeModeAlertItem$alertSheet$buttonClicked$(id self, SEL sel, id sheet, int button) {
+    switch (button) {
+        case 1:
+        break;
+
+        case 2:
+            exit(0);
+        break;
+
+        case 3:
+            [UIApp openURL:[NSURL URLWithString:@"http://cydia.saurik.com/safemode/"]];
+        break;
+    }
+
+    [self dismiss];
+}
+
+void SafeModeAlertItem$configure$requirePasscodeForActions$(id self, SEL sel, BOOL configure, BOOL require) {
+    UIModalView *sheet([self alertSheet]);
+    [sheet setDelegate:self];
+    [sheet setBodyText:@"We apologize for the inconvenience, but SpringBoard has just crashed.\n\nA recent software installation, upgrade, or removal might have been the cause of this.\n\nYour device is now running in Safe Mode. All extensions that support this safety system are disabled.\n\nReboot (or restart SpringBoard) to return to the normal mode. To return to this dialog touch the status bar."];
+    [sheet addButtonWithTitle:@"OK"];
+    [sheet addButtonWithTitle:@"Restart"];
+    [sheet addButtonWithTitle:@"Help"];
+    [sheet setNumberOfRows:1];
+}
+
+void SafeModeAlertItem$performUnlockAction(id self, SEL sel) {
+    [[$SBAlertItemsController sharedInstance] activateAlertItem:self];
+}
+
+static void MSAlert() {
+    if ($SafeModeAlertItem == nil)
+        $SafeModeAlertItem = objc_lookUpClass("SafeModeAlertItem");
+    if ($SafeModeAlertItem == nil) {
+        $SafeModeAlertItem = objc_allocateClassPair(objc_getClass("SBAlertItem"), "SafeModeAlertItem", 0);
+        if ($SafeModeAlertItem == nil)
+            return;
+
+        class_addMethod($SafeModeAlertItem, @selector(alertSheet:buttonClicked:), (IMP) &SafeModeAlertItem$alertSheet$buttonClicked$, "v@:@i");
+        class_addMethod($SafeModeAlertItem, @selector(configure:requirePasscodeForActions:), (IMP) &SafeModeAlertItem$configure$requirePasscodeForActions$, "v@:cc");
+        class_addMethod($SafeModeAlertItem, @selector(performUnlockAction), (IMP) SafeModeAlertItem$performUnlockAction, "v@:");
+        objc_registerClassPair($SafeModeAlertItem);
+    }
+
+    if ($SBAlertItemsController != nil)
+        [[$SBAlertItemsController sharedInstance] activateAlertItem:[[$SafeModeAlertItem alloc] init]];
+}
+
+MSHook(void, SBStatusBar$mouseDown$, SBStatusBar *self, SEL sel, GSEventRef event) {
+    MSAlert();
+    _SBStatusBar$mouseDown$(self, sel, event);
+}
+
+static void SBIconController$showInfoAlertIfNeeded(id self, SEL sel) {
+    static bool loaded = false;
+    if (loaded)
+        return;
+    loaded = true;
+    MSAlert();
 }
 
 static int SBButtonBar$maxIconColumns(id<MobileSubstrate> self, SEL sel) {
@@ -82,30 +135,38 @@ static int SBButtonBar$maxIconColumns(id<MobileSubstrate> self, SEL sel) {
     } return max;
 }
 
-static id SBContentLayer$initWithSize$(id<MobileSubstrate> self, SEL sel, CGSize size) {
+static id SBContentLayer$initWithSize$(SBContentLayer<MobileSubstrate> *self, SEL sel, CGSize size) {
     self = [self ms$initWithSize:size];
     if (self == nil)
         return nil;
-    [self setBackgroundColor:[(id) objc_getClass("UIColor") darkGrayColor]];
+    [self setBackgroundColor:[UIColor darkGrayColor]];
     return self;
 }
 
-static void SBStatusBarTimeView$drawRect$(id<MobileSubstrate> self, SEL sel, CGRect rect) {
-    id &_time(MSHookIvar<id>(self, "_time"));
+MSHook(void, SBStatusBarTimeView$tile, SBStatusBarTimeView *self, SEL sel) {
+    NSString *&_time(MSHookIvar<NSString *>(self, "_time"));
+    CGRect &_textRect(MSHookIvar<CGRect>(self, "_textRect"));
     if (_time != nil)
-        [_time autorelease];
-    _time = [@"Safe Mode" retain];
-    return [self ms$drawRect:rect];
+        [_time release];
+    _time = [@"Safe Mode, Click!" retain];
+    GSFontRef font([self textFont]);
+    CGSize size([_time sizeWithFont:(id)font]);
+    CGRect frame([self frame]);
+    NSLog(@"%f:%f,%f:%f:%u", size.height, size.width, frame.size.height, frame.size.width, [[(id) objc_getClass("SBStatusBarController") sharedStatusBarController] statusBarOrientation]);
+    _textRect.size = size;
+    _textRect.origin.x = (frame.size.width - size.width) / 2;
+    _textRect.origin.y = (frame.size.height - size.height) / 2;
 }
 
 #define Dylib_ "/Library/MobileSubstrate/MobileSubstrate.dylib"
 
-extern "C" void MSSafety() {
+extern "C" void MSInitialize() {
     NSLog(@"MS:Warning: Entering Safe Mode");
 
     MSHookMessage(objc_getClass("SBButtonBar"), @selector(maxIconColumns), (IMP) &SBButtonBar$maxIconColumns, "ms$");
     MSHookMessage(objc_getClass("SBContentLayer"), @selector(initWithSize:), (IMP) &SBContentLayer$initWithSize$, "ms$");
-    MSHookMessage(objc_getClass("SBStatusBarTimeView"), @selector(drawRect:), (IMP) &SBStatusBarTimeView$drawRect$, "ms$");
+    _SBStatusBar$mouseDown$ = MSHookMessage(objc_getClass("SBStatusBar"), @selector(mouseDown:), &$SBStatusBar$mouseDown$);
+    _SBStatusBarTimeView$tile = MSHookMessage(objc_getClass("SBStatusBarTimeView"), @selector(tile), &$SBStatusBarTimeView$tile);
 
     char *dil = getenv("DYLD_INSERT_LIBRARIES");
     if (dil == NULL)
@@ -125,9 +186,11 @@ extern "C" void MSSafety() {
         }
     }
 
+    $SBAlertItemsController = objc_getClass("SBAlertItemsController");
+
     if (Class _class = objc_getClass("SBIconController")) {
         SEL sel(@selector(showInfoAlertIfNeeded));
         if (Method method = class_getInstanceMethod(_class, sel))
-            method_setImplementation(method, (IMP) &MSAlert);
+            method_setImplementation(method, (IMP) &SBIconController$showInfoAlertIfNeeded);
     }
 }
