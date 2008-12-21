@@ -46,6 +46,8 @@
 #import <SpringBoard/SBStatusBarController.h>
 #import <SpringBoard/SBStatusBarTimeView.h>
 
+#import <SpringBoard/SBSlidingAlertDisplay.h>
+
 #include <substrate.h>
 
 @protocol MobileSubstrate
@@ -143,16 +145,46 @@ static id SBContentLayer$initWithSize$(SBContentLayer<MobileSubstrate> *self, SE
     return self;
 }
 
+/*MSHook(void, SBSlidingAlertDisplay$updateDesktopImage$, SBSlidingAlertDisplay *self, SEL sel, UIImage *image) {
+    NSString *text(@"\"Sad iPhone\" by Geoff Stearns");
+    UIView *&_backgroundView(MSHookIvar<UIView *>(self, "_backgroundView"));
+    if (_backgroundView != nil)
+        text = nil;
+    _SBSlidingAlertDisplay$updateDesktopImage$(self, sel, image);
+    if (text != nil) {
+        UIFont *font([UIFont systemFontOfSize:12]);
+        CGRect rect([self frame]);
+        CGSize size([text sizeWithFont:font]);
+        rect.origin.y = 385 - 3 - 14;//size.height;
+        rect.size.height = size.height;
+
+        UITextView *view([[UITextView alloc] initWithFrame:rect]);
+        [view setTextAlignment:UITextAlignmentCenter];
+        [view setMarginTop:0];
+        [view setFont:font];
+        [view setText:text];
+        [view setTextColor:[UIColor grayColor]];
+        [view setBackgroundColor:[UIColor clearColor]];
+
+        [self insertSubview:view aboveSubview:_backgroundView];
+    }
+}*/
+
+#define Paper_ "/Library/MobileSubstrate/MobilePaper.png"
+
+MSHook(UIImage *, UIImage$defaultDesktopImage, UIImage *self, SEL sel) {
+    return [UIImage imageWithContentsOfFile:@Paper_];
+}
+
 MSHook(void, SBStatusBarTimeView$tile, SBStatusBarTimeView *self, SEL sel) {
     NSString *&_time(MSHookIvar<NSString *>(self, "_time"));
     CGRect &_textRect(MSHookIvar<CGRect>(self, "_textRect"));
     if (_time != nil)
         [_time release];
-    _time = [@"Safe Mode, Click!" retain];
+    _time = [@"Exit Safe Mode" retain];
     GSFontRef font([self textFont]);
     CGSize size([_time sizeWithFont:(id)font]);
     CGRect frame([self frame]);
-    NSLog(@"%f:%f,%f:%f:%u", size.height, size.width, frame.size.height, frame.size.width, [[(id) objc_getClass("SBStatusBarController") sharedStatusBarController] statusBarOrientation]);
     _textRect.size = size;
     _textRect.origin.x = (frame.size.width - size.width) / 2;
     _textRect.origin.y = (frame.size.height - size.height) / 2;
@@ -167,6 +199,9 @@ extern "C" void MSInitialize() {
     MSHookMessage(objc_getClass("SBContentLayer"), @selector(initWithSize:), (IMP) &SBContentLayer$initWithSize$, "ms$");
     _SBStatusBar$mouseDown$ = MSHookMessage(objc_getClass("SBStatusBar"), @selector(mouseDown:), &$SBStatusBar$mouseDown$);
     _SBStatusBarTimeView$tile = MSHookMessage(objc_getClass("SBStatusBarTimeView"), @selector(tile), &$SBStatusBarTimeView$tile);
+
+    _UIImage$defaultDesktopImage = MSHookMessage(object_getClass(objc_getClass("UIImage")), @selector(defaultDesktopImage), &$UIImage$defaultDesktopImage);
+    //_SBSlidingAlertDisplay$updateDesktopImage$ = MSHookMessage(objc_getClass("SBSlidingAlertDisplay"), @selector(updateDesktopImage:), &$SBSlidingAlertDisplay$updateDesktopImage$);
 
     char *dil = getenv("DYLD_INSERT_LIBRARIES");
     if (dil == NULL)

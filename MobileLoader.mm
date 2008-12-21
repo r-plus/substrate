@@ -105,7 +105,7 @@ extern "C" void MSInitialize() {
             struct sigaction action;
             memset(&action, 0, sizeof(action));
             action.sa_sigaction = &MSAction;
-            action.sa_flags = SA_SIGINFO;
+            action.sa_flags = SA_SIGINFO | SA_RESETHAND;
             if (stacked)
                 action.sa_flags |= SA_ONSTACK;
             sigemptyset(&action.sa_mask);
