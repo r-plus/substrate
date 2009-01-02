@@ -68,7 +68,7 @@ enum A$r {
 extern "C" void __clear_cache (char *beg, char *end);
 
 static inline bool A$pcrel$ldr(uint32_t ic) {
-    return (ic & 0x0e0f0000) == 0x040f0000 && (ic & 0xf0000000) != 0xf0000000;
+    return (ic & 0x0e000000) == 0x04000000 && (ic & 0xf0000000) != 0xf0000000 && (ic & 0x000f0000) == 0x000f0000;
 }
 
 static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
@@ -206,13 +206,28 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
             size_t start(0), end(size);
             for (unsigned offset(0); offset != 2; ++offset)
                 if (A$pcrel$ldr(backup[offset])) {
-                    A$r rd(static_cast<A$r>((backup[offset] & 0x0000f000) >> 12));
-                    uint32_t im((backup[offset] & 0x00000fff) >> 0);
+                    union {
+                        uint32_t value;
 
-                    buffer[start+0] = A$ldr_rd_$rn_im$(rd, A$pc, (end - 1 - start) * 4 - 8);
-                    buffer[end-1] = reinterpret_cast<uint32_t>(code + offset) + im + 8;
+                        struct {
+                            uint32_t immediate : 12;
+                            uint32_t rd : 4;
+                            uint32_t rn : 4;
+                            uint32_t l : 1;
+                            uint32_t w : 1;
+                            uint32_t b : 1;
+                            uint32_t u : 1;
+                            uint32_t p : 1;
+                            uint32_t : 3;
+                            uint32_t cond : 4;
+                        };
+                    } bits = {backup[offset]};
 
-                    buffer[start+1] = A$ldr_rd_$rn_im$(rd, rd, 0);
+                    buffer[start+0] = A$ldr_rd_$rn_im$(bits.rd, A$pc, (end - 1 - start) * 4 - 8);
+                    buffer[end-1] = reinterpret_cast<uint32_t>(code + offset) + 8;
+
+                    bits.rn = bits.rd;
+                    buffer[start+1] = bits.value;
 
                     start += 2;
                     end -= 1;
