@@ -70,5 +70,6 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
 
 #define Foundation_f "/System/Library/Frameworks/Foundation.framework/Foundation"
 #define UIKit_f "/System/Library/Frameworks/UIKit.framework/UIKit"
+#define IOKit_f "/System/Library/Frameworks/IOKit.framework/IOKit"
 
 #endif//SUBSTRATE_H_

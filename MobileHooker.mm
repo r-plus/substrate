@@ -46,16 +46,30 @@
 #include <unistd.h>
 
 #ifdef __arm__
-#define A$ldr_pc_$pc_m4$ 0xe51ff004 // ldr pc, [pc, #-4]
-#define A$ldr_r0_$pc$    0xe59f0000 // ldr r0, [pc]
-#define A$stmia_sp$_$r0$ 0xe8ad0001 // stmia sp!, {r0}
-#define A$bx_r0          0xe12fff10 // bx r0
+enum A$r {
+    A$r0, A$r1, A$r2, A$r3,
+    A$r4, A$r5, A$r6, A$r7,
+    A$r8, A$r9, A$r10, A$r11,
+    A$r12, A$r13, A$r14, A$r15,
+    A$sp = A$r13,
+    A$lr = A$r14,
+    A$pc = A$r15
+};
+
+#define A$ldr_rd_$rn_im$(rd, rn, im) /* ldr rd, [rn, #im] */ \
+    (0xe5100000 | ((im) < 0 ? 0 : 1 << 23) | ((rn) << 16) | ((rd) << 12) | abs(im))
+#define A$stmia_sp$_$r0$  0xe8ad0001 /* stmia sp!, {r0}   */
+#define A$bx_r0           0xe12fff10 /* bx r0             */
 
 #define T$pop_$r0$ 0xbc01 // pop {r0}
 #define T$bx_pc    0x4778 // bx pc
 #define T$nop      0x46c0 // nop
 
 extern "C" void __clear_cache (char *beg, char *end);
+
+static inline bool A$pcrel$ldr(uint32_t ic) {
+    return (ic & 0x0e0f0000) == 0x040f0000 && (ic & 0xf0000000) != 0xf0000000;
+}
 
 static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (symbol == NULL)
@@ -66,6 +80,8 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     int page = getpagesize();
     uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
     uintptr_t base = address / page * page;
+
+    /* XXX: intelligent page doubling */
 
     mach_port_t self = mach_task_self();
 
@@ -92,7 +108,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
     uint32_t *arm = reinterpret_cast<uint32_t *>(thumb + 1 + align);
 
-    arm[0] = A$ldr_pc_$pc_m4$;
+    arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
     arm[1] = reinterpret_cast<uint32_t>(replace);
 
     uint16_t *target = reinterpret_cast<uint16_t *>(arm + 2);
@@ -123,7 +139,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
         uint32_t *transfer = reinterpret_cast<uint32_t *>(buffer + 8);
         transfer[0] = A$stmia_sp$_$r0$;
-        transfer[1] = A$ldr_r0_$pc$;
+        transfer[1] = A$ldr_rd_$rn_im$(A$r0, A$pc, 0);
         transfer[2] = A$bx_r0;
         transfer[3] = reinterpret_cast<uint32_t>(target) + 1;
 
@@ -144,6 +160,9 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     int page = getpagesize();
     uintptr_t base = reinterpret_cast<uintptr_t>(symbol) / page * page;
 
+    if (page - (reinterpret_cast<uintptr_t>(symbol) - base) < 8)
+        page *= 2;
+
     mach_port_t self = mach_task_self();
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
@@ -154,7 +173,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     uint32_t *code = reinterpret_cast<uint32_t *>(symbol);
     uint32_t backup[2] = {code[0], code[1]};
 
-    code[0] = A$ldr_pc_$pc_m4$;
+    code[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
     code[1] = reinterpret_cast<uint32_t>(replace);
 
     __clear_cache(reinterpret_cast<char *>(code), reinterpret_cast<char *>(code + 2));
@@ -163,11 +182,18 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
         NSLog(@"MS:Error:vm_protect():%d", error);
 
     if (result != NULL)
-        if (backup[0] == A$ldr_pc_$pc_m4$)
+        if (backup[0] == A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8))
             *result = reinterpret_cast<void *>(backup[1]);
         else {
+            size_t size(2);
+            for (unsigned offset(0); offset != 2; ++offset)
+                if (A$pcrel$ldr(backup[offset]))
+                    size += 3;
+                else
+                    size += 1;
+
             uint32_t *buffer = reinterpret_cast<uint32_t *>(mmap(
-                NULL, sizeof(uint32_t) * 4,
+                NULL, sizeof(uint32_t) * size,
                 PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE,
                 -1, 0
             ));
@@ -177,12 +203,28 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
                 return;
             }
 
-            buffer[0] = backup[0];
-            buffer[1] = backup[1];
-            buffer[2] = A$ldr_pc_$pc_m4$;
-            buffer[3] = reinterpret_cast<uint32_t>(code + 2);
+            size_t start(0), end(size);
+            for (unsigned offset(0); offset != 2; ++offset)
+                if (A$pcrel$ldr(backup[offset])) {
+                    A$r rd(static_cast<A$r>((backup[offset] & 0x0000f000) >> 12));
+                    uint32_t im((backup[offset] & 0x00000fff) >> 0);
 
-            if (mprotect(buffer, sizeof(uint32_t) * 4, PROT_READ | PROT_EXEC) == -1) {
+                    buffer[start+0] = A$ldr_rd_$rn_im$(rd, A$pc, (end - 1 - start) * 4 - 8);
+                    buffer[end-1] = reinterpret_cast<uint32_t>(code + offset) + im + 8;
+
+                    buffer[start+1] = A$ldr_rd_$rn_im$(rd, rd, 0);
+
+                    start += 2;
+                    end -= 1;
+                } else {
+                    buffer[start] = backup[offset];
+                    start += 1;
+                }
+
+            buffer[start+0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
+            buffer[start+1] = reinterpret_cast<uint32_t>(code + 2);
+
+            if (mprotect(buffer, sizeof(uint32_t) * size, PROT_READ | PROT_EXEC) == -1) {
                 NSLog(@"MS:Error:mprotect():%d", errno);
                 return;
             }
