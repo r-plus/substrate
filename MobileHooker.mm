@@ -46,6 +46,18 @@
 #include <unistd.h>
 
 #ifdef __arm__
+/* WebCore (ARM) PC-Relative:
+X    1  ldr r*,[pc,r*] !=
+     2 fldd d*,[pc,#*]
+X    5  str r*,[pc,r*] !=
+     8 flds s*,[pc,#*]
+   400  ldr r*,[pc,r*] ==
+   515  add r*, pc,r*  ==
+X 4790  ldr r*,[pc,#*]    */
+
+// x=0; while IFS= read -r line; do if [[ ${#line} -ne 0 && $line == +([^\;]): ]]; then x=2; elif [[ $line == ' +'* && $x -ne 0 ]]; then ((--x)); echo "$x${line}"; fi; done <WebCore.asm >WebCore.pc
+// grep pc WebCore.pc | cut -c 40- | sed -Ee 's/^ldr *(ip|r[0-9]*),\[pc,\#0x[0-9a-f]*\].*/ ldr r*,[pc,#*]/;s/^add *r[0-9]*,pc,r[0-9]*.*/ add r*, pc,r*/;s/^(st|ld)r *r([0-9]*),\[pc,r([0-9]*)\].*/ \1r r\2,[pc,r\3]/;s/^fld(s|d) *(s|d)[0-9]*,\[pc,#0x[0-9a-f]*].*/fld\1 \2*,[pc,#*]/' | sort | uniq -c | sort -n
+
 enum A$r {
     A$r0, A$r1, A$r2, A$r3,
     A$r4, A$r5, A$r6, A$r7,
@@ -67,8 +79,8 @@ enum A$r {
 
 extern "C" void __clear_cache (char *beg, char *end);
 
-static inline bool A$pcrel$ldr(uint32_t ic) {
-    return (ic & 0x0e000000) == 0x04000000 && (ic & 0xf0000000) != 0xf0000000 && (ic & 0x000f0000) == 0x000f0000;
+static inline bool A$pcrel$r(uint32_t ic) {
+    return (ic & 0x0c000000) == 0x04000000 && (ic & 0xf0000000) != 0xf0000000 && (ic & 0x000f0000) == 0x000f0000;
 }
 
 static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
@@ -187,30 +199,40 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
         else {
             size_t size(2);
             for (unsigned offset(0); offset != 2; ++offset)
-                if (A$pcrel$ldr(backup[offset]))
+                if (A$pcrel$r(backup[offset]))
                     size += 3;
                 else
                     size += 1;
 
+            size_t length(sizeof(uint32_t) * size);
+
             uint32_t *buffer = reinterpret_cast<uint32_t *>(mmap(
-                NULL, sizeof(uint32_t) * size,
-                PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE,
-                -1, 0
+                NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
             ));
 
             if (buffer == MAP_FAILED) {
                 NSLog(@"MS:Error:mmap():%d", errno);
+                *result = NULL;
+                return;
+            }
+
+            if (false) fail: {
+                munmap(buffer, length);
+                *result = NULL;
                 return;
             }
 
             size_t start(0), end(size);
             for (unsigned offset(0); offset != 2; ++offset)
-                if (A$pcrel$ldr(backup[offset])) {
+                if (A$pcrel$r(backup[offset])) {
                     union {
                         uint32_t value;
 
                         struct {
-                            uint32_t immediate : 12;
+                            uint32_t rm : 4;
+                            uint32_t : 1;
+                            uint32_t shift : 2;
+                            uint32_t shiftamount : 5;
                             uint32_t rd : 4;
                             uint32_t rn : 4;
                             uint32_t l : 1;
@@ -218,19 +240,27 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
                             uint32_t b : 1;
                             uint32_t u : 1;
                             uint32_t p : 1;
-                            uint32_t : 3;
+                            uint32_t mode : 1;
+                            uint32_t type : 2;
                             uint32_t cond : 4;
                         };
                     } bits = {backup[offset]};
 
-                    buffer[start+0] = A$ldr_rd_$rn_im$(bits.rd, A$pc, (end - 1 - start) * 4 - 8);
-                    buffer[end-1] = reinterpret_cast<uint32_t>(code + offset) + 8;
+                    if (bits.mode != 0 && bits.rd == bits.rm) {
+                        NSLog(@"MS:Error:pcrel(%u):%s (rd == rm)", offset, bits.l == 0 ? "str" : "ldr");
+                        goto fail;
+                    } else {
+                        buffer[start+0] = A$ldr_rd_$rn_im$(bits.rd, A$pc, (end - 1 - start) * 4 - 8);
+                        buffer[end-1] = reinterpret_cast<uint32_t>(code + offset) + 8;
+
+                        start += 1;
+                        end -= 1;
+                    }
 
                     bits.rn = bits.rd;
-                    buffer[start+1] = bits.value;
+                    buffer[start+0] = bits.value;
 
-                    start += 2;
-                    end -= 1;
+                    start += 1;
                 } else {
                     buffer[start] = backup[offset];
                     start += 1;
@@ -239,9 +269,9 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
             buffer[start+0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
             buffer[start+1] = reinterpret_cast<uint32_t>(code + 2);
 
-            if (mprotect(buffer, sizeof(uint32_t) * size, PROT_READ | PROT_EXEC) == -1) {
+            if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
                 NSLog(@"MS:Error:mprotect():%d", errno);
-                return;
+                goto fail;
             }
 
             *result = buffer;
