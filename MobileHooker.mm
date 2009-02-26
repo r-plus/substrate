@@ -87,7 +87,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (symbol == NULL)
         return;
     if (result != NULL)
-        NSLog(@"MS:Error:MSHookFunctionThumb(, , !NULL)");
+        fprintf(stderr, "MS:Error:MSHookFunctionThumb(, , !NULL)\n");
 
     int page = getpagesize();
     uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
@@ -98,7 +98,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     mach_port_t self = mach_task_self();
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
-        NSLog(@"MS:Error:vm_protect():%d", error);
+        fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
         return;
     }
 
@@ -131,7 +131,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     __clear_cache(reinterpret_cast<char *>(thumb), reinterpret_cast<char *>(thumb + used));
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
-        NSLog(@"MS:Error:vm_protect():%d", error);
+        fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
 
 #if 0
     if (result != NULL) {
@@ -142,7 +142,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         ));
 
         if (buffer == MAP_FAILED) {
-            NSLog(@"MS:Error:mmap():%d", errno);
+            fprintf(stderr, "MS:Error:mmap():%d\n", errno);
             return;
         }
 
@@ -156,7 +156,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         transfer[3] = reinterpret_cast<uint32_t>(target) + 1;
 
         if (mprotect(buffer, sizeof(uint32_t) * 5, PROT_READ | PROT_EXEC) == -1) {
-            NSLog(@"MS:Error:mprotect():%d", errno);
+            fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
             return;
         }
 
@@ -178,7 +178,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     mach_port_t self = mach_task_self();
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
-        NSLog(@"MS:Error:vm_protect():%d", error);
+        fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
         return;
     }
 
@@ -191,7 +191,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     __clear_cache(reinterpret_cast<char *>(code), reinterpret_cast<char *>(code + 2));
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
-        NSLog(@"MS:Error:vm_protect():%d", error);
+        fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
 
     if (result != NULL)
         if (backup[0] == A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8))
@@ -211,7 +211,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
             ));
 
             if (buffer == MAP_FAILED) {
-                NSLog(@"MS:Error:mmap():%d", errno);
+                fprintf(stderr, "MS:Error:mmap():%d\n", errno);
                 *result = NULL;
                 return;
             }
@@ -247,7 +247,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
                     } bits = {backup[offset]};
 
                     if (bits.mode != 0 && bits.rd == bits.rm) {
-                        NSLog(@"MS:Error:pcrel(%u):%s (rd == rm)", offset, bits.l == 0 ? "str" : "ldr");
+                        fprintf(stderr, "MS:Error:pcrel(%u):%s (rd == rm)\n", offset, bits.l == 0 ? "str" : "ldr");
                         goto fail;
                     } else {
                         buffer[start+0] = A$ldr_rd_$rn_im$(bits.rd, A$pc, (end - 1 - start) * 4 - 8);
@@ -270,7 +270,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
             buffer[start+1] = reinterpret_cast<uint32_t>(code + 2);
 
             if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
-                NSLog(@"MS:Error:mprotect():%d", errno);
+                fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
                 goto fail;
             }
 
@@ -288,7 +288,7 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
 #ifdef __i386__
 extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
-    NSLog(@"MS:Error:x86");
+    fprintf(stderr, "MS:Error:x86\n");
 }
 #endif
 
@@ -314,7 +314,7 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
         memcpy(newname + fixlen, name, namelen + 1);
 
         if (!class_addMethod(_class, sel_registerName(newname), old, type))
-            NSLog(@"MS:Error: failed to rename [%s %s]", class_getName(_class), name);
+            fprintf(stderr, "MS:Error: failed to rename [%s %s]\n", class_getName(_class), name);
     }
 
     unsigned int count;
@@ -325,7 +325,7 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
 
     if (imp != NULL)
         if (!class_addMethod(_class, sel, imp, type))
-            NSLog(@"MS:Error: failed to rename [%s %s]", class_getName(_class), name);
+            fprintf(stderr, "MS:Error: failed to rename [%s %s]\n", class_getName(_class), name);
     goto done;
 
   found:
