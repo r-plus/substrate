@@ -12,7 +12,7 @@ clean:
 	rm -f libsubstrate.dylib postrm preinst
 
 libsubstrate.dylib: MobileHooker.mm makefile MobileLibrary.cpp
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -lobjc -install_name /usr/lib/libsubstrate.dylib
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup
 	ldid -S $@
 
 %.dylib: %.mm makefile libsubstrate.dylib MobileLibrary.cpp
