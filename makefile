@@ -4,19 +4,19 @@ else
 target := $(PKG_TARG)-
 endif
 
-all: libsubstrate.dylib MobileSafety.dylib MobileSubstrate.dylib MobileUnions.dylib postrm preinst
+all: libsubstrate.dylib MobileSafety.dylib MobileSubstrate.dylib postrm preinst
 
 flags := 
 
 clean:
 	rm -f libsubstrate.dylib postrm preinst
 
-libsubstrate.dylib: MobileHooker.mm makefile
-	$(target)g++ $(flags) -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -install_name /usr/lib/libsubstrate.dylib
+libsubstrate.dylib: MobileHooker.mm makefile MobileLibrary.cpp
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -install_name /usr/lib/libsubstrate.dylib
 	ldid -S $@
 
-%.dylib: %.mm makefile libsubstrate.dylib
-	$(target)g++ $(flags) -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I. -framework UIKit
+%.dylib: %.mm makefile libsubstrate.dylib MobileLibrary.cpp
+	$(target)gcc $(flags) -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I. -framework UIKit
 	ldid -S $@
 
 %: %.m makefile

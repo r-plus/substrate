@@ -346,3 +346,5 @@ extern "C" void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **re
     return MSHookFunction(symbol, replace, result);
 }
 #endif
+
+extern "C" __attribute__((unused)) int __gxx_personality_sj0() { return 8; }
