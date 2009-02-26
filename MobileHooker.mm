@@ -309,7 +309,7 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
         size_t namelen = strlen(name);
         size_t fixlen = strlen(prefix);
 
-        char newname[fixlen + namelen + 1];
+        char *newname = reinterpret_cast<char *>(alloca(fixlen + namelen + 1));
         memcpy(newname, prefix, fixlen);
         memcpy(newname + fixlen, name, namelen + 1);
 
@@ -346,5 +346,3 @@ extern "C" void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **re
     return MSHookFunction(symbol, replace, result);
 }
 #endif
-
-extern "C" __attribute__((visibility("hidden"))) int __gxx_personality_sj0() { return 8; }
