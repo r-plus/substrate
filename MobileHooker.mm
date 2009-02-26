@@ -347,4 +347,4 @@ extern "C" void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **re
 }
 #endif
 
-extern "C" __attribute__((unused)) int __gxx_personality_sj0() { return 8; }
+extern "C" __attribute__((visibility("hidden"))) int __gxx_personality_sj0() { return 8; }
