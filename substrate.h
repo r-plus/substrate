@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #include <objc/runtime.h>
+#include <objc/message.h>
 #include <dlfcn.h>
 
 #ifdef __cplusplus
