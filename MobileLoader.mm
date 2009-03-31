@@ -154,11 +154,12 @@ sigaction(signum, NULL, &old); { \
         if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, plist, &data, NULL, NULL, NULL))
             data = NULL;
         CFRelease(plist);
-        if (data == NULL)
-            continue;
 
-        CFStringRef error;
-        CFDictionaryRef meta(reinterpret_cast<CFDictionaryRef>(CFPropertyListCreateFromXMLData(kCFAllocatorDefault, data, kCFPropertyListImmutable, &error)));
+        CFDictionaryRef meta(NULL);
+        if (data != NULL) {
+            CFStringRef error;
+            meta = reinterpret_cast<CFDictionaryRef>(CFPropertyListCreateFromXMLData(kCFAllocatorDefault, data, kCFPropertyListImmutable, &error));
+        }
 
         bool load;
         if (meta == NULL)
