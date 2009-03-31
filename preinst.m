@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
         fclose(fout);
     }
 
-    system("/usr/libexec/cydia/move.sh /Library/MobileSubstrate/DynamicLibraries");
+    //system("/usr/libexec/cydia/move.sh /Library/MobileSubstrate/DynamicLibraries");
 
     [pool release];
     return 0;

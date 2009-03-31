@@ -16,7 +16,7 @@ libsubstrate.dylib: MobileHooker.mm makefile
 	ldid -S $@
 
 MobileSubstrate.dylib: MobileSubstrate.mm makefile
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I.
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -g0 -O2 -Wall -o $@ $(filter %.mm,$^) -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I.
 	ldid -S $@
 
 MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib

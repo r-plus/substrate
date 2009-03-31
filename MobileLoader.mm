@@ -75,15 +75,17 @@ extern "C" void MSInitialize() {
     CFStringRef identifier(bundle == NULL ? NULL : CFBundleGetIdentifier(bundle));
     if (identifier == NULL)
         return;
+    if (CFEqual(identifier, CFSTR("com.skype.skype")))
+        return;
 
     CFLog(CFSTR("MS:Notice: Installing: %@"), identifier);
 
-    CFURLRef home(CFCopyHomeDirectoryURLForUser(NULL));
-    CFURLGetFileSystemRepresentation(home, TRUE, reinterpret_cast<UInt8 *>(MSWatch), sizeof(MSWatch));
-    CFRelease(home);
-    strcat(MSWatch, "/Library/Preferences/com.saurik.mobilesubstrate.dat");
-
     if (CFEqual(identifier, CFSTR("com.apple.springboard"))) {
+        CFURLRef home(CFCopyHomeDirectoryURLForUser(NULL));
+        CFURLGetFileSystemRepresentation(home, TRUE, reinterpret_cast<UInt8 *>(MSWatch), sizeof(MSWatch));
+        CFRelease(home);
+        strcat(MSWatch, "/Library/Preferences/com.saurik.mobilesubstrate.dat");
+
         if (access(MSWatch, R_OK) == 0) {
             if (unlink(MSWatch) == -1)
                 CFLog(CFSTR("MS:Error: Cannot Clear: %s"), strerror(errno));
@@ -148,14 +150,9 @@ sigaction(signum, NULL, &old); { \
 
         CFURLRef plist(CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, reinterpret_cast<UInt8 *>(path), length, FALSE));
 
-        CFDataRef data; {
-            SInt32 error;
-            if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, plist, &data, NULL, NULL, &error)) {
-                CFLog(CFSTR("MS:Error: Cannot Read: %d"), error);
-                data = NULL;
-            }
-        }
-
+        CFDataRef data;
+        if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, plist, &data, NULL, NULL, NULL))
+            data = NULL;
         CFRelease(plist);
         if (data == NULL)
             continue;
