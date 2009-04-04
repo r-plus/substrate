@@ -1,5 +1,5 @@
 /* Cydia Substrate - Meta-Library Insert for iPhoneOS
- * Copyright (C) 2008  Jay Freeman (saurik)
+ * Copyright (C) 2008-2009  Jay Freeman (saurik)
 */
 
 /*
@@ -53,9 +53,9 @@
 
 #define ForSaurik 0
 
-#define CFLog(format, params...) \
+#define CFLog(args...) \
     do { \
-        CFStringRef string(CFStringCreateWithFormat(kCFAllocatorDefault, NULL, format, params)); \
+        CFStringRef string(CFStringCreateWithFormat(kCFAllocatorDefault, NULL, args)); \
         CFShow(string); \
         CFRelease(string); \
     } while(0)
@@ -71,11 +71,11 @@ static void MSAction(int sig, siginfo_t *info, void *uap) {
 #define Safety_ "/Library/MobileSubstrate/MobileSafety.dylib"
 
 extern "C" void MSInitialize() {
+    if (dlopen(Foundation_f, RTLD_LAZY | RTLD_NOLOAD) == NULL)
+        return;
     CFBundleRef bundle(CFBundleGetMainBundle());
     CFStringRef identifier(bundle == NULL ? NULL : CFBundleGetIdentifier(bundle));
     if (identifier == NULL)
-        return;
-    if (CFEqual(identifier, CFSTR("com.skype.skype")))
         return;
 
     CFLog(CFSTR("MS:Notice: Installing: %@"), identifier);

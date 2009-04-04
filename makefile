@@ -6,21 +6,21 @@ endif
 
 all: libsubstrate.dylib MobileSafety.dylib MobileSubstrate.dylib postrm preinst
 
-flags := 
+flags := -march=armv6 -mcpu=arm1176jzf-s -g0 -O2 -Wall #-Werror
 
 clean:
 	rm -f libsubstrate.dylib postrm preinst
 
 libsubstrate.dylib: MobileHooker.mm makefile
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup
 	ldid -S $@
 
 MobileSubstrate.dylib: MobileSubstrate.mm makefile
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -g0 -O2 -Wall -o $@ $(filter %.mm,$^) -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I.
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I. -lobjc #-undefined dynamic_lookup
 	ldid -S $@
 
 MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -g0 -O2 -Wall -Werror -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I. -framework UIKit
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I. -framework UIKit
 	ldid -S $@
 
 %: %.m makefile
