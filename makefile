@@ -4,12 +4,12 @@ else
 target := $(PKG_TARG)-
 endif
 
-all: libsubstrate.dylib MobileSafety.dylib MobileSubstrate.dylib postrm preinst
+all: libsubstrate.dylib MobileSafety.dylib MobileSubstrate.dylib postrm extrainst_
 
 flags := -march=armv6 -mcpu=arm1176jzf-s -g0 -O2 -Wall #-Werror
 
 clean:
-	rm -f libsubstrate.dylib postrm preinst
+	rm -f libsubstrate.dylib postrm extrainst_
 
 libsubstrate.dylib: MobileHooker.mm makefile
 	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup
@@ -30,7 +30,7 @@ MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
 package:
 	rm -rf mobilesubstrate
 	mkdir -p mobilesubstrate/DEBIAN
-	cp -a control preinst postrm mobilesubstrate/DEBIAN
+	cp -a control extrainst_ postrm mobilesubstrate/DEBIAN
 	mkdir -p mobilesubstrate/Library/MobileSubstrate/DynamicLibraries
 	cp -a MobileSafety.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobilePaper.png mobilesubstrate/Library/MobileSubstrate

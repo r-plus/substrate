@@ -9,3 +9,4 @@ Name: Mobile Substrate
 Author: Jay Freeman (saurik) <saurik@saurik.com>
 Tag: role::developer
 Depiction: http://cydia.saurik.com/info/mobilesubstrate/
+Pre-Depends: dpkg (>= 1.13.25-5)
