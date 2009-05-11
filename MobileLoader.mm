@@ -70,6 +70,10 @@ static void MSAction(int sig, siginfo_t *info, void *uap) {
 #define Libraries_ "/Library/MobileSubstrate/DynamicLibraries"
 #define Safety_ "/Library/MobileSubstrate/MobileSafety.dylib"
 
+extern "C" int __fdnlist(int fd, struct nlist *list);
+extern "C" int $__fdnlist(int fd, struct nlist *list);
+//extern "C" int $nlist(const char *file, struct nlist *list);
+
 extern "C" void MSInitialize() {
     if (dlopen(Foundation_f, RTLD_LAZY | RTLD_NOLOAD) == NULL)
         return;
@@ -131,6 +135,10 @@ sigaction(signum, NULL, &old); { \
         HookSignal(SIGBUS)
         HookSignal(SIGSEGV)
     }
+
+    CFLog(CFSTR("MS:Notice: Hooking: nlist()"));
+    MSHookFunction(&__fdnlist, &$__fdnlist);
+    //MSHookFunction(&nlist, &$nlist);
 
     CFURLRef libraries(CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, reinterpret_cast<const UInt8 *>(Libraries_), sizeof(Libraries_) - 1, TRUE));
 

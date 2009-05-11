@@ -15,8 +15,8 @@ libsubstrate.dylib: MobileHooker.mm makefile
 	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup
 	ldid -S $@
 
-MobileSubstrate.dylib: MobileSubstrate.mm makefile
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I. -lobjc #-undefined dynamic_lookup
+MobileSubstrate.dylib: MobileSubstrate.mm makefile nlist.c
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.c,$^) -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I. -lobjc #-undefined dynamic_lookup
 	ldid -S $@
 
 MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
