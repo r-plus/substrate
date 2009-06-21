@@ -193,6 +193,8 @@ MSHook(void, SBStatusBarTimeView$tile, SBStatusBarTimeView *self, SEL sel) {
 #define Dylib_ "/Library/MobileSubstrate/MobileSubstrate.dylib"
 
 extern "C" void MSInitialize() {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
     NSLog(@"MS:Warning: Entering Safe Mode");
 
     MSHookMessage(objc_getClass("SBButtonBar"), @selector(maxIconColumns), (IMP) &SBButtonBar$maxIconColumns, "ms$");
@@ -228,4 +230,6 @@ extern "C" void MSInitialize() {
         if (Method method = class_getInstanceMethod(_class, sel))
             method_setImplementation(method, (IMP) &SBIconController$showInfoAlertIfNeeded);
     }
+
+    [pool release];
 }

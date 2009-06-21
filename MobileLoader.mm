@@ -145,6 +145,9 @@ sigaction(signum, NULL, &old); { \
     CFBundleRef folder(CFBundleCreate(kCFAllocatorDefault, libraries));
     CFRelease(libraries);
 
+    if (folder == NULL)
+        return;
+
     CFArrayRef dylibs(CFBundleCopyResourceURLsOfType(folder, CFSTR("dylib"), NULL));
     CFRelease(folder);
 

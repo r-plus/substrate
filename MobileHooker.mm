@@ -86,8 +86,6 @@ static inline bool A$pcrel$r(uint32_t ic) {
 static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (symbol == NULL)
         return;
-    if (result != NULL)
-        fprintf(stderr, "MS:Error:MSHookFunctionThumb(, , !NULL)\n");
 
     int page = getpagesize();
     uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
@@ -104,41 +102,42 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
     uint16_t *thumb = reinterpret_cast<uint16_t *>(symbol);
 
-    uint16_t backup[7];
-    memcpy(backup, thumb, sizeof(uint16_t) * 7);
+    uint16_t backup[6];
+    memcpy(backup, thumb, sizeof(uint16_t) * 6);
 
     thumb[0] = T$bx_pc;
 
     unsigned align;
-    if ((address & 0x2) != 0) {
+    if ((address & 0x2) != 0)
         align = 0;
-        backup[6] = T$nop;
-    } else {
+    else {
         align = 1;
         thumb[1] = T$nop;
     }
 
     uint32_t *arm = reinterpret_cast<uint32_t *>(thumb + 1 + align);
-
     arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
     arm[1] = reinterpret_cast<uint32_t>(replace);
 
-    uint16_t *target = reinterpret_cast<uint16_t *>(arm + 2);
-    target[0] = T$pop_$r0$;
-
-    unsigned used = 1 + align + 4 + 1;
-
+    unsigned used(1 + align + 4);
     __clear_cache(reinterpret_cast<char *>(thumb), reinterpret_cast<char *>(thumb + used));
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
 
-#if 0
+    if (true)
+        fprintf(stderr, "MS:Error:MSHookFunctionThumb(, , !NULL)\n");
+    else
     if (result != NULL) {
+        size_t size(used);
+
+        bool pad((used & 0x2) == 0);
+
+        size += 1 + 2 * sizeof(uint32_t) / sizeof(uint16_t);
+        size_t length(sizeof(uint16_t) * size);
+
         uint16_t *buffer = reinterpret_cast<uint16_t *>(mmap(
-            NULL, sizeof(uint16_t) * 8 + sizeof(uint32_t) * 4,
-            PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE,
-            -1, 0
+            NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
         ));
 
         if (buffer == MAP_FAILED) {
@@ -146,23 +145,26 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
             return;
         }
 
-        memcpy(buffer, backup, sizeof(backup));
-        buffer[7] = T$bx_pc;
+        size_t start(0);//, end(size);
+        for (unsigned offset(0); offset != used; ++offset)
+            // XXX: Thumb pc-relative reassembler
+            buffer[start++] = backup[offset];
 
-        uint32_t *transfer = reinterpret_cast<uint32_t *>(buffer + 8);
-        transfer[0] = A$stmia_sp$_$r0$;
-        transfer[1] = A$ldr_rd_$rn_im$(A$r0, A$pc, 0);
-        transfer[2] = A$bx_r0;
-        transfer[3] = reinterpret_cast<uint32_t>(target) + 1;
+        buffer[start++] = T$bx_pc;
+        if (pad)
+            buffer[start++] = T$nop;
 
-        if (mprotect(buffer, sizeof(uint32_t) * 5, PROT_READ | PROT_EXEC) == -1) {
+        uint32_t *transfer = reinterpret_cast<uint32_t *>(buffer + start);
+        transfer[0] = A$ldr_rd_$rn_im$(A$r0, A$pc, 4 - 8);
+        transfer[1] = reinterpret_cast<uint32_t>(thumb + used) + 1;
+
+        if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
             fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
             return;
         }
 
         *result = reinterpret_cast<uint8_t *>(buffer) + 1;
     }
-#endif
 }
 
 static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
@@ -188,7 +190,8 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     code[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
     code[1] = reinterpret_cast<uint32_t>(replace);
 
-    __clear_cache(reinterpret_cast<char *>(code), reinterpret_cast<char *>(code + 2));
+    size_t used(2);
+    __clear_cache(reinterpret_cast<char *>(code), reinterpret_cast<char *>(code + used));
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
@@ -197,13 +200,14 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
         if (backup[0] == A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8))
             *result = reinterpret_cast<void *>(backup[1]);
         else {
-            size_t size(2);
-            for (unsigned offset(0); offset != 2; ++offset)
+            size_t size(0);
+            for (unsigned offset(0); offset != used; ++offset)
                 if (A$pcrel$r(backup[offset]))
                     size += 3;
                 else
                     size += 1;
 
+            size += 2;
             size_t length(sizeof(uint32_t) * size);
 
             uint32_t *buffer = reinterpret_cast<uint32_t *>(mmap(
@@ -223,7 +227,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
             }
 
             size_t start(0), end(size);
-            for (unsigned offset(0); offset != 2; ++offset)
+            for (unsigned offset(0); offset != used; ++offset)
                 if (A$pcrel$r(backup[offset])) {
                     union {
                         uint32_t value;
@@ -258,16 +262,12 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
                     }
 
                     bits.rn = bits.rd;
-                    buffer[start+0] = bits.value;
-
-                    start += 1;
-                } else {
-                    buffer[start] = backup[offset];
-                    start += 1;
-                }
+                    buffer[start++] = bits.value;
+                } else
+                    buffer[start++] = backup[offset];
 
             buffer[start+0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
-            buffer[start+1] = reinterpret_cast<uint32_t>(code + 2);
+            buffer[start+1] = reinterpret_cast<uint32_t>(code + used);
 
             if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
                 fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
