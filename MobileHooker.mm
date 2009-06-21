@@ -91,6 +91,9 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
     uintptr_t base = address / page * page;
 
+    if (page - (reinterpret_cast<uintptr_t>(symbol) - base) < 8)
+        page *= 2;
+
     /* XXX: intelligent page doubling */
 
     mach_port_t self = mach_task_self();
@@ -172,7 +175,8 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
         return;
 
     int page = getpagesize();
-    uintptr_t base = reinterpret_cast<uintptr_t>(symbol) / page * page;
+    uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
+    uintptr_t base = address / page * page;
 
     if (page - (reinterpret_cast<uintptr_t>(symbol) - base) < 8)
         page *= 2;
