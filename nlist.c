@@ -78,17 +78,6 @@ static bool _itv;
  * SUCH DAMAGE.
  */
 
-#if 0
-#include <CoreFoundation/CoreFoundation.h>
-
-#define CFLog(args...) \
-    do { \
-        CFStringRef string = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, args); \
-        CFShow(string); \
-        CFRelease(string); \
-    } while(0)
-#endif
-
 #include <mach/mach.h>
 
 #include <mach-o/fat.h>
@@ -308,8 +297,3 @@ int $__fdnlist(int fd, struct nlist *list) {
 
     return nreq;
 }
-
-/*int $nlist(const char *file_name, struct nlist *nl) {
-    CFLog(CFSTR("nlist(%s)"), file_name);
-    return 0;
-}*/

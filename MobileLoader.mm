@@ -37,6 +37,7 @@
 
 #import <CoreFoundation/CoreFoundation.h>
 #import <CoreFoundation/CFPriv.h>
+#import <CoreFoundation/CFLogUtilities.h>
 
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CGGeometry.h>
@@ -52,13 +53,6 @@
 #include <substrate.h>
 
 #define ForSaurik 0
-
-#define CFLog(args...) \
-    do { \
-        CFStringRef string(CFStringCreateWithFormat(kCFAllocatorDefault, NULL, args)); \
-        CFShow(string); \
-        CFRelease(string); \
-    } while(0)
 
 static char MSWatch[PATH_MAX];
 
@@ -84,7 +78,7 @@ extern "C" void MSInitialize() {
     if (identifier == NULL)
         return;
 
-    CFLog(CFSTR("MS:Notice: Installing: %@"), identifier);
+    CFLog(kCFLogLevelDebug, CFSTR("MS:Notice: Installing: %@"), identifier);
 
     if (CFEqual(identifier, CFSTR("com.apple.springboard"))) {
         CFURLRef home(CFCopyHomeDirectoryURLForUser(NULL));
@@ -94,11 +88,11 @@ extern "C" void MSInitialize() {
 
         if (access(MSWatch, R_OK) == 0) {
             if (unlink(MSWatch) == -1)
-                CFLog(CFSTR("MS:Error: Cannot Clear: %s"), strerror(errno));
+                CFLog(kCFLogLevelError, CFSTR("MS:Error: Cannot Clear: %s"), strerror(errno));
 
             void *handle(dlopen(Safety_, RTLD_LAZY | RTLD_GLOBAL));
             if (handle == NULL)
-                CFLog(CFSTR("MS:Error: Cannot Load: %s"), dlerror());
+                CFLog(kCFLogLevelError, CFSTR("MS:Error: Cannot Load: %s"), dlerror());
 
             return;
         }
@@ -113,7 +107,7 @@ extern "C" void MSInitialize() {
             if (sigaltstack(&stack, NULL) != -1)
                 stacked = true;
             else
-                CFLog(CFSTR("MS:Error: Cannot Stack: %s"), strerror(errno));
+                CFLog(kCFLogLevelWarning, CFSTR("MS:Error: Cannot Stack: %s"), strerror(errno));
         }
 
         struct sigaction action;
@@ -139,7 +133,7 @@ sigaction(signum, NULL, &old); { \
     }
 
 #if 0
-    CFLog(CFSTR("MS:Notice: Hooking: nlist()"));
+    CFLog(kCFLogLevelDebug, CFSTR("MS:Notice: Hooking: nlist()"));
     MSHookFunction(&__fdnlist, &$__fdnlist);
     //MSHookFunction(&nlist, &$nlist);
 #endif
@@ -199,11 +193,11 @@ sigaction(signum, NULL, &old); { \
             continue;
 
         memcpy(path + length - 5, "dylib", 5);
-        CFLog(CFSTR("MS:Notice: Loading: %s"), path);
+        CFLog(kCFLogLevelDebug, CFSTR("MS:Notice: Loading: %s"), path);
 
         void *handle(dlopen(path, RTLD_LAZY | RTLD_GLOBAL));
         if (handle == NULL) {
-            CFLog(CFSTR("MS:Error: %s"), dlerror());
+            CFLog(kCFLogLevelError, CFSTR("MS:Error: %s"), dlerror());
             continue;
         }
     }
