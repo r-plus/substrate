@@ -45,6 +45,70 @@
 
 #include <unistd.h>
 
+#define _trace() do { \
+    fprintf(stderr, "_trace(%u)\n", __LINE__); \
+} while (false)
+
+#ifdef __APPLE__
+#import <CoreFoundation/CFLogUtilities.h>
+/* XXX: property CFStringRef conversion */
+#define lprintf(format, ...) \
+    CFLog(kCFLogLevelNotice, CFSTR(format), ## __VA_ARGS__)
+#else
+#define lprintf(format, ...) do { \
+    fprintf(stderr, format...); \
+    fprintf(stderr, "\n"); \
+} while (false)
+#endif
+
+static char _MSHexChar(uint8_t value) {
+    return value < 0x20 || value >= 0x80 ? '.' : value;
+}
+
+#define HexWidth_ 16
+
+void MSLogHex(const void *vdata, size_t size, const char *mark = 0) {
+    const uint8_t *data = (const uint8_t *) vdata;
+
+    size_t i = 0, j;
+
+    char d[256];
+    size_t b = 0;
+    d[0] = '\0';
+
+    while (i != size) {
+        if (i % HexWidth_ == 0) {
+            if (mark != NULL)
+                b += sprintf(d + b, "[%s] ", mark);
+            b += sprintf(d + b, "0x%.3zx:", i);
+        }
+
+       b +=  sprintf(d + b, " %.2x", data[i]);
+
+        if (++i % HexWidth_ == 0) {
+            b += sprintf(d + b, "  ");
+            for (j = i - HexWidth_; j != i; ++j)
+                b += sprintf(d + b, "%c", _MSHexChar(data[j]));
+
+            lprintf("%s", d);
+            b = 0;
+            d[0] = '\0';
+        }
+    }
+
+    if (i % HexWidth_ != 0) {
+        for (j = i % HexWidth_; j != HexWidth_; ++j)
+            b += sprintf(d + b, "   ");
+        b += sprintf(d + b, "  ");
+        for (j = i / HexWidth_ * HexWidth_; j != i; ++j)
+            b += sprintf(d + b, "%c", _MSHexChar(data[j]));
+
+        lprintf("%s", d);
+        b = 0;
+        d[0] = '\0';
+    }
+}
+
 #ifdef __arm__
 /* WebCore (ARM) PC-Relative:
 X    1  ldr r*,[pc,r*] !=
@@ -84,17 +148,17 @@ static inline bool A$pcrel$r(uint32_t ic) {
 }
 
 static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
+_trace();
     if (symbol == NULL)
         return;
+_trace();
 
     int page = getpagesize();
     uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
     uintptr_t base = address / page * page;
 
-    if (page - (reinterpret_cast<uintptr_t>(symbol) - base) < 8)
+    if (page - (reinterpret_cast<uintptr_t>(symbol) - base) < 12)
         page *= 2;
-
-    /* XXX: intelligent page doubling */
 
     mach_port_t self = mach_task_self();
 
@@ -105,38 +169,54 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
     uint16_t *thumb = reinterpret_cast<uint16_t *>(symbol);
 
-    uint16_t backup[6];
-    memcpy(backup, thumb, sizeof(uint16_t) * 6);
+    unsigned used(6);
 
-    thumb[0] = T$bx_pc;
+    unsigned align((address & 0x2) == 0 ? 0 : 1);
+    used += align;
 
-    unsigned align;
-    if ((address & 0x2) != 0)
-        align = 0;
-    else {
-        align = 1;
-        thumb[1] = T$nop;
-    }
+    unsigned index(0);
+    while (index < used)
+        if ((thumb[index] & 0xe000) == 0xe000 && (thumb[index] & 0x1800) != 0x0000)
+            index += 2;
+        else
+            index += 1;
 
-    uint32_t *arm = reinterpret_cast<uint32_t *>(thumb + 1 + align);
+    unsigned blank(index - used);
+    used += blank;
+
+    uint16_t backup[used];
+    memcpy(backup, thumb, sizeof(uint16_t) * used);
+
+    if (align != 0)
+        thumb[0] = T$nop;
+
+    thumb[align+0] = T$bx_pc;
+    thumb[align+1] = T$nop;
+
+    uint32_t *arm = reinterpret_cast<uint32_t *>(thumb + 2 + align);
     arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
     arm[1] = reinterpret_cast<uint32_t>(replace);
 
-    unsigned used(1 + align + 4);
+    /* XXX: blank, in theory, fundamentally never in practice, might be >1 */
+
+    if (blank != 0)
+        *reinterpret_cast<uint16_t *>(arm + 2) = T$nop;
+
     __clear_cache(reinterpret_cast<char *>(thumb), reinterpret_cast<char *>(thumb + used));
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
 
-    if (true)
-        fprintf(stderr, "MS:Error:MSHookFunctionThumb(, , !NULL)\n");
-    else
+    MSLogHex(symbol, (used + 1) * sizeof(uint16_t), "page");
+
     if (result != NULL) {
         size_t size(used);
 
-        bool pad((used & 0x2) == 0);
+        bool pad((size & 0x1) != 0);
+        if (pad)
+            size += 1;
 
-        size += 1 + 2 * sizeof(uint32_t) / sizeof(uint16_t);
+        size += 2 + 2 * sizeof(uint32_t) / sizeof(uint16_t);
         size_t length(sizeof(uint16_t) * size);
 
         uint16_t *buffer = reinterpret_cast<uint16_t *>(mmap(
@@ -148,18 +228,31 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
             return;
         }
 
+        if (false) /*fail:*/ {
+            munmap(buffer, length);
+            *result = NULL;
+            return;
+        }
+
         size_t start(0);//, end(size);
         for (unsigned offset(0); offset != used; ++offset)
             // XXX: Thumb pc-relative reassembler
             buffer[start++] = backup[offset];
 
-        buffer[start++] = T$bx_pc;
         if (pad)
             buffer[start++] = T$nop;
+        buffer[start++] = T$bx_pc;
+        buffer[start++] = T$nop;
 
         uint32_t *transfer = reinterpret_cast<uint32_t *>(buffer + start);
-        transfer[0] = A$ldr_rd_$rn_im$(A$r0, A$pc, 4 - 8);
+        transfer[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
         transfer[1] = reinterpret_cast<uint32_t>(thumb + used) + 1;
+
+        if (true) {
+            char name[16];
+            sprintf(name, "%p", symbol);
+            MSLogHex(buffer, length, name);
+        }
 
         if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
             fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
@@ -171,8 +264,10 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 }
 
 static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
+_trace();
     if (symbol == NULL)
         return;
+_trace();
 
     int page = getpagesize();
     uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
@@ -189,12 +284,14 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     }
 
     uint32_t *code = reinterpret_cast<uint32_t *>(symbol);
-    uint32_t backup[2] = {code[0], code[1]};
+
+    const size_t used(2);
+
+    uint32_t backup[used] = {code[0], code[1]};
 
     code[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
     code[1] = reinterpret_cast<uint32_t>(replace);
 
-    size_t used(2);
     __clear_cache(reinterpret_cast<char *>(code), reinterpret_cast<char *>(code + used));
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
@@ -283,6 +380,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
 }
 
 extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
+    fprintf(stderr, "MSHookFunction(%p, %p, %p)\n", symbol, replace, result);
     if ((reinterpret_cast<uintptr_t>(symbol) & 0x1) == 0)
         return MSHookFunctionARM(symbol, replace, result);
     else
@@ -296,6 +394,7 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 }
 #endif
 
+#ifdef __APPLE__
 extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
     if (_class == nil)
         return NULL;
@@ -340,6 +439,7 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
     free(methods);
     return old;
 }
+#endif
 
 #if defined(__APPLE__) && defined(__arm__)
 extern "C" void _Z13MSHookMessageP10objc_classP13objc_selectorPFP11objc_objectS4_S2_zEPKc(Class _class, SEL sel, IMP imp, const char *prefix) {

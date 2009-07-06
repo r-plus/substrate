@@ -130,6 +130,7 @@ sigaction(signum, NULL, &old); { \
         HookSignal(SIGILL)
         HookSignal(SIGBUS)
         HookSignal(SIGSEGV)
+        HookSignal(SIGSYS)
     }
 
 #if 0
@@ -195,10 +196,28 @@ sigaction(signum, NULL, &old); { \
         memcpy(path + length - 5, "dylib", 5);
         CFLog(kCFLogLevelDebug, CFSTR("MS:Notice: Loading: %s"), path);
 
+        if (MSWatch[0] != '\0') {
+            int fd(open(MSWatch, O_CREAT | O_RDWR, 0644));
+            if (fd == -1)
+                CFLog(kCFLogLevelError, CFSTR("MS:Error: Cannot Set: %s"), strerror(errno));
+            else if (close(fd) == -1)
+                CFLog(kCFLogLevelError, CFSTR("MS:Error: Cannot Close: %s"), strerror(errno));
+        }
+
         void *handle(dlopen(path, RTLD_LAZY | RTLD_GLOBAL));
+
+        if (MSWatch[0] != '\0')
+            if (unlink(MSWatch) == -1)
+                CFLog(kCFLogLevelError, CFSTR("MS:Error: Cannot Reset: %s"), strerror(errno));
+
         if (handle == NULL) {
             CFLog(kCFLogLevelError, CFSTR("MS:Error: %s"), dlerror());
             continue;
         }
+    }
+
+    if (true) {
+        CFLog(kCFLogLevelNotice, CFSTR("SLEEPING"));
+        sleep(10);
     }
 }
