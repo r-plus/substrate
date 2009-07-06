@@ -216,7 +216,7 @@ sigaction(signum, NULL, &old); { \
         }
     }
 
-    if (true) {
+    if (false) {
         CFLog(kCFLogLevelNotice, CFSTR("SLEEPING"));
         sleep(10);
     }

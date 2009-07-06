@@ -1,5 +1,5 @@
 /* Cydia Substrate - Meta-Library Insert for iPhoneOS
- * Copyright (C) 2008  Jay Freeman (saurik)
+ * Copyright (C) 2008-2009  Jay Freeman (saurik)
 */
 
 /*
@@ -51,7 +51,7 @@
 
 #ifdef __APPLE__
 #import <CoreFoundation/CFLogUtilities.h>
-/* XXX: property CFStringRef conversion */
+/* XXX: proper CFStringRef conversion */
 #define lprintf(format, ...) \
     CFLog(kCFLogLevelNotice, CFSTR(format), ## __VA_ARGS__)
 #else
@@ -141,17 +141,44 @@ enum A$r {
 #define T$bx_pc    0x4778 // bx pc
 #define T$nop      0x46c0 // nop
 
+#define T$add_rd_rm(rd, rm) /* add rd, rm */ \
+    (0x4400 | (((rd) & 0x8) >> 3 << 7) | (((rm) & 0x8) >> 3 << 6) | (((rm) & 0x7) << 3) | ((rd) & 0x7))
+#define T$push_r(r) /* push r... */ \
+    (0xb400 | (((r) & (1 << A$lr)) >> A$lr << 8) | (r) & 0xff)
+#define T$pop_r(r) /* pop r... */ \
+    (0xbc00 | (((r) & (1 << A$pc)) >> A$pc << 8) | (r) & 0xff)
+#define T$mov_rd_rm(rd, rm) /* mov rd, rm */ \
+    (0x4600 | (((rd) & 0x8) >> 3 << 7) | (((rm) & 0x8) >> 3 << 6) | (((rm) & 0x7) << 3) | ((rd) & 0x7))
+#define T$ldr_rd_$rn_im_4$(rd, rn, im) /* ldr rd, [rn, #im * 4] */ \
+    (0x6800 | (abs(im) << 6) | ((rn) << 3) | (rd))
+#define T$ldr_rd_$pc_im_4$(rd, im) /* ldr rd, [PC, #im * 4] */ \
+    (0x4800 | ((rd) << 8) | abs(im))
+
 extern "C" void __clear_cache (char *beg, char *end);
 
 static inline bool A$pcrel$r(uint32_t ic) {
     return (ic & 0x0c000000) == 0x04000000 && (ic & 0xf0000000) != 0xf0000000 && (ic & 0x000f0000) == 0x000f0000;
 }
 
+static inline bool T$32bit$i(uint16_t ic) {
+    return ((ic & 0xe000) == 0xe000 && (ic & 0x1800) != 0x0000);
+}
+
+static inline bool T$pcrel$ldr(uint16_t ic) {
+    return (ic & 0xf800) == 0x4800;
+}
+
+static inline bool T$pcrel$add(uint16_t ic) {
+    return (ic & 0xff78) == 0x4478;
+}
+
+static inline bool T$pcrel$ldrw(uint16_t ic) {
+    return (ic & 0xff7f) == 0xf85f;
+}
+
 static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
-_trace();
     if (symbol == NULL)
         return;
-_trace();
 
     int page = getpagesize();
     uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
@@ -176,7 +203,7 @@ _trace();
 
     unsigned index(0);
     while (index < used)
-        if ((thumb[index] & 0xe000) == 0xe000 && (thumb[index] & 0x1800) != 0x0000)
+        if (T$32bit$i(thumb[index]))
             index += 2;
         else
             index += 1;
@@ -197,26 +224,35 @@ _trace();
     arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
     arm[1] = reinterpret_cast<uint32_t>(replace);
 
-    /* XXX: blank, in theory, fundamentally never in practice, might be >1 */
-
-    if (blank != 0)
-        *reinterpret_cast<uint16_t *>(arm + 2) = T$nop;
+    for (unsigned offset(0); offset != blank; ++offset)
+        reinterpret_cast<uint16_t *>(arm + 2)[offset] = T$nop;
 
     __clear_cache(reinterpret_cast<char *>(thumb), reinterpret_cast<char *>(thumb + used));
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
 
-    MSLogHex(symbol, (used + 1) * sizeof(uint16_t), "page");
+    if (false) {
+        char name[16];
+        sprintf(name, "%p", symbol);
+        MSLogHex(symbol, (used + 1) * sizeof(uint16_t), name);
+    }
 
     if (result != NULL) {
         size_t size(used);
+        for (unsigned offset(0); offset != used; ++offset)
+            if (T$pcrel$ldr(backup[offset]))
+                size += 3;
+            else if (T$pcrel$ldrw(backup[offset])) {
+                size += 2;
+                ++offset;
+            } else if (T$pcrel$add(backup[offset]))
+                size += 6;
+            else if (T$32bit$i(backup[offset]))
+                ++offset;
 
-        bool pad((size & 0x1) != 0);
-        if (pad)
-            size += 1;
-
-        size += 2 + 2 * sizeof(uint32_t) / sizeof(uint16_t);
+        unsigned pad((size & 0x1) == 0 ? 0 : 1);
+        size += pad + 2 + 2 * sizeof(uint32_t) / sizeof(uint16_t);
         size_t length(sizeof(uint16_t) * size);
 
         uint16_t *buffer = reinterpret_cast<uint16_t *>(mmap(
@@ -228,19 +264,94 @@ _trace();
             return;
         }
 
-        if (false) /*fail:*/ {
+        if (false) fail: {
             munmap(buffer, length);
             *result = NULL;
             return;
         }
 
-        size_t start(0);//, end(size);
-        for (unsigned offset(0); offset != used; ++offset)
-            // XXX: Thumb pc-relative reassembler
-            buffer[start++] = backup[offset];
+        size_t start(pad), end(size);
+        uint32_t *trailer(reinterpret_cast<uint32_t *>(buffer + end));
+        for (unsigned offset(0); offset != used; ++offset) {
+            if (T$pcrel$ldr(backup[offset])) {
+                union {
+                    uint32_t value;
 
-        if (pad)
-            buffer[start++] = T$nop;
+                    struct {
+                        uint16_t immediate : 8;
+                        uint16_t rd : 3;
+                        uint16_t : 5;
+                    };
+                } bits = {backup[offset+0]};
+
+                buffer[start+0] = T$ldr_rd_$pc_im_4$(bits.rd, ((end-2 - (start+0)) * 2 - 4 + 2) / 4);
+                buffer[start+1] = T$ldr_rd_$rn_im_4$(bits.rd, bits.rd, 0);
+                *--trailer = ((reinterpret_cast<uint32_t>(thumb + offset) + 4) & ~0x2) + bits.immediate * 4;
+
+                start += 2;
+                end -= 2;
+            } else if (T$pcrel$ldrw(backup[offset])) {
+                union {
+                    uint32_t value;
+
+                    struct {
+                        uint16_t : 7;
+                        uint16_t u : 1;
+                        uint16_t : 8;
+                    };
+                } bits = {backup[offset+0]};
+
+                union {
+                    uint32_t value;
+
+                    struct {
+                        uint16_t immediate : 12;
+                        uint16_t rd : 4;
+                    };
+                } exts = {backup[offset+1]};
+
+                buffer[start+0] = T$ldr_rd_$pc_im_4$(exts.rd, ((end-2 - (start+0)) * 2 - 4 + 2) / 4);
+                buffer[start+1] = T$ldr_rd_$rn_im_4$(exts.rd, exts.rd, 0);
+                *--trailer = ((reinterpret_cast<uint32_t>(thumb + offset) + 4) & ~0x2) + (bits.u == 0 ? -exts.immediate : exts.immediate);
+
+                ++offset;
+                start += 2;
+                end -= 2;
+            } else if (T$pcrel$add(backup[offset])) {
+                union {
+                    uint32_t value;
+
+                    struct {
+                        uint16_t rd : 3;
+                        uint16_t rm : 3;
+                        uint16_t h2 : 1;
+                        uint16_t h1 : 1;
+                        uint16_t : 8;
+                    };
+                } bits = {backup[offset+0]};
+
+                if (bits.h1 || bits.rd == A$r7) {
+                    fprintf(stderr, "MS:Error:pcrel(%u):add (rd > r6)\n", offset);
+                    goto fail;
+                }
+
+                buffer[start+0] = T$push_r(1 << A$r7);
+                buffer[start+1] = T$mov_rd_rm(A$r7, (bits.h1 << 3) | bits.rd);
+                buffer[start+2] = T$ldr_rd_$pc_im_4$(bits.rd, ((end-2 - (start+2)) * 2 - 4 + 2) / 4);
+                buffer[start+3] = T$add_rd_rm((bits.h1 << 3) | bits.rd, A$r7);
+                buffer[start+4] = T$pop_r(1 << A$r7);
+                *--trailer = reinterpret_cast<uint32_t>(thumb + offset) + 4;
+
+                start += 5;
+                end -= 2;
+            } else if (T$32bit$i(backup[offset])) {
+                buffer[start++] = backup[offset];
+                buffer[start++] = backup[++offset];
+            } else {
+                buffer[start++] = backup[offset];
+            }
+        }
+
         buffer[start++] = T$bx_pc;
         buffer[start++] = T$nop;
 
@@ -248,26 +359,24 @@ _trace();
         transfer[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
         transfer[1] = reinterpret_cast<uint32_t>(thumb + used) + 1;
 
-        if (true) {
-            char name[16];
-            sprintf(name, "%p", symbol);
-            MSLogHex(buffer, length, name);
-        }
-
         if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
             fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
             return;
         }
 
-        *result = reinterpret_cast<uint8_t *>(buffer) + 1;
+        *result = reinterpret_cast<uint8_t *>(buffer + pad) + 1;
+
+        if (false) {
+            char name[16];
+            sprintf(name, "%p", *result);
+            MSLogHex(buffer, length, name);
+        }
     }
 }
 
 static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
-_trace();
     if (symbol == NULL)
         return;
-_trace();
 
     int page = getpagesize();
     uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
@@ -301,12 +410,10 @@ _trace();
         if (backup[0] == A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8))
             *result = reinterpret_cast<void *>(backup[1]);
         else {
-            size_t size(0);
+            size_t size(used);
             for (unsigned offset(0); offset != used; ++offset)
                 if (A$pcrel$r(backup[offset]))
-                    size += 3;
-                else
-                    size += 1;
+                    size += 2;
 
             size += 2;
             size_t length(sizeof(uint32_t) * size);
@@ -328,6 +435,7 @@ _trace();
             }
 
             size_t start(0), end(size);
+            uint32_t *trailer(reinterpret_cast<uint32_t *>(buffer + end));
             for (unsigned offset(0); offset != used; ++offset)
                 if (A$pcrel$r(backup[offset])) {
                     union {
@@ -349,14 +457,14 @@ _trace();
                             uint32_t type : 2;
                             uint32_t cond : 4;
                         };
-                    } bits = {backup[offset]};
+                    } bits = {backup[offset+0]};
 
                     if (bits.mode != 0 && bits.rd == bits.rm) {
                         fprintf(stderr, "MS:Error:pcrel(%u):%s (rd == rm)\n", offset, bits.l == 0 ? "str" : "ldr");
                         goto fail;
                     } else {
-                        buffer[start+0] = A$ldr_rd_$rn_im$(bits.rd, A$pc, (end - 1 - start) * 4 - 8);
-                        buffer[end-1] = reinterpret_cast<uint32_t>(code + offset) + 8;
+                        buffer[start+0] = A$ldr_rd_$rn_im$(bits.rd, A$pc, (end-1 - (start+0)) * 4 - 8);
+                        *--trailer = reinterpret_cast<uint32_t>(code + offset) + 8;
 
                         start += 1;
                         end -= 1;
@@ -380,7 +488,8 @@ _trace();
 }
 
 extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
-    fprintf(stderr, "MSHookFunction(%p, %p, %p)\n", symbol, replace, result);
+    if (false)
+        fprintf(stderr, "MSHookFunction(%p, %p, %p)\n", symbol, replace, result);
     if ((reinterpret_cast<uintptr_t>(symbol) & 0x1) == 0)
         return MSHookFunctionARM(symbol, replace, result);
     else
