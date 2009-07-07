@@ -505,14 +505,19 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
 #ifdef __APPLE__
 extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
-    if (_class == nil)
+    if (_class == nil) {
+        fprintf(stderr, "MS:Warning: nil class argument\n");
         return NULL;
-
-    Method method = class_getInstanceMethod(_class, sel);
-    if (method == nil)
-        return NULL;
+    }
 
     const char *name = sel_getName(sel);
+
+    Method method = class_getInstanceMethod(_class, sel);
+    if (method == nil) {
+        fprintf(stderr, "MS:Warning: message not found [%s %s]\n", class_getName(_class), name);
+        return NULL;
+    }
+
     const char *type = method_getTypeEncoding(method);
 
     IMP old = method_getImplementation(method);

@@ -1,5 +1,5 @@
 /* Cydia Substrate - Meta-Library Insert for iPhoneOS
- * Copyright (C) 2008  Jay Freeman (saurik)
+ * Copyright (C) 2008-2009  Jay Freeman (saurik)
 */
 
 /*
@@ -42,18 +42,12 @@
 
 #import <SpringBoard/SBAlertItem.h>
 #import <SpringBoard/SBAlertItemsController.h>
-#import <SpringBoard/SBContentLayer.h>
+#import <SpringBoard/SBButtonBar.h>
 #import <SpringBoard/SBStatusBarController.h>
 #import <SpringBoard/SBStatusBarTimeView.h>
-
-#import <SpringBoard/SBSlidingAlertDisplay.h>
+#import <SpringBoard/SBUIController.h>
 
 #include <substrate.h>
-
-@protocol MobileSubstrate
-- (id) ms$initWithSize:(CGSize)size;
-- (int) ms$maxIconColumns;
-@end
 
 Class $SafeModeAlertItem;
 Class $SBAlertItemsController;
@@ -68,7 +62,7 @@ void SafeModeAlertItem$alertSheet$buttonClicked$(id self, SEL sel, id sheet, int
         break;
 
         case 3:
-            [UIApp applicationOpenURL:[NSURL URLWithString:@"http://cydia.saurik.com/safemode/"] asPanel:NO];
+            [UIApp applicationOpenURL:[NSURL URLWithString:@"http://cydia.saurik.com/safemode/"]];
         break;
     }
 
@@ -78,7 +72,7 @@ void SafeModeAlertItem$alertSheet$buttonClicked$(id self, SEL sel, id sheet, int
 void SafeModeAlertItem$configure$requirePasscodeForActions$(id self, SEL sel, BOOL configure, BOOL require) {
     UIModalView *sheet([self alertSheet]);
     [sheet setDelegate:self];
-    [sheet setBodyText:@"We apologize for the inconvenience, but SpringBoard has just crashed.\n\nA recent software installation, upgrade, or removal might have been the cause of this.\n\nYour device is now running in Safe Mode. All extensions that support this safety system are disabled.\n\nReboot (or restart SpringBoard) to return to the normal mode. To return to this dialog touch the status bar."];
+    [sheet setBodyText:@"We apologize for the inconvenience, but SpringBoard has just crashed.\n\nMobileSubstrate /did not/ cause this problem: it has protected you from it.\n\nYour device is now running in Safe Mode. All extensions that support this safety system are disabled.\n\nReboot (or restart SpringBoard) to return to the normal mode. To return to this dialog touch the status bar."];
     [sheet addButtonWithTitle:@"OK"];
     [sheet addButtonWithTitle:@"Restart"];
     [sheet addButtonWithTitle:@"Help"];
@@ -107,6 +101,11 @@ static void MSAlert() {
         [[$SBAlertItemsController sharedInstance] activateAlertItem:[[$SafeModeAlertItem alloc] init]];
 }
 
+MSHook(void, SBStatusBar$touchesEnded$withEvent$, SBStatusBar *self, SEL sel, id touches, id event) {
+    MSAlert();
+    _SBStatusBar$touchesEnded$withEvent$(self, sel, touches, event);
+}
+
 MSHook(void, SBStatusBar$mouseDown$, SBStatusBar *self, SEL sel, GSEventRef event) {
     MSAlert();
     _SBStatusBar$mouseDown$(self, sel, event);
@@ -120,10 +119,10 @@ static void SBIconController$showInfoAlertIfNeeded(id self, SEL sel) {
     MSAlert();
 }
 
-static int SBButtonBar$maxIconColumns(id<MobileSubstrate> self, SEL sel) {
+MSHook(int, SBButtonBar$maxIconColumns, SBButtonBar *self, SEL sel) {
     static int max;
     if (max == 0) {
-        max = [self ms$maxIconColumns];
+        max = _SBButtonBar$maxIconColumns(self, sel);
         if (NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults])
             if (NSDictionary *iconState = [defaults objectForKey:@"iconState"])
                 if (NSDictionary *buttonBar = [iconState objectForKey:@"buttonBar"])
@@ -137,38 +136,23 @@ static int SBButtonBar$maxIconColumns(id<MobileSubstrate> self, SEL sel) {
     } return max;
 }
 
-static id SBContentLayer$initWithSize$(SBContentLayer<MobileSubstrate> *self, SEL sel, CGSize size) {
-    self = [self ms$initWithSize:size];
-    if (self == nil)
-        return nil;
-    [self setBackgroundColor:[UIColor darkGrayColor]];
-    return self;
+MSHook(id, SBUIController$init, SBUIController *self, SEL sel) {
+    if ((self = _SBUIController$init(self, sel)) != nil) {
+        UIView *&_contentLayer(MSHookIvar<UIView *>(self, "_contentLayer"));
+        UIView *&_contentView(MSHookIvar<UIView *>(self, "_contentView"));
+
+        UIView *layer;
+        if (&_contentLayer != NULL)
+            layer = _contentLayer;
+        else if (&_contentView != NULL)
+            layer = _contentView;
+        else
+            layer = nil;
+
+        if (layer != nil)
+            [layer setBackgroundColor:[UIColor darkGrayColor]];
+    } return self;
 }
-
-/*MSHook(void, SBSlidingAlertDisplay$updateDesktopImage$, SBSlidingAlertDisplay *self, SEL sel, UIImage *image) {
-    NSString *text(@"\"Sad iPhone\" by Geoff Stearns");
-    UIView *&_backgroundView(MSHookIvar<UIView *>(self, "_backgroundView"));
-    if (_backgroundView != nil)
-        text = nil;
-    _SBSlidingAlertDisplay$updateDesktopImage$(self, sel, image);
-    if (text != nil) {
-        UIFont *font([UIFont systemFontOfSize:12]);
-        CGRect rect([self frame]);
-        CGSize size([text sizeWithFont:font]);
-        rect.origin.y = 385 - 3 - 14;//size.height;
-        rect.size.height = size.height;
-
-        UITextView *view([[UITextView alloc] initWithFrame:rect]);
-        [view setTextAlignment:UITextAlignmentCenter];
-        [view setMarginTop:0];
-        [view setFont:font];
-        [view setText:text];
-        [view setTextColor:[UIColor grayColor]];
-        [view setBackgroundColor:[UIColor clearColor]];
-
-        [self insertSubview:view aboveSubview:_backgroundView];
-    }
-}*/
 
 #define Paper_ "/Library/MobileSubstrate/MobilePaper.png"
 
@@ -197,13 +181,13 @@ extern "C" void MSInitialize() {
 
     NSLog(@"MS:Warning: Entering Safe Mode");
 
-    MSHookMessage(objc_getClass("SBButtonBar"), @selector(maxIconColumns), (IMP) &SBButtonBar$maxIconColumns, "ms$");
-    MSHookMessage(objc_getClass("SBContentLayer"), @selector(initWithSize:), (IMP) &SBContentLayer$initWithSize$, "ms$");
+    _SBButtonBar$maxIconColumns = MSHookMessage(objc_getClass("SBButtonBar"), @selector(maxIconColumns), &$SBButtonBar$maxIconColumns);
+    _SBUIController$init = MSHookMessage(objc_getClass("SBUIController"), @selector(init), &$SBUIController$init);
+    _SBStatusBar$touchesEnded$withEvent$ = MSHookMessage(objc_getClass("SBStatusBar"), @selector(touchesEnded:withEvent:), &$SBStatusBar$touchesEnded$withEvent$);
     _SBStatusBar$mouseDown$ = MSHookMessage(objc_getClass("SBStatusBar"), @selector(mouseDown:), &$SBStatusBar$mouseDown$);
     _SBStatusBarTimeView$tile = MSHookMessage(objc_getClass("SBStatusBarTimeView"), @selector(tile), &$SBStatusBarTimeView$tile);
 
     _UIImage$defaultDesktopImage = MSHookMessage(object_getClass(objc_getClass("UIImage")), @selector(defaultDesktopImage), &$UIImage$defaultDesktopImage);
-    //_SBSlidingAlertDisplay$updateDesktopImage$ = MSHookMessage(objc_getClass("SBSlidingAlertDisplay"), @selector(updateDesktopImage:), &$SBSlidingAlertDisplay$updateDesktopImage$);
 
     char *dil = getenv("DYLD_INSERT_LIBRARIES");
     if (dil == NULL)

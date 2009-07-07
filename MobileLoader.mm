@@ -78,7 +78,7 @@ extern "C" void MSInitialize() {
     if (identifier == NULL)
         return;
 
-    CFLog(kCFLogLevelDebug, CFSTR("MS:Notice: Installing: %@"), identifier);
+    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@"), identifier);
 
     if (CFEqual(identifier, CFSTR("com.apple.springboard"))) {
         CFURLRef home(CFCopyHomeDirectoryURLForUser(NULL));
@@ -134,7 +134,7 @@ sigaction(signum, NULL, &old); { \
     }
 
 #if 0
-    CFLog(kCFLogLevelDebug, CFSTR("MS:Notice: Hooking: nlist()"));
+    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Hooking: nlist()"));
     MSHookFunction(&__fdnlist, &$__fdnlist);
     //MSHookFunction(&nlist, &$nlist);
 #endif
@@ -194,7 +194,7 @@ sigaction(signum, NULL, &old); { \
             continue;
 
         memcpy(path + length - 5, "dylib", 5);
-        CFLog(kCFLogLevelDebug, CFSTR("MS:Notice: Loading: %s"), path);
+        CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Loading: %s"), path);
 
         if (MSWatch[0] != '\0') {
             int fd(open(MSWatch, O_CREAT | O_RDWR, 0644));
