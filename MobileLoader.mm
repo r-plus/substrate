@@ -78,7 +78,7 @@ extern "C" void MSInitialize() {
     if (identifier == NULL)
         return;
 
-    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@"), identifier);
+    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@ (%f)"), identifier, kCFCoreFoundationVersionNumber);
 
     if (CFEqual(identifier, CFSTR("com.apple.springboard"))) {
         CFURLRef home(CFCopyHomeDirectoryURLForUser(NULL));
@@ -175,10 +175,44 @@ sigaction(signum, NULL, &old); { \
         if (meta == NULL)
             load = true;
         else {
-            load = false;
+            load = true;
 
-            if (CFDictionaryRef filter = reinterpret_cast<CFDictionaryRef>(CFDictionaryGetValue(meta, CFSTR("Filter"))))
-                if (CFArrayRef bundles = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("Bundles"))))
+            if (CFDictionaryRef filter = reinterpret_cast<CFDictionaryRef>(CFDictionaryGetValue(meta, CFSTR("Filter")))) {
+                if (CFArrayRef version = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("CoreFoundationVersion")))) {
+                    load = false;
+
+                    if (CFIndex count = CFArrayGetCount(version)) {
+                        if (count > 2) {
+                            CFLog(kCFLogLevelError, CFSTR("MS:Error: Invalid CoreFoundationVersion: %@"), version);
+                            goto release;
+                        }
+
+                        CFNumberRef number;
+                        double value;
+
+                        number = reinterpret_cast<CFNumberRef>(CFArrayGetValueAtIndex(version, 0));
+                        CFNumberGetValue(number, kCFNumberDoubleType, &value);
+                        if (value > kCFCoreFoundationVersionNumber)
+                            goto release;
+
+                        if (count == 1) {
+                            load = true;
+                            goto bundles;
+                        }
+
+                        number = reinterpret_cast<CFNumberRef>(CFArrayGetValueAtIndex(version, 1));
+                        CFNumberGetValue(number, kCFNumberDoubleType, &value);
+                        if (value <= kCFCoreFoundationVersionNumber)
+                            goto release;
+
+                        load = true;
+                    }
+                }
+
+              bundles:
+                if (CFArrayRef bundles = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("Bundles")))) {
+                    load = false;
+
                     for (CFIndex i(0), count(CFArrayGetCount(bundles)); i != count; ++i) {
                         CFStringRef bundle(reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(bundles, i)));
                         if (CFBundleGetBundleWithIdentifier(bundle) != NULL) {
@@ -186,7 +220,10 @@ sigaction(signum, NULL, &old); { \
                             break;
                         }
                     }
+                }
+            }
 
+          release:
             CFRelease(meta);
         }
 
