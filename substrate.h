@@ -67,7 +67,7 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
 
 #define MSHook(type, name, args...) \
     static type (*_ ## name)(args); \
-    static type $ ## name(args) \
+    static type $ ## name(args)
 
 #define Foundation_f "/System/Library/Frameworks/Foundation.framework/Foundation"
 #define UIKit_f "/System/Library/Frameworks/UIKit.framework/UIKit"
