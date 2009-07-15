@@ -144,7 +144,10 @@ enum A$r {
 #define A$bx_r0           0xe12fff10 /* bx r0             */
 
 #define T$pop_$r0$ 0xbc01 // pop {r0}
-#define T$bx_pc    0x4778 // bx pc
+#define T$blx(rm) /* blx rm */ \
+    (0x4780 | (rm << 3))
+#define T$bx(rm) /* bx rm */ \
+    (0x4700 | (rm << 3))
 #define T$nop      0x46c0 // nop
 
 #define T$add_rd_rm(rd, rm) /* add rd, rm */ \
@@ -168,6 +171,10 @@ static inline bool A$pcrel$r(uint32_t ic) {
 
 static inline bool T$32bit$i(uint16_t ic) {
     return ((ic & 0xe000) == 0xe000 && (ic & 0x1800) != 0x0000);
+}
+
+static inline bool T$pcrel$bl(uint16_t ic) {
+    return (ic & 0xf800) == 0xf000;
 }
 
 static inline bool T$pcrel$ldr(uint16_t ic) {
@@ -223,7 +230,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (align != 0)
         thumb[0] = T$nop;
 
-    thumb[align+0] = T$bx_pc;
+    thumb[align+0] = T$bx(A$pc);
     thumb[align+1] = T$nop;
 
     uint32_t *arm = reinterpret_cast<uint32_t *>(thumb + 2 + align);
@@ -249,7 +256,10 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         for (unsigned offset(0); offset != used; ++offset)
             if (T$pcrel$ldr(backup[offset]))
                 size += 3;
-            else if (T$pcrel$ldrw(backup[offset])) {
+            else if (T$pcrel$bl(backup[offset])) {
+                size += 5;
+                ++offset;
+            } else if (T$pcrel$ldrw(backup[offset])) {
                 size += 2;
                 ++offset;
             } else if (T$pcrel$add(backup[offset]))
@@ -296,6 +306,62 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
                 start += 2;
                 end -= 2;
+            } else if (T$pcrel$bl(backup[offset])) {
+                /* XXX: this is not thumb two: I hate you ARMv7 */
+
+                union {
+                    uint32_t value;
+
+                    struct {
+                        uint16_t immediate : 11;
+                        uint16_t h : 2;
+                        uint16_t : 3;
+                    };
+                } bits = {backup[offset+0]};
+
+                union {
+                    uint32_t value;
+
+                    struct {
+                        uint16_t immediate : 11;
+                        uint16_t : 1;
+                        uint16_t x : 1;
+                        uint16_t : 3;
+                    };
+                } exts = {backup[offset+1]};
+
+                intptr_t jump(0);
+                jump |= bits.immediate << 12;
+                jump |= exts.immediate << 1;
+                jump |= exts.x;
+                jump <<= 9;
+                jump >>= 9;
+
+                buffer[start+0] = T$push_r(1 << A$r7);
+                buffer[start+1] = T$ldr_rd_$pc_im_4$(A$r7, ((end-2 - (start+1)) * 2 - 4 + 2) / 4);
+                buffer[start+2] = T$mov_rd_rm(A$lr, A$r7);
+                buffer[start+3] = T$pop_r(1 << A$r7);
+                buffer[start+4] = T$blx(A$lr);
+                *--trailer = reinterpret_cast<uint32_t>(thumb + offset) + 4 + jump;
+
+                ++offset;
+                start += 5;
+                end -= 2;
+
+#if 0
+                if ((start & 0x1) == 0)
+                    buffer[start++] = T$nop;
+                buffer[start++] = T$bx(A$pc);
+                buffer[start++] = T$nop;
+
+                uint32_t *arm(reinterpret_cast<uint32_t *>(buffer + start));
+                arm[0] = A$add(A$lr, A$pc, 1);
+                arm[1] = A$ldr_rd_$rn_im$(A$pc, A$pc, (trailer - arm) * sizeof(uint32_t) - 8);
+
+                ++offset;
+                start += 2;
+                end -= 2;
+#endif
             } else if (T$pcrel$ldrw(backup[offset])) {
                 union {
                     uint32_t value;
@@ -358,7 +424,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
             }
         }
 
-        buffer[start++] = T$bx_pc;
+        buffer[start++] = T$bx(A$pc);
         buffer[start++] = T$nop;
 
         uint32_t *transfer = reinterpret_cast<uint32_t *>(buffer + start);
