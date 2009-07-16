@@ -173,8 +173,8 @@ static inline bool T$32bit$i(uint16_t ic) {
     return ((ic & 0xe000) == 0xe000 && (ic & 0x1800) != 0x0000);
 }
 
-static inline bool T$pcrel$bl(uint16_t ic) {
-    return (ic & 0xf800) == 0xf000;
+static inline bool T$pcrel$bl(uint16_t *ic) {
+    return (ic[0] & 0xf800) == 0xf000 && (ic[1] & 0xf800) == 0xe800;
 }
 
 static inline bool T$pcrel$ldr(uint16_t ic) {
@@ -256,7 +256,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         for (unsigned offset(0); offset != used; ++offset)
             if (T$pcrel$ldr(backup[offset]))
                 size += 3;
-            else if (T$pcrel$bl(backup[offset])) {
+            else if (T$pcrel$bl(backup + offset)) {
                 size += 5;
                 ++offset;
             } else if (T$pcrel$ldrw(backup[offset])) {
@@ -306,7 +306,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
                 start += 2;
                 end -= 2;
-            } else if (T$pcrel$bl(backup[offset])) {
+            } else if (T$pcrel$bl(backup + offset)) {
                 /* XXX: this is not thumb two: I hate you ARMv7 */
 
                 union {
