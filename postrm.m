@@ -12,18 +12,11 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     CFWriteStreamClose(stream);
 }
 
-#define plist_ "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"
 #define dylib_ @"/Library/MobileSubstrate/MobileSubstrate.dylib"
+#define itunesstored_plist "/System/Library/LaunchDaemons/com.apple.itunesstored.plist"
 
-int main(int argc, char *argv[]) {
-    if (argc < 2 || (
-        strcmp(argv[1], "abort-install") != 0 &&
-        strcmp(argv[1], "remove") != 0
-    )) return 0;
-
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-
-    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) plist_, strlen(plist_), false);
+bool HookEnvironment(const char *path) {
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
     CFPropertyListRef plist; {
         CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
@@ -32,21 +25,19 @@ int main(int argc, char *argv[]) {
         CFReadStreamClose(stream);
     }
 
-    const char *finish = "restart";
-
     NSMutableDictionary *root = (NSMutableDictionary *) plist;
     if (root == nil)
-        goto quick;
+        return false;
     NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
     if (ev == nil)
-        goto quick;
+        return false;
     NSString *il = [ev objectForKey:@"DYLD_INSERT_LIBRARIES"];
     if (il == nil)
-        goto quick;
+        return false;
     NSArray *cm = [il componentsSeparatedByString:@":"];
     unsigned index = [cm indexOfObject:dylib_];
     if (index == INT_MAX)
-        goto quick;
+        return false;
     NSMutableArray *cmm = [NSMutableArray arrayWithCapacity:16];
     [cmm addObjectsFromArray:cm];
     [cmm removeObject:dylib_];
@@ -57,10 +48,24 @@ int main(int argc, char *argv[]) {
     else
         [ev removeObjectForKey:@"DYLD_INSERT_LIBRARIES"];
 
-    SavePropertyList(plist, "", url, kCFPropertyListXMLFormat_v1_0);
+    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
+    return true;
+}
 
-    finish = "reload";
-  quick:;
+int main(int argc, char *argv[]) {
+    if (argc < 2 || (
+        strcmp(argv[1], "abort-install") != 0 &&
+        strcmp(argv[1], "remove") != 0
+    )) return 0;
+
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    if (HookEnvironment(itunesstored_plist))
+        system("launchctl unload "itunesstored_plist"; launchctl load "itunesstored_plist"");
+
+    const char *finish = "restart";
+    if (HookEnvironment("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"))
+        finish = "reload";
 
     const char *cydia = getenv("CYDIA");
     if (cydia != NULL) {

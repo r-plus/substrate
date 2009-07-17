@@ -78,7 +78,7 @@ extern "C" void MSInitialize() {
     if (identifier == NULL)
         return;
 
-    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@ (%f)"), identifier, kCFCoreFoundationVersionNumber);
+    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@ (%.2f)"), identifier, kCFCoreFoundationVersionNumber);
 
     if (CFEqual(identifier, CFSTR("com.apple.springboard"))) {
         CFURLRef home(CFCopyHomeDirectoryURLForUser(NULL));

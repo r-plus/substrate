@@ -307,15 +307,13 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
                 start += 2;
                 end -= 2;
             } else if (T$pcrel$bl(backup + offset)) {
-                /* XXX: this is not thumb two: I hate you ARMv7 */
-
                 union {
                     uint32_t value;
 
                     struct {
-                        uint16_t immediate : 11;
-                        uint16_t h : 2;
-                        uint16_t : 3;
+                        uint16_t immediate : 10;
+                        uint16_t s : 1;
+                        uint16_t : 5;
                     };
                 } bits = {backup[offset+0]};
 
@@ -324,18 +322,22 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
                     struct {
                         uint16_t immediate : 11;
-                        uint16_t : 1;
+                        uint16_t j2 : 1;
                         uint16_t x : 1;
-                        uint16_t : 3;
+                        uint16_t j1 : 1;
+                        uint16_t : 2;
                     };
                 } exts = {backup[offset+1]};
 
                 intptr_t jump(0);
+                jump |= bits.s << 24;
+                jump |= (~(bits.s ^ exts.j1) & 0x1) << 23;
+                jump |= (~(bits.s ^ exts.j2) & 0x1) << 22;
                 jump |= bits.immediate << 12;
                 jump |= exts.immediate << 1;
                 jump |= exts.x;
-                jump <<= 9;
-                jump >>= 9;
+                jump <<= 7;
+                jump >>= 7;
 
                 buffer[start+0] = T$push_r(1 << A$r7);
                 buffer[start+1] = T$ldr_rd_$pc_im_4$(A$r7, ((end-2 - (start+1)) * 2 - 4 + 2) / 4);
@@ -580,25 +582,30 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
     if (_class == nil) {
         fprintf(stderr, "MS:Warning: nil class argument\n");
         return NULL;
+    } else if (sel == nil) {
+        fprintf(stderr, "MS:Warning: nil sel argument\n");
+        return NULL;
+    } else if (imp == nil) {
+        fprintf(stderr, "MS:Warning: nil imp argument\n");
+        return NULL;
     }
 
-    const char *name = sel_getName(sel);
+    const char *name(sel_getName(sel));
 
-    Method method = class_getInstanceMethod(_class, sel);
+    Method method(class_getInstanceMethod(_class, sel));
     if (method == nil) {
         fprintf(stderr, "MS:Warning: message not found [%s %s]\n", class_getName(_class), name);
         return NULL;
     }
 
-    const char *type = method_getTypeEncoding(method);
-
-    IMP old = method_getImplementation(method);
+    const char *type(method_getTypeEncoding(method));
+    IMP old(method_getImplementation(method));
 
     if (prefix != NULL) {
-        size_t namelen = strlen(name);
-        size_t fixlen = strlen(prefix);
+        size_t namelen(strlen(name));
+        size_t fixlen(strlen(prefix));
 
-        char *newname = reinterpret_cast<char *>(alloca(fixlen + namelen + 1));
+        char *newname(reinterpret_cast<char *>(alloca(fixlen + namelen + 1)));
         memcpy(newname, prefix, fixlen);
         memcpy(newname + fixlen, name, namelen + 1);
 
@@ -607,19 +614,15 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
     }
 
     unsigned int count;
-    Method *methods = class_copyMethodList(_class, &count);
+    Method *methods(class_copyMethodList(_class, &count));
     for (unsigned int index(0); index != count; ++index)
-        if (methods[index] == method)
-            goto found;
+        if (methods[index] == method) {
+            method_setImplementation(method, imp);
+            goto done;
+        }
 
-    if (imp != NULL)
-        if (!class_addMethod(_class, sel, imp, type))
-            fprintf(stderr, "MS:Error: failed to rename [%s %s]\n", class_getName(_class), name);
-    goto done;
-
-  found:
-    if (imp != NULL)
-        method_setImplementation(method, imp);
+    if (!class_addMethod(_class, sel, imp, type))
+        fprintf(stderr, "MS:Error: failed to add [%s %s]\n", class_getName(_class), name);
 
   done:
     free(methods);
