@@ -78,6 +78,8 @@ extern "C" void MSInitialize() {
     if (identifier == NULL)
         return;
 
+    Class (*NSClassFromString)(NSString *) = reinterpret_cast<Class (*)(NSString *)>(dlsym(RTLD_DEFAULT, "NSClassFromString"));
+
     CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@ (%.2f)"), identifier, kCFCoreFoundationVersionNumber);
 
     if (CFEqual(identifier, CFSTR("com.apple.springboard"))) {
@@ -195,21 +197,17 @@ sigaction(signum, NULL, &old); { \
                         if (value > kCFCoreFoundationVersionNumber)
                             goto release;
 
-                        if (count == 1) {
-                            load = true;
-                            goto bundles;
+                        if (count != 1) {
+                            number = reinterpret_cast<CFNumberRef>(CFArrayGetValueAtIndex(version, 1));
+                            CFNumberGetValue(number, kCFNumberDoubleType, &value);
+                            if (value <= kCFCoreFoundationVersionNumber)
+                                goto release;
                         }
-
-                        number = reinterpret_cast<CFNumberRef>(CFArrayGetValueAtIndex(version, 1));
-                        CFNumberGetValue(number, kCFNumberDoubleType, &value);
-                        if (value <= kCFCoreFoundationVersionNumber)
-                            goto release;
 
                         load = true;
                     }
                 }
 
-              bundles:
                 if (CFArrayRef bundles = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("Bundles")))) {
                     load = false;
 
@@ -220,6 +218,25 @@ sigaction(signum, NULL, &old); { \
                             break;
                         }
                     }
+
+                    if (!load)
+                        goto release;
+                }
+
+                if (CFArrayRef classes = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("Classes")))) {
+                    load = false;
+
+                    if (NSClassFromString != NULL)
+                        for (CFIndex i(0), count(CFArrayGetCount(classes)); i != count; ++i) {
+                            CFStringRef _class(reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(classes, i)));
+                            if (NSClassFromString((NSString *) _class) != NULL) {
+                                load = true;
+                                break;
+                            }
+                        }
+
+                    if (!load)
+                        goto release;
                 }
             }
 
