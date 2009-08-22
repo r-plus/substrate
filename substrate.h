@@ -39,6 +39,11 @@ static inline Type_ *MSHookMessage(Class _class, SEL sel, Type_ *imp, const char
 }
 
 template <typename Type_>
+static inline void MSHookMessageEx(Class _class, SEL sel, Type_ *imp, Type_ **result) {
+    return MSHookMessageEx(_class, sel, reinterpret_cast<IMP>(imp), reinterpret_cast<IMP *>(result));
+}
+
+template <typename Type_>
 static inline void MSHookFunction(Type_ *symbol, Type_ *replace, Type_ **result) {
     return MSHookFunction(
         reinterpret_cast<void *>(symbol),
@@ -69,6 +74,9 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
 #define MSHook(type, name, args...) \
     static type (*_ ## name)(args); \
     static type $ ## name(args)
+
+#define MSHake(name) \
+    &$ ## name, &_ ## name
 
 #define Foundation_f "/System/Library/Frameworks/Foundation.framework/Foundation"
 #define UIKit_f "/System/Library/Frameworks/UIKit.framework/UIKit"
