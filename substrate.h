@@ -25,6 +25,7 @@ extern "C" {
 
 void MSHookFunction(void *symbol, void *replace, void **result);
 IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix _default(NULL));
+void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result);
 
 #ifdef __cplusplus
 }

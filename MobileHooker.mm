@@ -197,6 +197,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
     uintptr_t base = address / page * page;
 
+    /* XXX: this 12 needs to account for a trailing 32-bit instruction */
     if (page - (reinterpret_cast<uintptr_t>(symbol) - base) < 12)
         page *= 2;
 
@@ -214,33 +215,51 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     unsigned align((address & 0x2) == 0 ? 0 : 1);
     used += align;
 
-    unsigned index(0);
-    while (index < used)
-        if (T$32bit$i(thumb[index]))
-            index += 2;
-        else
-            index += 1;
-
-    unsigned blank(index - used);
-    used += blank;
-
-    uint16_t backup[used];
-    memcpy(backup, thumb, sizeof(uint16_t) * used);
-
-    if (align != 0)
-        thumb[0] = T$nop;
-
-    thumb[align+0] = T$bx(A$pc);
-    thumb[align+1] = T$nop;
-
+    /* XXX: this makes the baby Jesus cry */
     uint32_t *arm = reinterpret_cast<uint32_t *>(thumb + 2 + align);
-    arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
-    arm[1] = reinterpret_cast<uint32_t>(replace);
+    uint16_t backup[used];
 
-    for (unsigned offset(0); offset != blank; ++offset)
-        reinterpret_cast<uint16_t *>(arm + 2)[offset] = T$nop;
+    if (
+        (align == 0 || thumb[0] == T$nop) &&
+        thumb[align+0] == T$bx(A$pc) &&
+        thumb[align+1] == T$nop && 
+        arm[0] == A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8)
+    ) {
+        if (result != NULL) {
+            *result = reinterpret_cast<void *>(arm[1]);
+            result = NULL;
+        }
 
-    __clear_cache(reinterpret_cast<char *>(thumb), reinterpret_cast<char *>(thumb + used));
+        arm[1] = reinterpret_cast<uint32_t>(replace);
+
+        __clear_cache(reinterpret_cast<char *>(arm + 1), reinterpret_cast<char *>(arm + 2));
+    } else {
+        unsigned index(0);
+        while (index < used)
+            if (T$32bit$i(thumb[index]))
+                index += 2;
+            else
+                index += 1;
+
+        unsigned blank(index - used);
+        used += blank;
+
+        memcpy(backup, thumb, sizeof(uint16_t) * used);
+
+        if (align != 0)
+            thumb[0] = T$nop;
+
+        thumb[align+0] = T$bx(A$pc);
+        thumb[align+1] = T$nop;
+
+        arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
+        arm[1] = reinterpret_cast<uint32_t>(replace);
+
+        for (unsigned offset(0); offset != blank; ++offset)
+            reinterpret_cast<uint16_t *>(arm + 2)[offset] = T$nop;
+
+        __clear_cache(reinterpret_cast<char *>(thumb), reinterpret_cast<char *>(thumb + used));
+    }
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
@@ -578,16 +597,16 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 #endif
 
 #ifdef __APPLE__
-extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
+static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, const char *prefix) {
     if (_class == nil) {
         fprintf(stderr, "MS:Warning: nil class argument\n");
-        return NULL;
+        return;
     } else if (sel == nil) {
         fprintf(stderr, "MS:Warning: nil sel argument\n");
-        return NULL;
+        return;
     } else if (imp == nil) {
         fprintf(stderr, "MS:Warning: nil imp argument\n");
-        return NULL;
+        return;
     }
 
     const char *name(sel_getName(sel));
@@ -595,11 +614,14 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
     Method method(class_getInstanceMethod(_class, sel));
     if (method == nil) {
         fprintf(stderr, "MS:Warning: message not found [%s %s]\n", class_getName(_class), name);
-        return NULL;
+        return;
     }
 
     const char *type(method_getTypeEncoding(method));
     IMP old(method_getImplementation(method));
+
+    if (result != NULL)
+        *result = old;
 
     if (prefix != NULL) {
         size_t namelen(strlen(name));
@@ -613,21 +635,20 @@ extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix)
             fprintf(stderr, "MS:Error: failed to rename [%s %s]\n", class_getName(_class), name);
     }
 
-    unsigned int count;
-    Method *methods(class_copyMethodList(_class, &count));
-    for (unsigned int index(0); index != count; ++index)
-        if (methods[index] == method) {
-            method_setImplementation(method, imp);
-            goto done;
-        }
-
     if (!class_addMethod(_class, sel, imp, type))
-        fprintf(stderr, "MS:Error: failed to add [%s %s]\n", class_getName(_class), name);
-
-  done:
-    free(methods);
-    return old;
+        method_setImplementation(method, imp);
 }
+
+extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
+    IMP result = NULL;
+    MSHookMessageInternal(_class, sel, imp, &result, prefix);
+    return result;
+}
+
+extern "C" void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result) {
+    MSHookMessageInternal(_class, sel, imp, result, NULL);
+}
+
 #endif
 
 #if defined(__APPLE__) && defined(__arm__)
