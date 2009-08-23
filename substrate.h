@@ -39,7 +39,7 @@ static inline Type_ *MSHookMessage(Class _class, SEL sel, Type_ *imp, const char
 }
 
 template <typename Type_>
-static inline void MSHookMessageEx(Class _class, SEL sel, Type_ *imp, Type_ **result) {
+static inline void MSHookMessage(Class _class, SEL sel, Type_ *imp, Type_ **result) {
     return MSHookMessageEx(_class, sel, reinterpret_cast<IMP>(imp), reinterpret_cast<IMP *>(result));
 }
 
