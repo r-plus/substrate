@@ -101,6 +101,8 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
     } } V_$ ## dollar; \
     static _finline type _$ ## name ## $ ## dollar(Class _cls, type (*_old)(_class, SEL, ## args), _class self, SEL _cmd, ## args)
 
+/* for((x=1;x!=7;++x)){ echo -n "#define MSMessageHook${x}_(type, _class, name";for((y=0;y!=x;++y));do echo -n ", sel$y";done;for((y=0;y!=x;++y));do echo -n ", type$y, arg$y";done;echo ") \\";echo -n "    MSMessageHook_(type, _class, name,";for((y=0;y!=x;++y));do if [[ $y -ne 0 ]];then echo -n " ##";fi;echo -n " sel$y ## $";done;echo -n ", ";for((y=0;y!=x;++y));do echo -n "sel$y:";done;echo -n ", (_cls, _old, self, _cmd";for((y=0;y!=x;++y));do echo -n ", arg$y";done;echo -n ")";for((y=0;y!=x;++y));do echo -n ", type$y arg$y";done;echo ")";} */
+
 #define MSMessageHook0_(type, _class, name, sel0) \
     MSMessageHook_(type, _class, name, sel0, sel0, (_cls, _old, self, _cmd))
 #define MSMessageHook1_(type, _class, name, sel0, type0, arg0) \
