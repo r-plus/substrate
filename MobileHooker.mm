@@ -597,6 +597,7 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 #endif
 
 #ifdef __APPLE__
+
 static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, const char *prefix) {
     if (_class == nil) {
         fprintf(stderr, "MS:Warning: nil class argument\n");
