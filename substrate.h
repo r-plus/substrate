@@ -116,70 +116,94 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
 #define MSHookMessage6(_class, arg0, arg1, arg2, arg3, arg4, arg5) \
     MSHookMessage($ ## _class, @selector(arg0:arg1:arg2:arg3:arg4:arg5:), MSHake(_class ## $ ## arg0 ## $ ## arg1 ## $ ## arg2 ## $ ## arg3 ## $ ## arg4 ## $ ## arg5 ## $))
 
-#define MSMessageHook_(type, _class, name, dollar, colon, call, args...) \
-    static type _$ ## name ## $ ## dollar(Class _cls, type (*_old)(_class, SEL, ## args), type (*_spr)(struct objc_super *, SEL, ## args), _class self, SEL _cmd, ## args); \
-    MSHook(type, name ## $ ## dollar, _class self, SEL _cmd, ## args) { \
-        Class const _cls($ ## name); \
-        type (* const _old)(_class, SEL, ## args) = _ ## name ## $ ## dollar; \
-        type (*_spr)(struct objc_super *, SEL, ## args) = ::etl::IsClass<type>::value ? reinterpret_cast<type (*)(struct objc_super *, SEL, ## args)>(&objc_msgSendSuper_stret) : reinterpret_cast<type (*)(struct objc_super *, SEL, ## args)>(&objc_msgSendSuper); \
-        return _$ ## name ## $ ## dollar call; \
-    } \
+#define MSRegister_(name, dollar, colon) \
     static class C_$ ## name ## $ ## dollar { public: _finline C_$ ## name ## $ ##dollar() { \
         MSHookMessage($ ## name, @selector(colon), MSHake(name ## $ ## dollar)); \
     } } V_$ ## dollar; \
+
+#define MSIgnore_(name, dollar, colon)
+
+#define MSMessageHook_(extra, type, _class, name, dollar, colon, call, args...) \
+    static type _$ ## name ## $ ## dollar(Class _cls, type (*_old)(_class, SEL, ## args), type (*_spr)(struct objc_super *, SEL, ## args), _class self, SEL _cmd, ## args); \
+    MSFunction(type, name ## $ ## dollar, _class self, SEL _cmd, ## args) { \
+        Class const _cls($ ## name); \
+        type (* const _old)(_class, SEL, ## args) = _ ## name ## $ ## dollar; \
+        typedef type (*msgSendSuper_t)(struct objc_super *, SEL, ## args); \
+        msgSendSuper_t const _spr(::etl::IsClass<type>::value ? reinterpret_cast<msgSendSuper_t>(&objc_msgSendSuper_stret) : reinterpret_cast<msgSendSuper_t>(&objc_msgSendSuper)); \
+        return _$ ## name ## $ ## dollar call; \
+    } \
+    extra(name, dollar, colon) \
     static _finline type _$ ## name ## $ ## dollar(Class _cls, type (*_old)(_class, SEL, ## args), type (*_spr)(struct objc_super *, SEL, ## args), _class self, SEL _cmd, ## args)
 
-/* for((x=1;x!=7;++x)){ echo -n "#define MSMessageHook${x}_(type, _class, name";for((y=0;y!=x;++y));do echo -n ", sel$y";done;for((y=0;y!=x;++y));do echo -n ", type$y, arg$y";done;echo ") \\";echo -n "    MSMessageHook_(type, _class, name,";for((y=0;y!=x;++y));do if [[ $y -ne 0 ]];then echo -n " ##";fi;echo -n " sel$y ## $";done;echo -n ", ";for((y=0;y!=x;++y));do echo -n "sel$y:";done;echo -n ", (_cls, _old, _spr, self, _cmd";for((y=0;y!=x;++y));do echo -n ", arg$y";done;echo -n ")";for((y=0;y!=x;++y));do echo -n ", type$y arg$y";done;echo ")";} */
+/* for((x=1;x!=7;++x)){ echo -n "#define MSMessage${x}_(extra, type, _class, name";for((y=0;y!=x;++y));do echo -n ", sel$y";done;for((y=0;y!=x;++y));do echo -n ", type$y, arg$y";done;echo ") \\";echo -n "    MSMessageHook_(extra, type, _class, name,";for((y=0;y!=x;++y));do if [[ $y -ne 0 ]];then echo -n " ##";fi;echo -n " sel$y ## $";done;echo -n ", ";for((y=0;y!=x;++y));do echo -n "sel$y:";done;echo -n ", (_cls, _old, _spr, self, _cmd";for((y=0;y!=x;++y));do echo -n ", arg$y";done;echo -n ")";for((y=0;y!=x;++y));do echo -n ", type$y arg$y";done;echo ")";} */
 
-#define MSMessageHook0_(type, _class, name, sel0) \
-    MSMessageHook_(type, _class, name, sel0, sel0, (_cls, _old, _spr, self, _cmd))
-#define MSMessageHook1_(type, _class, name, sel0, type0, arg0) \
-    MSMessageHook_(type, _class, name, sel0 ## $, sel0:, (_cls, _old, _spr, self, _cmd, arg0), type0 arg0)
-#define MSMessageHook2_(type, _class, name, sel0, sel1, type0, arg0, type1, arg1) \
-    MSMessageHook_(type, _class, name, sel0 ## $ ## sel1 ## $, sel0:sel1:, (_cls, _old, _spr, self, _cmd, arg0, arg1), type0 arg0, type1 arg1)
-#define MSMessageHook3_(type, _class, name, sel0, sel1, sel2, type0, arg0, type1, arg1, type2, arg2) \
-    MSMessageHook_(type, _class, name, sel0 ## $ ## sel1 ## $ ## sel2 ## $, sel0:sel1:sel2:, (_cls, _old, _spr, self, _cmd, arg0, arg1, arg2), type0 arg0, type1 arg1, type2 arg2)
-#define MSMessageHook4_(type, _class, name, sel0, sel1, sel2, sel3, type0, arg0, type1, arg1, type2, arg2, type3, arg3) \
-    MSMessageHook_(type, _class, name, sel0 ## $ ## sel1 ## $ ## sel2 ## $ ## sel3 ## $, sel0:sel1:sel2:sel3:, (_cls, _old, _spr, self, _cmd, arg0, arg1, arg2, arg3), type0 arg0, type1 arg1, type2 arg2, type3 arg3)
-#define MSMessageHook5_(type, _class, name, sel0, sel1, sel2, sel3, sel4, type0, arg0, type1, arg1, type2, arg2, type3, arg3, type4, arg4) \
-    MSMessageHook_(type, _class, name, sel0 ## $ ## sel1 ## $ ## sel2 ## $ ## sel3 ## $ ## sel4 ## $, sel0:sel1:sel2:sel3:sel4:, (_cls, _old, _spr, self, _cmd, arg0, arg1, arg2, arg3, arg4), type0 arg0, type1 arg1, type2 arg2, type3 arg3, type4 arg4)
-#define MSMessageHook6_(type, _class, name, sel0, sel1, sel2, sel3, sel4, sel5, type0, arg0, type1, arg1, type2, arg2, type3, arg3, type4, arg4, type5, arg5) \
-    MSMessageHook_(type, _class, name, sel0 ## $ ## sel1 ## $ ## sel2 ## $ ## sel3 ## $ ## sel4 ## $ ## sel5 ## $, sel0:sel1:sel2:sel3:sel4:sel5:, (_cls, _old, _spr, self, _cmd, arg0, arg1, arg2, arg3, arg4, arg5), type0 arg0, type1 arg1, type2 arg2, type3 arg3, type4 arg4, type5 arg5)
+#define MSMessage0_(extra, type, _class, name, sel0) \
+    MSMessageHook_(extra, type, _class, name, sel0, sel0, (_cls, _old, _spr, self, _cmd))
+#define MSMessage1_(extra, type, _class, name, sel0, type0, arg0) \
+    MSMessageHook_(extra, type, _class, name, sel0 ## $, sel0:, (_cls, _old, _spr, self, _cmd, arg0), type0 arg0)
+#define MSMessage2_(extra, type, _class, name, sel0, sel1, type0, arg0, type1, arg1) \
+    MSMessageHook_(extra, type, _class, name, sel0 ## $ ## sel1 ## $, sel0:sel1:, (_cls, _old, _spr, self, _cmd, arg0, arg1), type0 arg0, type1 arg1)
+#define MSMessage3_(extra, type, _class, name, sel0, sel1, sel2, type0, arg0, type1, arg1, type2, arg2) \
+    MSMessageHook_(extra, type, _class, name, sel0 ## $ ## sel1 ## $ ## sel2 ## $, sel0:sel1:sel2:, (_cls, _old, _spr, self, _cmd, arg0, arg1, arg2), type0 arg0, type1 arg1, type2 arg2)
+#define MSMessage4_(extra, type, _class, name, sel0, sel1, sel2, sel3, type0, arg0, type1, arg1, type2, arg2, type3, arg3) \
+    MSMessageHook_(extra, type, _class, name, sel0 ## $ ## sel1 ## $ ## sel2 ## $ ## sel3 ## $, sel0:sel1:sel2:sel3:, (_cls, _old, _spr, self, _cmd, arg0, arg1, arg2, arg3), type0 arg0, type1 arg1, type2 arg2, type3 arg3)
+#define MSMessage5_(extra, type, _class, name, sel0, sel1, sel2, sel3, sel4, type0, arg0, type1, arg1, type2, arg2, type3, arg3, type4, arg4) \
+    MSMessageHook_(extra, type, _class, name, sel0 ## $ ## sel1 ## $ ## sel2 ## $ ## sel3 ## $ ## sel4 ## $, sel0:sel1:sel2:sel3:sel4:, (_cls, _old, _spr, self, _cmd, arg0, arg1, arg2, arg3, arg4), type0 arg0, type1 arg1, type2 arg2, type3 arg3, type4 arg4)
+#define MSMessage6_(extra, type, _class, name, sel0, sel1, sel2, sel3, sel4, sel5, type0, arg0, type1, arg1, type2, arg2, type3, arg3, type4, arg4, type5, arg5) \
+    MSMessageHook_(extra, type, _class, name, sel0 ## $ ## sel1 ## $ ## sel2 ## $ ## sel3 ## $ ## sel4 ## $ ## sel5 ## $, sel0:sel1:sel2:sel3:sel4:sel5:, (_cls, _old, _spr, self, _cmd, arg0, arg1, arg2, arg3, arg4, arg5), type0 arg0, type1 arg1, type2 arg2, type3 arg3, type4 arg4, type5 arg5)
 
-#define MSMessageHook0(type, _class, args...) MSMessageHook0_(type, _class *, _class, ## args)
-#define MSMessageHook1(type, _class, args...) MSMessageHook1_(type, _class *, _class, ## args)
-#define MSMessageHook2(type, _class, args...) MSMessageHook2_(type, _class *, _class, ## args)
-#define MSMessageHook3(type, _class, args...) MSMessageHook3_(type, _class *, _class, ## args)
-#define MSMessageHook4(type, _class, args...) MSMessageHook4_(type, _class *, _class, ## args)
-#define MSMessageHook5(type, _class, args...) MSMessageHook5_(type, _class *, _class, ## args)
-#define MSMessageHook6(type, _class, args...) MSMessageHook6_(type, _class *, _class, ## args)
+#define MSInstanceMessage0(type, _class, args...) MSMessage0_(MSIgnore_, type, _class *, _class, ## args)
+#define MSInstanceMessage1(type, _class, args...) MSMessage1_(MSIgnore_, type, _class *, _class, ## args)
+#define MSInstanceMessage2(type, _class, args...) MSMessage2_(MSIgnore_, type, _class *, _class, ## args)
+#define MSInstanceMessage3(type, _class, args...) MSMessage3_(MSIgnore_, type, _class *, _class, ## args)
+#define MSInstanceMessage4(type, _class, args...) MSMessage4_(MSIgnore_, type, _class *, _class, ## args)
+#define MSInstanceMessage5(type, _class, args...) MSMessage5_(MSIgnore_, type, _class *, _class, ## args)
+#define MSInstanceMessage6(type, _class, args...) MSMessage6_(MSIgnore_, type, _class *, _class, ## args)
 
-#define MSMetaMessageHook0(type, _class, args...) MSMessageHook0_(type, Class, $ ## _class, ## args)
-#define MSMetaMessageHook1(type, _class, args...) MSMessageHook1_(type, Class, $ ## _class, ## args)
-#define MSMetaMessageHook2(type, _class, args...) MSMessageHook2_(type, Class, $ ## _class, ## args)
-#define MSMetaMessageHook3(type, _class, args...) MSMessageHook3_(type, Class, $ ## _class, ## args)
-#define MSMetaMessageHook4(type, _class, args...) MSMessageHook4_(type, Class, $ ## _class, ## args)
-#define MSMetaMessageHook5(type, _class, args...) MSMessageHook5_(type, Class, $ ## _class, ## args)
-#define MSMetaMessageHook6(type, _class, args...) MSMessageHook6_(type, Class, $ ## _class, ## args)
+#define MSClassMessage0(type, _class, args...) MSMessage0_(MSIgnore_, type, Class, $ ## _class, ## args)
+#define MSClassMessage1(type, _class, args...) MSMessage1_(MSIgnore_, type, Class, $ ## _class, ## args)
+#define MSClassMessage2(type, _class, args...) MSMessage2_(MSIgnore_, type, Class, $ ## _class, ## args)
+#define MSClassMessage3(type, _class, args...) MSMessage3_(MSIgnore_, type, Class, $ ## _class, ## args)
+#define MSClassMessage4(type, _class, args...) MSMessage4_(MSIgnore_, type, Class, $ ## _class, ## args)
+#define MSClassMessage5(type, _class, args...) MSMessage5_(MSIgnore_, type, Class, $ ## _class, ## args)
+#define MSClassMessage6(type, _class, args...) MSMessage6_(MSIgnore_, type, Class, $ ## _class, ## args)
+
+#define MSInstanceMessageHook0(type, _class, args...) MSMessage0_(MSRegister_, type, _class *, _class, ## args)
+#define MSInstanceMessageHook1(type, _class, args...) MSMessage1_(MSRegister_, type, _class *, _class, ## args)
+#define MSInstanceMessageHook2(type, _class, args...) MSMessage2_(MSRegister_, type, _class *, _class, ## args)
+#define MSInstanceMessageHook3(type, _class, args...) MSMessage3_(MSRegister_, type, _class *, _class, ## args)
+#define MSInstanceMessageHook4(type, _class, args...) MSMessage4_(MSRegister_, type, _class *, _class, ## args)
+#define MSInstanceMessageHook5(type, _class, args...) MSMessage5_(MSRegister_, type, _class *, _class, ## args)
+#define MSInstanceMessageHook6(type, _class, args...) MSMessage6_(MSRegister_, type, _class *, _class, ## args)
+
+#define MSClassMessageHook0(type, _class, args...) MSMessage0_(MSRegister_, type, Class, $ ## _class, ## args)
+#define MSClassMessageHook1(type, _class, args...) MSMessage1_(MSRegister_, type, Class, $ ## _class, ## args)
+#define MSClassMessageHook2(type, _class, args...) MSMessage2_(MSRegister_, type, Class, $ ## _class, ## args)
+#define MSClassMessageHook3(type, _class, args...) MSMessage3_(MSRegister_, type, Class, $ ## _class, ## args)
+#define MSClassMessageHook4(type, _class, args...) MSMessage4_(MSRegister_, type, Class, $ ## _class, ## args)
+#define MSClassMessageHook5(type, _class, args...) MSMessage5_(MSRegister_, type, Class, $ ## _class, ## args)
+#define MSClassMessageHook6(type, _class, args...) MSMessage6_(MSRegister_, type, Class, $ ## _class, ## args)
 
 #define MSOldCall(args...) \
     _old(self, _cmd, ## args)
 #define MSSuperCall(args...) \
     _spr(& (struct objc_super) {self, class_getSuperclass(_cls)}, _cmd, ## args)
 
-#define MSIvar(type, name) \
+#define MSIvarHook(type, name) \
     type &name(MSHookIvar<type>(self, #name))
 
-#define MSHookClass(name) \
+#define MSClassHook(name) \
     static Class $ ## name = objc_getClass(#name);
-#define MSHookMetaClass(name) \
+#define MSMetaClassHook(name) \
     static Class $$ ## name = object_getClass($ ## name);
 
 #endif
 
-#define MSHook(type, name, args...) \
+#define MSFunction(type, name, args...) \
     static type (*_ ## name)(args); \
     static type $ ## name(args)
+
+#define MSHook MSFunction
 
 #define MSHake(name) \
     &$ ## name, &_ ## name
