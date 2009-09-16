@@ -64,13 +64,12 @@ static void MSAction(int sig, siginfo_t *info, void *uap) {
 #define Libraries_ "/Library/MobileSubstrate/DynamicLibraries"
 #define Safety_ "/Library/MobileSubstrate/MobileSafety.dylib"
 
-#if 0
 extern "C" int __fdnlist(int fd, struct nlist *list);
 extern "C" int $__fdnlist(int fd, struct nlist *list);
-//extern "C" int $nlist(const char *file, struct nlist *list);
-#endif
+extern "C" int $nlist(const char *file, struct nlist *list);
+extern int (*_nlist)(const char *file, struct nlist *list);
 
-extern "C" void MSInitialize() {
+MSInitialize {
     if (dlopen(Foundation_f, RTLD_LAZY | RTLD_NOLOAD) == NULL)
         return;
     CFBundleRef bundle(CFBundleGetMainBundle());
@@ -135,11 +134,9 @@ sigaction(signum, NULL, &old); { \
         HookSignal(SIGSYS)
     }
 
-#if 0
     CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Hooking: nlist()"));
     MSHookFunction(&__fdnlist, &$__fdnlist);
-    //MSHookFunction(&nlist, &$nlist);
-#endif
+    MSHookFunction(&nlist, &$nlist, &_nlist);
 
     CFURLRef libraries(CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, reinterpret_cast<const UInt8 *>(Libraries_), sizeof(Libraries_) - 1, TRUE));
 

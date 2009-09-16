@@ -11,8 +11,8 @@ flags := -march=armv6 -mcpu=arm1176jzf-s -g0 -O2 -Wall #-Werror
 clean:
 	rm -f libsubstrate.dylib postrm extrainst_
 
-libsubstrate.dylib: MobileLoader.mm MobileHooker.mm makefile #nlist.c
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup -framework CoreFoundation -I. -lobjc
+libsubstrate.dylib: MobileLoader.mm MobileHooker.mm makefile nlist.cpp
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup -framework CoreFoundation -I. -lobjc
 	ldid -S $@
 
 MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
