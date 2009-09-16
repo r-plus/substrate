@@ -69,12 +69,12 @@ static char _MSHexChar(uint8_t value) {
 #define HexDepth_ 4
 
 void MSLogHex(const void *vdata, size_t size, const char *mark = 0) {
-    const uint8_t *data = (const uint8_t *) vdata;
+    const uint8_t *data((const uint8_t *) vdata);
 
-    size_t i = 0, j;
+    size_t i(0), j;
 
     char d[256];
-    size_t b = 0;
+    size_t b(0);
     d[0] = '\0';
 
     while (i != size) {
@@ -193,22 +193,22 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (symbol == NULL)
         return;
 
-    int page = getpagesize();
-    uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
-    uintptr_t base = address / page * page;
+    int page(getpagesize());
+    uintptr_t address(reinterpret_cast<uintptr_t>(symbol));
+    uintptr_t base(address / page * page);
 
     /* XXX: this 12 needs to account for a trailing 32-bit instruction */
     if (page - (reinterpret_cast<uintptr_t>(symbol) - base) < 12)
         page *= 2;
 
-    mach_port_t self = mach_task_self();
+    mach_port_t self(mach_task_self());
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
         return;
     }
 
-    uint16_t *thumb = reinterpret_cast<uint16_t *>(symbol);
+    uint16_t *thumb(reinterpret_cast<uint16_t *>(symbol));
 
     unsigned used(6);
 
@@ -216,7 +216,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     used += align;
 
     /* XXX: this makes the baby Jesus cry */
-    uint32_t *arm = reinterpret_cast<uint32_t *>(thumb + 2 + align);
+    uint32_t *arm(reinterpret_cast<uint32_t *>(thumb + 2 + align));
     uint16_t backup[used];
 
     if (
@@ -290,9 +290,9 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         size += pad + 2 + 2 * sizeof(uint32_t) / sizeof(uint16_t);
         size_t length(sizeof(uint16_t) * size);
 
-        uint16_t *buffer = reinterpret_cast<uint16_t *>(mmap(
+        uint16_t *buffer(reinterpret_cast<uint16_t *>(mmap(
             NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
-        ));
+        )));
 
         if (buffer == MAP_FAILED) {
             fprintf(stderr, "MS:Error:mmap():%d\n", errno);
@@ -471,21 +471,21 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     if (symbol == NULL)
         return;
 
-    int page = getpagesize();
-    uintptr_t address = reinterpret_cast<uintptr_t>(symbol);
-    uintptr_t base = address / page * page;
+    int page(getpagesize());
+    uintptr_t address(reinterpret_cast<uintptr_t>(symbol));
+    uintptr_t base(address / page * page);
 
     if (page - (reinterpret_cast<uintptr_t>(symbol) - base) < 8)
         page *= 2;
 
-    mach_port_t self = mach_task_self();
+    mach_port_t self(mach_task_self());
 
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
         return;
     }
 
-    uint32_t *code = reinterpret_cast<uint32_t *>(symbol);
+    uint32_t *code(reinterpret_cast<uint32_t *>(symbol));
 
     const size_t used(2);
 
@@ -511,9 +511,9 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
             size += 2;
             size_t length(sizeof(uint32_t) * size);
 
-            uint32_t *buffer = reinterpret_cast<uint32_t *>(mmap(
+            uint32_t *buffer(reinterpret_cast<uint32_t *>(mmap(
                 NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
-            ));
+            )));
 
             if (buffer == MAP_FAILED) {
                 fprintf(stderr, "MS:Error:mmap():%d\n", errno);
@@ -641,7 +641,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
 }
 
 extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
-    IMP result = NULL;
+    IMP result(NULL);
     MSHookMessageInternal(_class, sel, imp, &result, prefix);
     return result;
 }
