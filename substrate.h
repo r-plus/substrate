@@ -90,6 +90,14 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
     return *reinterpret_cast<Type_ *>(pointer);
 }
 
+#define MSAddMessage0(_class, type, arg0) \
+    class_addMethod($ ## _class, @selector(arg0), (IMP) &$ ## _class ## $ ## arg0, type);
+#define MSAddMessage1(_class, type, arg0) \
+    class_addMethod($ ## _class, @selector(arg0:), (IMP) &$ ## _class ## $ ## arg0 ## $, type);
+#define MSAddMessage2(_class, type, arg0, arg1) \
+    class_addMethod($ ## _class, @selector(arg0:arg1:), (IMP) &$ ## _class ## $ ## arg0 ## $ ## arg1 ## $, type);
+
+
 #define MSHookMessage0(_class, arg0) \
     MSHookMessage($ ## _class, @selector(arg0), MSHake(_class ## $ ## arg0))
 #define MSHookMessage1(_class, arg0) \
@@ -114,7 +122,7 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
 
 #define MSMessage_(extra, type, _class, name, dollar, colon, call, args...) \
     static type _$ ## name ## $ ## dollar(Class _cls, type (*_old)(_class, SEL, ## args), type (*_spr)(struct objc_super *, SEL, ## args), _class self, SEL _cmd, ## args); \
-    MSFunction(type, name ## $ ## dollar, _class self, SEL _cmd, ## args) { \
+    MSHook(type, name ## $ ## dollar, _class self, SEL _cmd, ## args) { \
         Class const _cls($ ## name); \
         type (* const _old)(_class, SEL, ## args) = _ ## name ## $ ## dollar; \
         typedef type (*msgSendSuper_t)(struct objc_super *, SEL, ## args); \
@@ -207,16 +215,70 @@ static inline void MSHookSymbol(Type_ *&value, const char *name, void *handle = 
     value = reinterpret_cast<Type_ *>(dlsym(handle, name));
 }
 
+/* Objective-C Handle<> {{{ */
+template <typename Type_>
+class _H {
+    typedef _H<Type_> This_;
+
+  private:
+    Type_ *value_;
+
+    _finline void Retain_() {
+        if (value_ != nil)
+            [value_ retain];
+    }
+
+    _finline void Clear_() {
+        if (value_ != nil)
+            [value_ release];
+    }
+
+  public:
+    _finline _H(const This_ &rhs) :
+        value_(rhs.value_ == nil ? nil : [rhs.value_ retain])
+    {
+    }
+
+    _finline _H(Type_ *value = NULL, bool mended = false) :
+        value_(value)
+    {
+        if (!mended)
+            Retain_();
+    }
+
+    _finline ~_H() {
+        Clear_();
+    }
+
+    _finline operator Type_ *() const {
+        return value_;
+    }
+
+    _finline This_ &operator =(Type_ *value) {
+        if (value_ != value) {
+            Type_ *old(value_);
+            value_ = value;
+            Retain_();
+            if (old != nil)
+                [old release];
+        } return *this;
+    }
+};
+/* }}} */
+
+#define _pooled _H<NSAutoreleasePool> _pool([[NSAutoreleasePool alloc] init], true);
+
 #endif
 
-#define MSFunction(type, name, args...) \
+#define MSHook(type, name, args...) \
     _disused static type (*_ ## name)(args); \
     static type $ ## name(args)
 
-#define MSHook MSFunction
-
 #define MSHake(name) \
     &$ ## name, &_ ## name
+
+#define MSInitialize \
+    __attribute__((constructor)) static void _MSInitialize(void)
 
 #define Foundation_f "/System/Library/Frameworks/Foundation.framework/Foundation"
 #define UIKit_f "/System/Library/Frameworks/UIKit.framework/UIKit"

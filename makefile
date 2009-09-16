@@ -12,11 +12,11 @@ clean:
 	rm -f libsubstrate.dylib postrm extrainst_
 
 libsubstrate.dylib: MobileLoader.mm MobileHooker.mm makefile #nlist.c
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup -framework CoreFoundation -init _MSInitialize -I. -lobjc
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup -framework CoreFoundation -I. -lobjc
 	ldid -S $@
 
 MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -init _MSInitialize -L. -lsubstrate -I. -framework UIKit
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -L. -lsubstrate -I. -framework UIKit
 	ldid -S $@
 
 %: %.m makefile

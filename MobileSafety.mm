@@ -176,7 +176,7 @@ MSHook(void, SBStatusBarTimeView$tile, SBStatusBarTimeView *self, SEL sel) {
 
 #define Dylib_ "/Library/MobileSubstrate/MobileSubstrate.dylib"
 
-extern "C" void MSInitialize() {
+MSInitialize {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
     NSLog(@"MS:Warning: Entering Safe Mode");
