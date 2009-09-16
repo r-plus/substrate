@@ -264,7 +264,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
 
-    if (true) {
+    if (false) {
         char name[16];
         sprintf(name, "%p", symbol);
         MSLogHex(symbol, (used + 1) * sizeof(uint16_t), name);
@@ -459,7 +459,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
         *result = reinterpret_cast<uint8_t *>(buffer + pad) + 1;
 
-        if (true) {
+        if (false) {
             char name[16];
             sprintf(name, "%p", *result);
             MSLogHex(buffer, length, name);
