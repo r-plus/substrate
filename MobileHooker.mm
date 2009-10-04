@@ -174,7 +174,7 @@ static inline bool T$32bit$i(uint16_t ic) {
 }
 
 static inline bool T$pcrel$bl(uint16_t *ic) {
-    return (ic[0] & 0xf800) == 0xf000 && (ic[1] & 0xf800) == 0xe800;
+    return (ic[0] & 0xf800) == 0xf000 && (ic[1] & 0xe800) == 0xe800;
 }
 
 static inline bool T$pcrel$ldr(uint16_t ic) {
@@ -207,7 +207,6 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
         return;
     }
-
     uint16_t *thumb(reinterpret_cast<uint16_t *>(symbol));
 
     unsigned used(6);
@@ -243,6 +242,12 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
         unsigned blank(index - used);
         used += blank;
+
+        if (false) {
+            char name[16];
+            sprintf(name, "%p", symbol);
+            MSLogHex(symbol, (used + 1) * sizeof(uint16_t), name);
+        }
 
         memcpy(backup, thumb, sizeof(uint16_t) * used);
 
