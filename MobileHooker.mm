@@ -174,7 +174,7 @@ static inline bool T$32bit$i(uint16_t ic) {
 }
 
 static inline bool T$pcrel$bl(uint16_t *ic) {
-    return (ic[0] & 0xf800) == 0xf000 && (ic[1] & 0xe800) == 0xe800;
+    return (ic[0] & 0xf800) == 0xf000 && ((ic[1] & 0xd000) == 0xd000 || (ic[1] & 0xd001) == 0xc000);
 }
 
 static inline bool T$pcrel$ldr(uint16_t ic) {
