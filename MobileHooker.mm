@@ -61,6 +61,8 @@
 } while (false)
 #endif
 
+bool MSDebug = false;
+
 static char _MSHexChar(uint8_t value) {
     return value < 0x20 || value >= 0x80 ? '.' : value;
 }
@@ -138,17 +140,33 @@ enum A$r {
     A$pc = A$r15
 };
 
+enum A$c {
+    A$eq, A$ne, A$cs, A$cc,
+    A$mi, A$pl, A$vs, A$vc,
+    A$hi, A$ls, A$ge, A$lt,
+    A$gt, A$le, A$al,
+    A$hs = A$cs,
+    A$lo = A$cc
+};
+
+#define A$mrs_rm_cpsr(rd) /* mrs rd, cpsr */ \
+    (0xe10f0000 | ((rd) << 12))
+#define A$msr_cpsr_f_rm(rm) /* msr cpsr_f, rm */ \
+    (0xe128f000 | (rm))
 #define A$ldr_rd_$rn_im$(rd, rn, im) /* ldr rd, [rn, #im] */ \
     (0xe5100000 | ((im) < 0 ? 0 : 1 << 23) | ((rn) << 16) | ((rd) << 12) | abs(im))
 #define A$stmia_sp$_$r0$  0xe8ad0001 /* stmia sp!, {r0}   */
 #define A$bx_r0           0xe12fff10 /* bx r0             */
 
 #define T$pop_$r0$ 0xbc01 // pop {r0}
+#define T$b(im) /* b im */ \
+    (0xde00 | (im & 0xff))
 #define T$blx(rm) /* blx rm */ \
     (0x4780 | (rm << 3))
 #define T$bx(rm) /* bx rm */ \
     (0x4700 | (rm << 3))
-#define T$nop      0x46c0 // nop
+#define T$nop /* nop */ \
+    (0x46c0)
 
 #define T$add_rd_rm(rd, rm) /* add rd, rm */ \
     (0x4400 | (((rd) & 0x8) >> 3 << 7) | (((rm) & 0x8) >> 3 << 6) | (((rm) & 0x7) << 3) | ((rd) & 0x7))
@@ -159,9 +177,27 @@ enum A$r {
 #define T$mov_rd_rm(rd, rm) /* mov rd, rm */ \
     (0x4600 | (((rd) & 0x8) >> 3 << 7) | (((rm) & 0x8) >> 3 << 6) | (((rm) & 0x7) << 3) | ((rd) & 0x7))
 #define T$ldr_rd_$rn_im_4$(rd, rn, im) /* ldr rd, [rn, #im * 4] */ \
-    (0x6800 | (abs(im) << 6) | ((rn) << 3) | (rd))
+    (0x6800 | (((im) & 0x1f) << 6) | ((rn) << 3) | (rd))
 #define T$ldr_rd_$pc_im_4$(rd, im) /* ldr rd, [PC, #im * 4] */ \
-    (0x4800 | ((rd) << 8) | abs(im))
+    (0x4800 | ((rd) << 8) | (im & 0xff))
+#define T$cmp_rn_$im(rn, im) /* cmp rn, #im */ \
+    (0x2000 | ((rn) << 8) | (im & 0xff))
+#define T$it$_cd(cd, ms) /* it<ms>, cd */ \
+    (0xbf00 | ((cd) << 4) | (ms))
+#define T$cbz$_rn_$im(op,rn,im) /* cb<op>z rn, #im */ \
+    (0xb100 | ((op) << 11) | (((im) & 0x40) >> 6 << 9) | (((im) & 0x3e) >> 1 << 3) | (rn))
+
+#define T1$mrs_rd_apsr(rd) /* mrs rd, apsr */ \
+    (0xf3ef)
+#define T2$mrs_rd_apsr(rd) /* mrs rd, apsr */ \
+    (0x8000 | ((rd) << 8))
+
+#define T1$msr_apsr_nzcvqg_rn(rn) /* msr apsr, rn */ \
+    (0xf380 | (rn))
+#define T2$msr_apsr_nzcvqg_rn(rn) /* msr apsr, rn */ \
+    (0x8c00)
+#define T$msr_apsr_nzcvqg_rn(rn) /* msr apsr, rn */ \
+    (T2$msr_apsr_nzcvqg_rn(rn) << 16 | T1$msr_apsr_nzcvqg_rn(rn))
 
 extern "C" void __clear_cache (char *beg, char *end);
 
@@ -171,6 +207,10 @@ static inline bool A$pcrel$r(uint32_t ic) {
 
 static inline bool T$32bit$i(uint16_t ic) {
     return ((ic & 0xe000) == 0xe000 && (ic & 0x1800) != 0x0000);
+}
+
+static inline bool T$pcrel$cbz(uint16_t ic) {
+    return (ic & 0xf500) == 0xb100;
 }
 
 static inline bool T$pcrel$bl(uint16_t *ic) {
@@ -243,7 +283,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         unsigned blank(index - used);
         used += blank;
 
-        if (false) {
+        if (MSDebug) {
             char name[16];
             sprintf(name, "%p", symbol);
             MSLogHex(symbol, (used + 1) * sizeof(uint16_t), name);
@@ -269,7 +309,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
 
-    if (false) {
+    if (MSDebug) {
         char name[16];
         sprintf(name, "%p", symbol);
         MSLogHex(symbol, (used + 1) * sizeof(uint16_t), name);
@@ -283,6 +323,8 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
             else if (T$pcrel$bl(backup + offset)) {
                 size += 5;
                 ++offset;
+            } else if (T$pcrel$cbz(backup[offset])) {
+                size += 16;
             } else if (T$pcrel$ldrw(backup[offset])) {
                 size += 2;
                 ++offset;
@@ -315,7 +357,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         for (unsigned offset(0); offset != used; ++offset) {
             if (T$pcrel$ldr(backup[offset])) {
                 union {
-                    uint32_t value;
+                    uint16_t value;
 
                     struct {
                         uint16_t immediate : 8;
@@ -332,7 +374,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
                 end -= 2;
             } else if (T$pcrel$bl(backup + offset)) {
                 union {
-                    uint32_t value;
+                    uint16_t value;
 
                     struct {
                         uint16_t immediate : 10;
@@ -342,7 +384,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
                 } bits = {backup[offset+0]};
 
                 union {
-                    uint32_t value;
+                    uint16_t value;
 
                     struct {
                         uint16_t immediate : 11;
@@ -368,11 +410,50 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
                 buffer[start+2] = T$mov_rd_rm(A$lr, A$r7);
                 buffer[start+3] = T$pop_r(1 << A$r7);
                 buffer[start+4] = T$blx(A$lr);
+
                 *--trailer = reinterpret_cast<uint32_t>(thumb + offset) + 4 + jump;
 
                 ++offset;
                 start += 5;
                 end -= 2;
+            } else if (T$pcrel$cbz(backup[offset])) {
+                union {
+                    uint16_t value;
+
+                    struct {
+                        uint16_t rn : 3;
+                        uint16_t immediate : 5;
+                        uint16_t : 1;
+                        uint16_t i : 1;
+                        uint16_t : 1;
+                        uint16_t op : 1;
+                        uint16_t : 4;
+                    };
+                } bits = {backup[offset+0]};
+
+                intptr_t jump(1);
+                jump |= bits.i << 6;
+                jump |= bits.immediate << 1;
+
+                //jump <<= 24;
+                //jump >>= 24;
+
+                unsigned rn(bits.rn);
+                unsigned rt(rn == A$r7 ? A$r6 : A$r7);
+
+                buffer[start+0] = T$push_r(1 << rt);
+                buffer[start+1] = T1$mrs_rd_apsr(rt);
+                buffer[start+2] = T2$mrs_rd_apsr(rt);
+                buffer[start+3] = T$cbz$_rn_$im(bits.op, rn, (end-10 - (start+3)) * 2 - 4);
+                buffer[start+4] = T1$msr_apsr_nzcvqg_rn(rt);
+                buffer[start+5] = T2$msr_apsr_nzcvqg_rn(rt);
+                buffer[start+6] = T$pop_r(1 << rt);
+
+                *--trailer = reinterpret_cast<uint32_t>(thumb + offset) + 4 + jump;
+                *--trailer = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
+                *--trailer = T$nop << 16 | T$bx(A$pc);
+                *--trailer = T$nop << 16 | T$pop_r(1 << rt);
+                *--trailer = T$msr_apsr_nzcvqg_rn(rt);
 
 #if 0
                 if ((start & 0x1) == 0)
@@ -383,14 +464,13 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
                 uint32_t *arm(reinterpret_cast<uint32_t *>(buffer + start));
                 arm[0] = A$add(A$lr, A$pc, 1);
                 arm[1] = A$ldr_rd_$rn_im$(A$pc, A$pc, (trailer - arm) * sizeof(uint32_t) - 8);
-
-                ++offset;
-                start += 2;
-                end -= 2;
 #endif
+
+                start += 7;
+                end -= 10;
             } else if (T$pcrel$ldrw(backup[offset])) {
                 union {
-                    uint32_t value;
+                    uint16_t value;
 
                     struct {
                         uint16_t : 7;
@@ -400,7 +480,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
                 } bits = {backup[offset+0]};
 
                 union {
-                    uint32_t value;
+                    uint16_t value;
 
                     struct {
                         uint16_t immediate : 12;
@@ -417,7 +497,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
                 end -= 2;
             } else if (T$pcrel$add(backup[offset])) {
                 union {
-                    uint32_t value;
+                    uint16_t value;
 
                     struct {
                         uint16_t rd : 3;
@@ -428,16 +508,18 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
                     };
                 } bits = {backup[offset+0]};
 
-                if (bits.h1 || bits.rd == A$r7) {
-                    fprintf(stderr, "MS:Error:pcrel(%u):add (rd > r6)\n", offset);
+                if (bits.h1) {
+                    fprintf(stderr, "MS:Error:pcrel(%u):add (rd > r7)\n", offset);
                     goto fail;
                 }
 
-                buffer[start+0] = T$push_r(1 << A$r7);
-                buffer[start+1] = T$mov_rd_rm(A$r7, (bits.h1 << 3) | bits.rd);
+                unsigned rt(bits.rd == A$r7 ? A$r6 : A$r7);
+
+                buffer[start+0] = T$push_r(1 << rt);
+                buffer[start+1] = T$mov_rd_rm(rt, (bits.h1 << 3) | bits.rd);
                 buffer[start+2] = T$ldr_rd_$pc_im_4$(bits.rd, ((end-2 - (start+2)) * 2 - 4 + 2) / 4);
-                buffer[start+3] = T$add_rd_rm((bits.h1 << 3) | bits.rd, A$r7);
-                buffer[start+4] = T$pop_r(1 << A$r7);
+                buffer[start+3] = T$add_rd_rm((bits.h1 << 3) | bits.rd, rt);
+                buffer[start+4] = T$pop_r(1 << rt);
                 *--trailer = reinterpret_cast<uint32_t>(thumb + offset) + 4;
 
                 start += 5;
@@ -464,7 +546,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
         *result = reinterpret_cast<uint8_t *>(buffer + pad) + 1;
 
-        if (false) {
+        if (MSDebug) {
             char name[16];
             sprintf(name, "%p", *result);
             MSLogHex(buffer, length, name);
@@ -586,7 +668,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
 }
 
 extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
-    if (false)
+    if (MSDebug)
         fprintf(stderr, "MSHookFunction(%p, %p, %p)\n", symbol, replace, result);
     if ((reinterpret_cast<uintptr_t>(symbol) & 0x1) == 0)
         return MSHookFunctionARM(symbol, replace, result);
@@ -604,6 +686,8 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 #ifdef __APPLE__
 
 static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, const char *prefix) {
+    if (MSDebug)
+        fprintf(stderr, "MSHookMessageInternal(%s, %s, %p, %p, \"%s\")\n", class_getName(_class), sel_getName(sel), imp, result, prefix);
     if (_class == nil) {
         fprintf(stderr, "MS:Warning: nil class argument\n");
         return;
