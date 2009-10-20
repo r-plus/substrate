@@ -14,6 +14,8 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
 #define dylib_ @"/Library/MobileSubstrate/MobileSubstrate.dylib"
 #define itunesstored_plist "/System/Library/LaunchDaemons/com.apple.itunesstored.plist"
+#define mediaserverd_plist "/System/Library/LaunchDaemons/com.apple.mediaserverd.plist"
+#define CommCenter_plist "/System/Library/LaunchDaemons/com.apple.CommCenter.plist"
 
 bool HookEnvironment(const char *path) {
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
@@ -57,12 +59,19 @@ int main(int argc, char *argv[]) {
 
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
+    if (HookEnvironment(mediaserverd_plist))
+        system("launchctl unload "mediaserverd_plist"; launchctl load "mediaserverd_plist"");
     if (HookEnvironment(itunesstored_plist))
         system("launchctl unload "itunesstored_plist"; launchctl load "itunesstored_plist"");
+    if (HookEnvironment(CommCenter_plist))
+        system("launchctl unload "CommCenter_plist"; launchctl load "CommCenter_plist"");
 
     const char *finish = "restart";
     if (HookEnvironment("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"))
         finish = "reload";
+
+    // XXX: IntelliBorn claims to know how to fix this. The fact that they are holding that fix hostage is lame beyond imagination.
+    finish = "reboot";
 
     const char *cydia = getenv("CYDIA");
     if (cydia != NULL) {

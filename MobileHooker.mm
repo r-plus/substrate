@@ -41,8 +41,9 @@
 #include <mach/vm_map.h>
 
 #include <objc/runtime.h>
-#include <sys/mman.h>
+#include <objc/message.h>
 
+#include <sys/mman.h>
 #include <unistd.h>
 
 #define _trace() do { \
@@ -155,6 +156,10 @@ enum A$c {
     (0xe128f000 | (rm))
 #define A$ldr_rd_$rn_im$(rd, rn, im) /* ldr rd, [rn, #im] */ \
     (0xe5100000 | ((im) < 0 ? 0 : 1 << 23) | ((rn) << 16) | ((rd) << 12) | abs(im))
+#define A$str_rd_$rn_im$(rd, rn, im) /* sr rd, [rn, #im] */ \
+    (0xe5000000 | ((im) < 0 ? 0 : 1 << 23) | ((rn) << 16) | ((rd) << 12) | abs(im))
+#define A$sub_rd_rn_$im(rd, rn, im) /* sub, rd, rn, #im */ \
+    (0xe2400000 | ((rn) << 16) | ((rd) << 12) | (im & 0xff))
 #define A$stmia_sp$_$r0$  0xe8ad0001 /* stmia sp!, {r0}   */
 #define A$bx_r0           0xe12fff10 /* bx r0             */
 
@@ -708,7 +713,63 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
     }
 
     const char *type(method_getTypeEncoding(method));
-    IMP old(method_getImplementation(method));
+
+    bool direct(false);
+
+    unsigned count;
+    Method *methods(class_copyMethodList(_class, &count));
+    for (unsigned i(0); i != count; ++i)
+        if (methods[i] == method) {
+            direct = true;
+            break;
+        }
+    free(methods);
+
+    IMP old(NULL);
+
+#if 0 && defined(__arm__)
+    if (!direct) {
+        fprintf(stderr, "MS:Error: must return super call closure! [%s %s] %s\n", class_getName(_class), name, type);
+
+        size_t length(7 * sizeof(uint32_t));
+
+        uint32_t *buffer(reinterpret_cast<uint32_t *>(mmap(
+            NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
+        )));
+
+        if (buffer == MAP_FAILED)
+            fprintf(stderr, "MS:Error:mmap():%d\n", errno);
+        else if (false) fail:
+            munmap(buffer, length);
+        else {
+            int depth(32);
+
+            buffer[0] = A$str_rd_$rn_im$(A$r0, A$sp, -depth - 8);
+            buffer[1] = A$ldr_rd_$rn_im$(A$r0, A$pc, 20 - 8);
+            buffer[2] = A$str_rd_$rn_im$(A$r0, A$sp, -depth - 4);
+            buffer[3] = A$sub_rd_rn_$im(A$r0, A$sp, depth + 8);
+            buffer[4] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
+            buffer[5] = reinterpret_cast<uint32_t>(&objc_msgSendSuper);
+            buffer[6] = reinterpret_cast<uint32_t>(class_getSuperclass(_class));
+
+            if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
+                fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
+                goto fail;
+            }
+
+            old = reinterpret_cast<IMP>(buffer);
+
+            if (true) {
+                char name[16];
+                sprintf(name, "%p", old);
+                MSLogHex(buffer, length, name);
+            }
+        }
+    }
+#endif
+
+    if (old == NULL)
+        old = method_getImplementation(method);
 
     if (result != NULL)
         *result = old;
@@ -725,8 +786,10 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
             fprintf(stderr, "MS:Error: failed to rename [%s %s]\n", class_getName(_class), name);
     }
 
-    if (!class_addMethod(_class, sel, imp, type))
+    if (direct)
         method_setImplementation(method, imp);
+    else
+        class_addMethod(_class, sel, imp, type);
 }
 
 extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {

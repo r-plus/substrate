@@ -69,19 +69,43 @@ extern "C" int $__fdnlist(int fd, struct nlist *list);
 extern "C" int $nlist(const char *file, struct nlist *list);
 extern int (*_nlist)(const char *file, struct nlist *list);
 
+extern "C" char ***_NSGetArgv(void);
+
 MSInitialize {
-    if (dlopen(Foundation_f, RTLD_LAZY | RTLD_NOLOAD) == NULL)
+#if 1
+    if (dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY | RTLD_NOLOAD) == NULL)
         return;
     CFBundleRef bundle(CFBundleGetMainBundle());
     CFStringRef identifier(bundle == NULL ? NULL : CFBundleGetIdentifier(bundle));
-    if (identifier == NULL)
+#else
+    CFBundleRef bundle;
+    CFStringRef identifier;
+
+    if (
+        dlopen("/usr/sbin/mediaserverd", RTLD_LAZY | RTLD_NOLOAD) != NULL ||
+        dlopen("/System/Library/PrivateFrameworks/CoreTelephony.framework/Support/CommCenter", RTLD_LAZY | RTLD_NOLOAD) != NULL
+    ) {
+        bundle = NULL;
+        identifier = NULL;
+    } else if (dlopen(Foundation_f, RTLD_LAZY | RTLD_NOLOAD) == NULL)
         return;
+    else {
+        bundle = CFBundleGetMainBundle();
+        identifier = bundle == NULL ? NULL : CFBundleGetIdentifier(bundle);
+        if (identifier == NULL)
+            return;
+    }
+#endif
+
+    char *argv0(**_NSGetArgv());
+    char *slash(strrchr(argv0, '/'));
+    slash = slash == NULL ? argv0 : slash + 1;
 
     Class (*NSClassFromString)(NSString *) = reinterpret_cast<Class (*)(NSString *)>(dlsym(RTLD_DEFAULT, "NSClassFromString"));
 
-    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@ (%.2f)"), identifier, kCFCoreFoundationVersionNumber);
+    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@ [%s] (%.2f)"), identifier, slash, kCFCoreFoundationVersionNumber);
 
-    if (CFEqual(identifier, CFSTR("com.apple.springboard"))) {
+    if (identifier != NULL && CFEqual(identifier, CFSTR("com.apple.springboard"))) {
         CFURLRef home(CFCopyHomeDirectoryURLForUser(NULL));
         CFURLGetFileSystemRepresentation(home, TRUE, reinterpret_cast<UInt8 *>(MSWatch), sizeof(MSWatch));
         CFRelease(home);
@@ -134,7 +158,6 @@ sigaction(signum, NULL, &old); { \
         HookSignal(SIGSYS)
     }
 
-    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Hooking: nlist()"));
     MSHookFunction(&__fdnlist, &$__fdnlist);
     MSHookFunction(&nlist, &$nlist, &_nlist);
 
@@ -205,6 +228,25 @@ sigaction(signum, NULL, &old); { \
                     }
                 }
 
+                if (CFArrayRef executables = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("Executables")))) {
+                    load = false;
+
+                    CFStringRef name(CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, slash, kCFStringEncodingUTF8, kCFAllocatorNull));
+
+                    for (CFIndex i(0), count(CFArrayGetCount(executables)); i != count; ++i) {
+                        CFStringRef executable(reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(executables, i)));
+                        if (CFEqual(executable, name)) {
+                            load = true;
+                            break;
+                        }
+                    }
+
+                    CFRelease(name);
+
+                    if (!load)
+                        goto release;
+                }
+
                 if (CFArrayRef bundles = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("Bundles")))) {
                     load = false;
 
@@ -268,7 +310,7 @@ sigaction(signum, NULL, &old); { \
     }
 
     if (false) {
-        CFLog(kCFLogLevelNotice, CFSTR("SLEEPING"));
+        CFLog(kCFLogLevelNotice, CFSTR("MobileSubstrate fell asleep... I'll wake him up in 10 seconds ;P"));
         sleep(10);
     }
 }
