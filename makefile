@@ -11,8 +11,12 @@ flags := -march=armv6 -mcpu=arm1176jzf-s -g0 -O2 -Wall #-Werror
 clean:
 	rm -f libsubstrate.dylib postrm extrainst_
 
-libsubstrate.dylib: MobileLoader.mm MobileHooker.mm makefile nlist.cpp
+libsubstrate.dylib: MobileHooker.mm makefile
 	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup -framework CoreFoundation -I. -lobjc
+	ldid -S $@
+
+MobileSubstrate.dylib: MobileLoader.mm MobileHooker.mm makefile nlist.cpp
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -undefined dynamic_lookup -framework CoreFoundation -I. -lobjc
 	ldid -S $@
 
 MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
@@ -31,7 +35,7 @@ package:
 	cp -a MobileSafety.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobilePaper.png mobilesubstrate/Library/MobileSubstrate
 	#cp -a MobileUnions.dylib mobilesubstrate/Library/MobileSubstrate
-	ln -s /usr/lib/libsubstrate.dylib mobilesubstrate/Library/MobileSubstrate/MobileSubstrate.dylib
+	cp -a MobileSubstrate.dylib mobilesubstrate/Library/MobileSubstrate
 	mkdir -p mobilesubstrate/usr/include
 	cp -a substrate.h mobilesubstrate/usr/include
 	mkdir -p mobilesubstrate/usr/lib

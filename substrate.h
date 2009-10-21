@@ -16,6 +16,10 @@ extern "C" {
 
 #include <dlfcn.h>
 
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 #define _finline \
     inline __attribute__((always_inline))
 #define _disused \
@@ -225,17 +229,17 @@ class _H {
 
     _finline void Retain_() {
         if (value_ != nil)
-            [value_ retain];
+            CFRetain((CFTypeRef) value_);
     }
 
     _finline void Clear_() {
         if (value_ != nil)
-            [value_ release];
+            CFRelease((CFTypeRef) value_);
     }
 
   public:
     _finline _H(const This_ &rhs) :
-        value_(rhs.value_ == nil ? nil : [rhs.value_ retain])
+        value_(rhs.value_ == nil ? nil : (Type_) CFRetain((CFTypeRef) rhs.value_))
     {
     }
 
@@ -260,7 +264,7 @@ class _H {
             value_ = value;
             Retain_();
             if (old != nil)
-                [old release];
+                CFRelease((CFTypeRef) old);
         } return *this;
     }
 };

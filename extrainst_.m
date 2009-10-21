@@ -16,6 +16,7 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 #define itunesstored_plist "/System/Library/LaunchDaemons/com.apple.itunesstored.plist"
 #define mediaserverd_plist "/System/Library/LaunchDaemons/com.apple.mediaserverd.plist"
 #define CommCenter_plist "/System/Library/LaunchDaemons/com.apple.CommCenter.plist"
+#define AOSNotification_plist "/System/Library/LaunchDaemons/com.apple.AOSNotification.plist"
 
 bool HookEnvironment(const char *path) {
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
@@ -59,12 +60,15 @@ int main(int argc, char *argv[]) {
 
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-    if (HookEnvironment(mediaserverd_plist))
-        system("launchctl unload "mediaserverd_plist"; launchctl load "mediaserverd_plist"");
-    if (HookEnvironment(itunesstored_plist))
-        system("launchctl unload "itunesstored_plist"; launchctl load "itunesstored_plist"");
-    if (HookEnvironment(CommCenter_plist))
-        system("launchctl unload "CommCenter_plist"; launchctl load "CommCenter_plist"");
+    // XXX: do not use for now due to later reboot
+    #define HookEnvironment_(plist) \
+        if (HookEnvironment(plist)) \
+            system("launchctl unload "plist"; launchctl load "plist"");
+
+    HookEnvironment(mediaserverd_plist);
+    HookEnvironment(itunesstored_plist);
+    HookEnvironment(CommCenter_plist);
+    HookEnvironment(AOSNotification_plist);
 
     const char *finish = "restart";
     if (HookEnvironment("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"))

@@ -176,21 +176,23 @@ enum A$c {
 #define T$add_rd_rm(rd, rm) /* add rd, rm */ \
     (0x4400 | (((rd) & 0x8) >> 3 << 7) | (((rm) & 0x8) >> 3 << 6) | (((rm) & 0x7) << 3) | ((rd) & 0x7))
 #define T$push_r(r) /* push r... */ \
-    (0xb400 | (((r) & (1 << A$lr)) >> A$lr << 8) | (r) & 0xff)
+    (0xb400 | (((r) & (1 << A$lr)) >> A$lr << 8) | ((r) & 0xff))
 #define T$pop_r(r) /* pop r... */ \
-    (0xbc00 | (((r) & (1 << A$pc)) >> A$pc << 8) | (r) & 0xff)
+    (0xbc00 | (((r) & (1 << A$pc)) >> A$pc << 8) | ((r) & 0xff))
 #define T$mov_rd_rm(rd, rm) /* mov rd, rm */ \
     (0x4600 | (((rd) & 0x8) >> 3 << 7) | (((rm) & 0x8) >> 3 << 6) | (((rm) & 0x7) << 3) | ((rd) & 0x7))
 #define T$ldr_rd_$rn_im_4$(rd, rn, im) /* ldr rd, [rn, #im * 4] */ \
     (0x6800 | (((im) & 0x1f) << 6) | ((rn) << 3) | (rd))
 #define T$ldr_rd_$pc_im_4$(rd, im) /* ldr rd, [PC, #im * 4] */ \
-    (0x4800 | ((rd) << 8) | (im & 0xff))
+    (0x4800 | ((rd) << 8) | ((im) & 0xff))
 #define T$cmp_rn_$im(rn, im) /* cmp rn, #im */ \
-    (0x2000 | ((rn) << 8) | (im & 0xff))
+    (0x2000 | ((rn) << 8) | ((im) & 0xff))
 #define T$it$_cd(cd, ms) /* it<ms>, cd */ \
     (0xbf00 | ((cd) << 4) | (ms))
 #define T$cbz$_rn_$im(op,rn,im) /* cb<op>z rn, #im */ \
     (0xb100 | ((op) << 11) | (((im) & 0x40) >> 6 << 9) | (((im) & 0x3e) >> 1 << 3) | (rn))
+#define T$b$_$im(cond,im) /* b<cond> #im */ \
+    (cond == A$al ? 0xe000 | (((im) >> 1) & 0x7ff) : 0xd000 | ((cond) << 8) | (((im) >> 1) & 0xff))
 
 #define T1$mrs_rd_apsr(rd) /* mrs rd, apsr */ \
     (0xf3ef)
@@ -216,6 +218,14 @@ static inline bool T$32bit$i(uint16_t ic) {
 
 static inline bool T$pcrel$cbz(uint16_t ic) {
     return (ic & 0xf500) == 0xb100;
+}
+
+static inline bool T$pcrel$b(uint16_t ic) {
+    return (ic & 0xf000) == 0xd000 && (ic & 0x0e00) != 0x0e00;
+}
+
+static inline bool T2$pcrel$b(uint16_t *ic) {
+    return (ic[0] & 0xf800) == 0xf000 && ((ic[1] & 0xd000) == 0x9000 || (ic[1] & 0xd000) == 0x8000 && (ic[0] & 0x0380) != 0x0380);
 }
 
 static inline bool T$pcrel$bl(uint16_t *ic) {
@@ -325,7 +335,12 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         for (unsigned offset(0); offset != used; ++offset)
             if (T$pcrel$ldr(backup[offset]))
                 size += 3;
-            else if (T$pcrel$bl(backup + offset)) {
+            else if (T$pcrel$b(backup[offset]))
+                size += 6;
+            else if (T2$pcrel$b(backup + offset)) {
+                size += 5;
+                ++offset;
+            } else if (T$pcrel$bl(backup + offset)) {
                 size += 5;
                 ++offset;
             } else if (T$pcrel$cbz(backup[offset])) {
@@ -377,6 +392,82 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
                 start += 2;
                 end -= 2;
+            } else if (T$pcrel$b(backup[offset])) {
+                union {
+                    uint16_t value;
+
+                    struct {
+                        uint16_t imm8 : 8;
+                        uint16_t cond : 4;
+                        uint16_t /*1101*/ : 4;
+                    };
+                } bits = {backup[offset+0]};
+
+                intptr_t jump(bits.imm8 << 1);
+                jump |= 1;
+                jump <<= 23;
+                jump >>= 23;
+
+                buffer[start+0] = T$b$_$im(bits.cond, (end-6 - (start+0)) * 2 - 4);
+
+                *--trailer = reinterpret_cast<uint32_t>(thumb + offset) + 4 + jump;
+                *--trailer = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
+                *--trailer = T$nop << 16 | T$bx(A$pc);
+
+                start += 1;
+                end -= 6;
+            } else if (T2$pcrel$b(backup + offset)) {
+                union {
+                    uint16_t value;
+
+                    struct {
+                        uint16_t imm6 : 6;
+                        uint16_t cond : 4;
+                        uint16_t s : 1;
+                        uint16_t : 5;
+                    };
+                } bits = {backup[offset+0]};
+
+                union {
+                    uint16_t value;
+
+                    struct {
+                        uint16_t imm11 : 11;
+                        uint16_t j2 : 1;
+                        uint16_t a : 1;
+                        uint16_t j1 : 1;
+                        uint16_t : 2;
+                    };
+                } exts = {backup[offset+1]};
+
+                intptr_t jump(0);
+                jump |= exts.imm11 << 1;
+                jump |= bits.imm6 << 12;
+
+                if (exts.a) {
+                    jump |= bits.s << 24;
+                    jump |= (~(bits.s ^ exts.j1) & 0x1) << 23;
+                    jump |= (~(bits.s ^ exts.j2) & 0x1) << 22;
+                    jump |= bits.cond << 18;
+                    jump <<= 7;
+                    jump >>= 7;
+                } else {
+                    jump |= bits.s << 20;
+                    jump |= exts.j2 << 19;
+                    jump |= exts.j1 << 18;
+                    jump <<= 11;
+                    jump >>= 11;
+                }
+
+                buffer[start+0] = T$b$_$im(exts.a ? A$al : bits.cond, (end-6 - (start+0)) * 2 - 4);
+
+                *--trailer = reinterpret_cast<uint32_t>(thumb + offset) + 4 + jump;
+                *--trailer = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
+                *--trailer = T$nop << 16 | T$bx(A$pc);
+
+                ++offset;
+                start += 1;
+                end -= 6;
             } else if (T$pcrel$bl(backup + offset)) {
                 union {
                     uint16_t value;
