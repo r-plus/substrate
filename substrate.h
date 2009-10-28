@@ -21,9 +21,9 @@ extern "C" {
 #endif
 
 #define _finline \
-    inline __attribute__((always_inline))
+    inline __attribute__((__always_inline__))
 #define _disused \
-    __attribute__((unused))
+    __attribute__((__unused__))
 
 #ifdef __cplusplus
 #define _default(value) = value
@@ -282,7 +282,7 @@ class _H {
     &$ ## name, &_ ## name
 
 #define MSInitialize \
-    __attribute__((constructor)) static void _MSInitialize(void)
+    __attribute__((__constructor__)) static void _MSInitialize(void)
 
 #define Foundation_f "/System/Library/Frameworks/Foundation.framework/Foundation"
 #define UIKit_f "/System/Library/Frameworks/UIKit.framework/UIKit"

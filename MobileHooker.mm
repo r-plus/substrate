@@ -160,6 +160,14 @@ enum A$c {
     (0xe5000000 | ((im) < 0 ? 0 : 1 << 23) | ((rn) << 16) | ((rd) << 12) | abs(im))
 #define A$sub_rd_rn_$im(rd, rn, im) /* sub, rd, rn, #im */ \
     (0xe2400000 | ((rn) << 16) | ((rd) << 12) | (im & 0xff))
+#define A$blx_rm(rm) /* blx rm */ \
+    (0xe12fff30 | (rm))
+#define A$mov_rd_rm(rd, rm) /* mov rd, rm */ \
+    (0xe1a00000 | ((rd) << 12) | (rm))
+#define A$ldmia_sp$_$rs$(rs) /* ldmia sp!, {rs} */ \
+    (0xe8b00000 | (A$sp << 16) | (rs))
+#define A$stmdb_sp$_$rs$(rs) /* stmdb sp!, {rs} */ \
+    (0xe9200000 | (A$sp << 16) | (rs))
 #define A$stmia_sp$_$r0$  0xe8ad0001 /* stmia sp!, {r0}   */
 #define A$bx_r0           0xe12fff10 /* bx r0             */
 
@@ -818,11 +826,11 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
 
     IMP old(NULL);
 
-#if 0 && defined(__arm__)
+#if defined(__arm__)
     if (!direct) {
         fprintf(stderr, "MS:Error: must return super call closure! [%s %s] %s\n", class_getName(_class), name, type);
 
-        size_t length(7 * sizeof(uint32_t));
+        size_t length(13 * sizeof(uint32_t));
 
         uint32_t *buffer(reinterpret_cast<uint32_t *>(mmap(
             NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
@@ -833,15 +841,20 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
         else if (false) fail:
             munmap(buffer, length);
         else {
-            int depth(32);
-
-            buffer[0] = A$str_rd_$rn_im$(A$r0, A$sp, -depth - 8);
-            buffer[1] = A$ldr_rd_$rn_im$(A$r0, A$pc, 20 - 8);
-            buffer[2] = A$str_rd_$rn_im$(A$r0, A$sp, -depth - 4);
-            buffer[3] = A$sub_rd_rn_$im(A$r0, A$sp, depth + 8);
-            buffer[4] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
-            buffer[5] = reinterpret_cast<uint32_t>(&objc_msgSendSuper);
-            buffer[6] = reinterpret_cast<uint32_t>(class_getSuperclass(_class));
+            buffer[ 0] = A$stmdb_sp$_$rs$((1 << A$r0) | (1 << A$r2) | (1 << A$r3) | (1 << A$lr));
+            buffer[ 1] = A$ldr_rd_$rn_im$(A$r0, A$pc, (10 - 1 - 2) * 4);
+            buffer[ 2] = A$ldr_rd_$rn_im$(A$r1, A$pc, (11 - 2 - 2) * 4);
+            buffer[ 3] = A$ldr_rd_$rn_im$(A$lr, A$pc, (12 - 3 - 2) * 4);
+            buffer[ 4] = A$blx_rm(A$lr);
+            // XXX: if you store this value to the stack now you can avoid instruction 7 later
+            buffer[ 5] = A$mov_rd_rm(A$r1, A$r0);
+            buffer[ 6] = A$ldmia_sp$_$rs$((1 << A$r0) | (1 << A$r2) | (1 << A$r3) | (1 << A$lr));
+            buffer[ 7] = A$str_rd_$rn_im$(A$r1, A$sp, -4);
+            buffer[ 8] = A$ldr_rd_$rn_im$(A$r1, A$pc, (11 - 8 - 2) * 4);
+            buffer[ 9] = A$ldr_rd_$rn_im$(A$pc, A$sp, -4);
+            buffer[10] = reinterpret_cast<uint32_t>(class_getSuperclass(_class));
+            buffer[11] = reinterpret_cast<uint32_t>(sel);
+            buffer[12] = reinterpret_cast<uint32_t>(&class_getMethodImplementation);
 
             if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
                 fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
