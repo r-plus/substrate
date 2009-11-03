@@ -828,8 +828,6 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
 
 #if defined(__arm__)
     if (!direct) {
-        fprintf(stderr, "MS:Error: must return super call closure! [%s %s] %s\n", class_getName(_class), name, type);
-
         size_t length(13 * sizeof(uint32_t));
 
         uint32_t *buffer(reinterpret_cast<uint32_t *>(mmap(
@@ -863,7 +861,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
 
             old = reinterpret_cast<IMP>(buffer);
 
-            if (true) {
+            if (MSDebug) {
                 char name[16];
                 sprintf(name, "%p", old);
                 MSLogHex(buffer, length, name);
