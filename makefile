@@ -9,9 +9,12 @@ all: libsubstrate.dylib MobileSafety.dylib MobileSubstrate.dylib postrm extrains
 flags := -march=armv6 -mcpu=arm1176jzf-s -g0 -O2 -Wall #-Werror
 
 clean:
-	rm -f libsubstrate.dylib postrm extrainst_
+	rm -f libsubstrate.dylib postrm extrainst_ Struct.hpp
 
-libsubstrate.dylib: MobileHooker.mm makefile nlist.cpp MobileList.mm
+Struct.hpp:
+	$$($(target)gcc -print-prog-name=cc1obj) -print-objc-runtime-info </dev/null >$@
+
+libsubstrate.dylib: MobileHooker.mm makefile nlist.cpp MobileList.mm Struct.hpp
 	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup -framework CoreFoundation -I. -lobjc
 	ldid -S $@
 

@@ -37,6 +37,8 @@
 
 #import <Foundation/Foundation.h>
 
+#include "Struct.hpp"
+
 #include <mach/mach_init.h>
 #include <mach/vm_map.h>
 
@@ -789,6 +791,22 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
 #ifdef __APPLE__
 
+#define CYPoolTry { \
+    id _saved(nil); \
+    NSAutoreleasePool *_pool([[NSAutoreleasePool alloc] init]); \
+    @try
+#define CYPoolCatch(value) \
+    @catch (NSException *error) { \
+        _saved = [error retain]; \
+        @throw; \
+        return value; \
+    } @finally { \
+        [_pool release]; \
+        if (_saved != nil) \
+            [_saved autorelease]; \
+    } \
+}
+
 static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, const char *prefix) {
     if (MSDebug)
         fprintf(stderr, "MSHookMessageInternal(%s, %s, %p, %p, \"%s\")\n", class_getName(_class), sel_getName(sel), imp, result, prefix);
@@ -839,16 +857,31 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
         else if (false) fail:
             munmap(buffer, length);
         else {
-            buffer[ 0] = A$stmdb_sp$_$rs$((1 << A$r0) | (1 << A$r2) | (1 << A$r3) | (1 << A$lr));
+            bool stret;
+            // XXX: you can't return an array in C, but really... check for '['?!
+            // http://www.opensource.apple.com/source/gcc3/gcc3-1175/libobjc/sendmsg.c
+            if (*type != '[' && *type != '(' && *type != '{')
+                stret = false;
+            else CYPoolTry {
+                NSMethodSignature *signature([NSMethodSignature signatureWithObjCTypes:type]);
+                NSUInteger rlength([signature methodReturnLength]);
+                stret = rlength > OBJC_MAX_STRUCT_BY_VALUE || struct_forward_array[rlength];
+            } CYPoolCatch()
+
+            A$r rs(stret ? A$r1 : A$r0);
+            A$r rc(stret ? A$r2 : A$r1);
+            A$r re(stret ? A$r0 : A$r2);
+
+            buffer[ 0] = A$stmdb_sp$_$rs$((1 << rs) | (1 << re) | (1 << A$r3) | (1 << A$lr));
             buffer[ 1] = A$ldr_rd_$rn_im$(A$r0, A$pc, (10 - 1 - 2) * 4);
             buffer[ 2] = A$ldr_rd_$rn_im$(A$r1, A$pc, (11 - 2 - 2) * 4);
             buffer[ 3] = A$ldr_rd_$rn_im$(A$lr, A$pc, (12 - 3 - 2) * 4);
             buffer[ 4] = A$blx_rm(A$lr);
             // XXX: if you store this value to the stack now you can avoid instruction 7 later
-            buffer[ 5] = A$mov_rd_rm(A$r1, A$r0);
-            buffer[ 6] = A$ldmia_sp$_$rs$((1 << A$r0) | (1 << A$r2) | (1 << A$r3) | (1 << A$lr));
-            buffer[ 7] = A$str_rd_$rn_im$(A$r1, A$sp, -4);
-            buffer[ 8] = A$ldr_rd_$rn_im$(A$r1, A$pc, (11 - 8 - 2) * 4);
+            buffer[ 5] = A$mov_rd_rm(rc, A$r0);
+            buffer[ 6] = A$ldmia_sp$_$rs$((1 << rs) | (1 << re) | (1 << A$r3) | (1 << A$lr));
+            buffer[ 7] = A$str_rd_$rn_im$(rc, A$sp, -4);
+            buffer[ 8] = A$ldr_rd_$rn_im$(rc, A$pc, (11 - 8 - 2) * 4);
             buffer[ 9] = A$ldr_rd_$rn_im$(A$pc, A$sp, -4);
             buffer[10] = reinterpret_cast<uint32_t>(class_getSuperclass(_class));
             buffer[11] = reinterpret_cast<uint32_t>(sel);
