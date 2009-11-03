@@ -448,7 +448,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
                     };
                 } exts = {backup[offset+1]};
 
-                intptr_t jump(0);
+                intptr_t jump(1);
                 jump |= exts.imm11 << 1;
                 jump |= bits.imm6 << 12;
 
