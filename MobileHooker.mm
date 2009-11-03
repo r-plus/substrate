@@ -885,7 +885,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
             buffer[ 9] = A$ldr_rd_$rn_im$(A$pc, A$sp, -4);
             buffer[10] = reinterpret_cast<uint32_t>(class_getSuperclass(_class));
             buffer[11] = reinterpret_cast<uint32_t>(sel);
-            buffer[12] = reinterpret_cast<uint32_t>(&class_getMethodImplementation);
+            buffer[12] = reinterpret_cast<uint32_t>(stret ? &class_getMethodImplementation_stret : &class_getMethodImplementation);
 
             if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
                 fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
