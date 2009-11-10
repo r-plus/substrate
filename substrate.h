@@ -239,7 +239,7 @@ class _H {
 
   public:
     _finline _H(const This_ &rhs) :
-        value_(rhs.value_ == nil ? nil : (Type_) CFRetain((CFTypeRef) rhs.value_))
+        value_(rhs.value_ == nil ? nil : (Type_ *) CFRetain((CFTypeRef) rhs.value_))
     {
     }
 

@@ -100,11 +100,18 @@ MSInitialize {
 
     CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@ [%s] (%.2f)"), identifier, slash, kCFCoreFoundationVersionNumber);
 
-    if (identifier != NULL && CFEqual(identifier, CFSTR("com.apple.springboard"))) {
+    char *dat(NULL);
+    if (identifier != NULL && CFEqual(identifier, CFSTR("com.apple.springboard")))
+        dat = "com.saurik.mobilesubstrate.dat";
+    if (identifier == NULL && strcmp(slash, "CommCenter") == 0)
+        dat = "com.saurik.MobileSubstrate.CommCenter.dat";
+
+    if (dat != NULL) {
         CFURLRef home(CFCopyHomeDirectoryURLForUser(NULL));
         CFURLGetFileSystemRepresentation(home, TRUE, reinterpret_cast<UInt8 *>(MSWatch), sizeof(MSWatch));
         CFRelease(home);
-        strcat(MSWatch, "/Library/Preferences/com.saurik.mobilesubstrate.dat");
+        strcat(MSWatch, "/Library/Preferences/");
+        strcat(MSWatch, dat);
 
         if (access(MSWatch, R_OK) == 0) {
             if (unlink(MSWatch) == -1)
