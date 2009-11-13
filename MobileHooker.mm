@@ -266,12 +266,6 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (page - (reinterpret_cast<uintptr_t>(symbol) - base) < 12)
         page *= 2;
 
-    mach_port_t self(mach_task_self());
-
-    if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
-        fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
-        return;
-    }
     uint16_t *thumb(reinterpret_cast<uint16_t *>(symbol));
 
     unsigned used(6);
@@ -283,10 +277,17 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     uint32_t *arm(reinterpret_cast<uint32_t *>(thumb + 2 + align));
     uint16_t backup[used];
 
+    mach_port_t self(mach_task_self());
+
+    if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
+        fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
+        return;
+    }
+
     if (
         (align == 0 || thumb[0] == T$nop) &&
         thumb[align+0] == T$bx(A$pc) &&
-        thumb[align+1] == T$nop && 
+        thumb[align+1] == T$nop &&
         arm[0] == A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8)
     ) {
         if (result != NULL) {
@@ -331,7 +332,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
         __clear_cache(reinterpret_cast<char *>(thumb), reinterpret_cast<char *>(thumb + used));
     }
 
-    if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE))
+    if (kern_return_t error = vm_protect(self, base, page, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
         fprintf(stderr, "MS:Error:vm_protect():%d\n", error);
 
     if (MSDebug) {
