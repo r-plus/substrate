@@ -17,6 +17,8 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 #define mediaserverd_plist "/System/Library/LaunchDaemons/com.apple.mediaserverd.plist"
 #define CommCenter_plist "/System/Library/LaunchDaemons/com.apple.CommCenter.plist"
 #define AOSNotification_plist "/System/Library/LaunchDaemons/com.apple.AOSNotification.plist"
+#define BTServer_plist "/System/Library/LaunchDaemons/com.apple.BTServer.plist"
+#define iapd_plist "/System/Library/LaunchDaemons/com.apple.iapd.plist"
 
 bool HookEnvironment(const char *path) {
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
@@ -69,6 +71,8 @@ int main(int argc, char *argv[]) {
     HookEnvironment(itunesstored_plist);
     HookEnvironment(CommCenter_plist);
     HookEnvironment(AOSNotification_plist);
+    HookEnvironment(BTServer_plist);
+    HookEnvironment(iapd_plist);
 
     const char *finish = "restart";
     if (HookEnvironment("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"))
