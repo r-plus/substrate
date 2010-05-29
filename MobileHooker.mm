@@ -792,21 +792,8 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
 #ifdef __APPLE__
 
-#define CYPoolTry { \
-    id _saved(nil); \
-    NSAutoreleasePool *_pool([[NSAutoreleasePool alloc] init]); \
-    @try
-#define CYPoolCatch(value) \
-    @catch (NSException *error) { \
-        _saved = [error retain]; \
-        @throw; \
-        return value; \
-    } @finally { \
-        [_pool release]; \
-        if (_saved != nil) \
-            [_saved autorelease]; \
-    } \
-}
+extern "C" void *NSPushAutoreleasePool(unsigned);
+extern "C" void NSPopAutoreleasePool(void *);
 
 static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, const char *prefix) {
     if (MSDebug)
@@ -863,11 +850,13 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
             // http://www.opensource.apple.com/source/gcc3/gcc3-1175/libobjc/sendmsg.c
             if (*type != '[' && *type != '(' && *type != '{')
                 stret = false;
-            else CYPoolTry {
+            else {
+                void *pool(NSPushAutoreleasePool(0));
                 NSMethodSignature *signature([NSMethodSignature signatureWithObjCTypes:type]);
                 NSUInteger rlength([signature methodReturnLength]);
                 stret = rlength > OBJC_MAX_STRUCT_BY_VALUE || struct_forward_array[rlength];
-            } CYPoolCatch()
+                NSPopAutoreleasePool(pool);
+            }
 
             A$r rs(stret ? A$r1 : A$r0);
             A$r rc(stret ? A$r2 : A$r1);
