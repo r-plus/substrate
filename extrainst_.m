@@ -13,14 +13,8 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 }
 
 #define dylib_ @"/Library/MobileSubstrate/MobileSubstrate.dylib"
-#define itunesstored_plist "/System/Library/LaunchDaemons/com.apple.itunesstored.plist"
-#define mediaserverd_plist "/System/Library/LaunchDaemons/com.apple.mediaserverd.plist"
-#define CommCenter_plist "/System/Library/LaunchDaemons/com.apple.CommCenter.plist"
-#define AOSNotification_plist "/System/Library/LaunchDaemons/com.apple.AOSNotification.plist"
-#define BTServer_plist "/System/Library/LaunchDaemons/com.apple.BTServer.plist"
-#define iapd_plist "/System/Library/LaunchDaemons/com.apple.iapd.plist"
 
-bool HookEnvironment(const char *path) {
+bool HookEnvironment_(const char *path) {
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
     CFPropertyListRef plist; {
@@ -62,24 +56,39 @@ int main(int argc, char *argv[]) {
 
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-    // XXX: do not use for now due to later reboot
-    #define HookEnvironment_(plist) \
-        if (HookEnvironment(plist)) \
-            system("launchctl unload "plist"; launchctl load "plist"");
+    bool reboot = kCFCoreFoundationVersionNumber < 478.47;
 
-    HookEnvironment(mediaserverd_plist);
-    HookEnvironment(itunesstored_plist);
-    HookEnvironment(CommCenter_plist);
-    HookEnvironment(AOSNotification_plist);
-    HookEnvironment(BTServer_plist);
-    HookEnvironment(iapd_plist);
+    #define HookEnvironment(name) do { \
+        bool hook = HookEnvironment_("/System/Library/LaunchDaemons/"name".plist"); \
+        if (reboot) \
+            break; \
+        if (hook) \
+            system( \
+                "launchctl unload /System/Library/LaunchDaemons/"name".plist;" \
+                "launchctl load /System/Library/LaunchDaemons/"name".plist;" \
+            ); \
+        else \
+            system( \
+                "launchctl stop "name";" \
+            ); \
+    } while (false)
 
-    const char *finish = "restart";
-    if (HookEnvironment("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"))
-        finish = "reload";
+    const char *finish = "reload";
 
-    // XXX: IntelliBorn claims to know how to fix this. The fact that they are holding that fix hostage is lame beyond imagination.
-    finish = "reboot";
+    HookEnvironment_("com.apple.SpringBoard");
+
+    HookEnvironment("com.apple.mediaserverd");
+    HookEnvironment("com.apple.itunesstored");
+    HookEnvironment("com.apple.CommCenter");
+    HookEnvironment("com.apple.AOSNotification");
+
+    HookEnvironment("com.apple.BTServer");
+    HookEnvironment("com.apple.iapd");
+
+    HookEnvironment("com.apple.lsd");
+
+    if (reboot)
+        finish = "reboot";
 
     const char *cydia = getenv("CYDIA");
     if (cydia != NULL) {
