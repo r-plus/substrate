@@ -1,5 +1,5 @@
 /* Cydia Substrate - Meta-Library Insert for iPhoneOS
- * Copyright (C) 2008-2009  Jay Freeman (saurik)
+ * Copyright (C) 2008-2010  Jay Freeman (saurik)
 */
 
 /*
@@ -98,7 +98,7 @@ static void MSAlert() {
     }
 
     if ($SBAlertItemsController != nil)
-        [[$SBAlertItemsController sharedInstance] activateAlertItem:[[$SafeModeAlertItem alloc] init]];
+        [[$SBAlertItemsController sharedInstance] activateAlertItem:[[[$SafeModeAlertItem alloc] init] autorelease]];
 }
 
 MSHook(void, SBStatusBar$touchesEnded$withEvent$, SBStatusBar *self, SEL sel, id touches, id event) {
