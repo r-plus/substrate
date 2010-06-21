@@ -120,7 +120,7 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
 #define MSRegister_(name, dollar, colon) \
     static class C_$ ## name ## $ ## dollar { public: _finline C_$ ## name ## $ ##dollar() { \
         MSHookMessage($ ## name, @selector(colon), MSHake(name ## $ ## dollar)); \
-    } } V_$ ## dollar; \
+    } } V_$ ## name ## $ ## dollar; \
 
 #define MSIgnore_(name, dollar, colon)
 
@@ -194,8 +194,10 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
     type &name(MSHookIvar<type>(self, #name))
 
 #define MSClassHook(name) \
+    @class name; \
     static Class $ ## name = objc_getClass(#name);
 #define MSMetaClassHook(name) \
+    @class name; \
     static Class $$ ## name = object_getClass($ ## name);
 
 #endif/*__APPLE__*/
