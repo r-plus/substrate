@@ -44,6 +44,7 @@
 #import <SpringBoard/SBAlertItemsController.h>
 #import <SpringBoard/SBButtonBar.h>
 #import <SpringBoard/SBStatusBarController.h>
+#import <SpringBoard/SBStatusBarDataManager.h>
 #import <SpringBoard/SBStatusBarTimeView.h>
 #import <SpringBoard/SBUIController.h>
 
@@ -70,13 +71,15 @@ void SafeModeAlertItem$alertSheet$buttonClicked$(id self, SEL sel, id sheet, int
 }
 
 void SafeModeAlertItem$configure$requirePasscodeForActions$(id self, SEL sel, BOOL configure, BOOL require) {
-    UIModalView *sheet([self alertSheet]);
+    id sheet([self alertSheet]);
     [sheet setDelegate:self];
     [sheet setBodyText:@"We apologize for the inconvenience, but SpringBoard has just crashed.\n\nMobileSubstrate /did not/ cause this problem: it has protected you from it.\n\nYour device is now running in Safe Mode. All extensions that support this safety system are disabled.\n\nReboot (or restart SpringBoard) to return to the normal mode. To return to this dialog touch the status bar."];
     [sheet addButtonWithTitle:@"OK"];
     [sheet addButtonWithTitle:@"Restart"];
     [sheet addButtonWithTitle:@"Help"];
     [sheet setNumberOfRows:1];
+    if ([sheet respondsToSelector:@selector(setForceHorizontalButtonsLayout:)])
+        [sheet setForceHorizontalButtonsLayout:YES];
 }
 
 void SafeModeAlertItem$performUnlockAction(id self, SEL sel) {
@@ -109,6 +112,18 @@ MSHook(void, SBStatusBar$touchesEnded$withEvent$, SBStatusBar *self, SEL sel, id
 MSHook(void, SBStatusBar$mouseDown$, SBStatusBar *self, SEL sel, GSEventRef event) {
     MSAlert();
     _SBStatusBar$mouseDown$(self, sel, event);
+}
+
+MSHook(void, UIStatusBar$touchesBegan$withEvent$, id self, SEL sel, void *arg0, void *arg1) {
+    MSAlert();
+    _UIStatusBar$touchesBegan$withEvent$(self, sel, arg0, arg1);
+}
+
+MSHook(void, SBStatusBarDataManager$_updateTimeString, id self, SEL sel) {
+    if (char *_data = &MSHookIvar<char>(self, "_data")) {
+        char *timeString(_data + 20);
+        strcpy(timeString, "Exit Safe Mode");
+    }
 }
 
 static void SBIconController$showInfoAlertIfNeeded(id self, SEL sel) {
@@ -185,7 +200,10 @@ MSInitialize {
     _SBUIController$init = MSHookMessage(objc_getClass("SBUIController"), @selector(init), &$SBUIController$init);
     _SBStatusBar$touchesEnded$withEvent$ = MSHookMessage(objc_getClass("SBStatusBar"), @selector(touchesEnded:withEvent:), &$SBStatusBar$touchesEnded$withEvent$);
     _SBStatusBar$mouseDown$ = MSHookMessage(objc_getClass("SBStatusBar"), @selector(mouseDown:), &$SBStatusBar$mouseDown$);
+    _SBStatusBarDataManager$_updateTimeString = MSHookMessage(objc_getClass("SBStatusBarDataManager"), @selector(_updateTimeString), &$SBStatusBarDataManager$_updateTimeString);
     _SBStatusBarTimeView$tile = MSHookMessage(objc_getClass("SBStatusBarTimeView"), @selector(tile), &$SBStatusBarTimeView$tile);
+
+    _UIStatusBar$touchesBegan$withEvent$ = MSHookMessage(objc_getClass("UIStatusBar"), @selector(touchesBegan:withEvent:), &$UIStatusBar$touchesBegan$withEvent$);
 
     _UIImage$defaultDesktopImage = MSHookMessage(object_getClass(objc_getClass("UIImage")), @selector(defaultDesktopImage), &$UIImage$defaultDesktopImage);
 
