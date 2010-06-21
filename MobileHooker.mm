@@ -797,7 +797,11 @@ extern "C" void NSPopAutoreleasePool(void *);
 
 static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, const char *prefix) {
     if (MSDebug)
-        fprintf(stderr, "MSHookMessageInternal(%s, %s, %p, %p, \"%s\")\n", class_getName(_class), sel_getName(sel), imp, result, prefix);
+        fprintf(stderr, "MSHookMessageInternal(%s, %s, %p, %p, \"%s\")\n",
+            _class == nil ? "nil" : class_getName(_class),
+            sel == NULL ? "NULL" : sel_getName(sel),
+            imp, result, prefix
+        );
     if (_class == nil) {
         fprintf(stderr, "MS:Warning: nil class argument\n");
         return;
