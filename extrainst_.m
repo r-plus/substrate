@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
 
     const char *finish = "reload";
 
-    HookEnvironment_("com.apple.SpringBoard");
+    HookEnvironment_("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist");
 
     HookEnvironment("com.apple.mediaserverd");
     HookEnvironment("com.apple.itunesstored");
