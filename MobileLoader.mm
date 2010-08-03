@@ -100,7 +100,7 @@ MSInitialize {
 
     CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@ [%s] (%.2f)"), identifier, slash, kCFCoreFoundationVersionNumber);
 
-    char *dat(NULL);
+    const char *dat(NULL);
     if (identifier != NULL && CFEqual(identifier, CFSTR("com.apple.springboard")))
         dat = "com.saurik.mobilesubstrate.dat";
     if (identifier == NULL && strcmp(slash, "CommCenter") == 0)
