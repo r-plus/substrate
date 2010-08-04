@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
 
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-    bool reboot = kCFCoreFoundationVersionNumber < 478.47;
+    bool reboot = kCFCoreFoundationVersionNumber < 478.47 || kCFCoreFoundationVersionNumber >= 550.32;
 
     #define HookEnvironment(name) do { \
         bool hook = HookEnvironment_("/System/Library/LaunchDaemons/"name".plist"); \
@@ -86,6 +86,7 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.iapd");
 
     HookEnvironment("com.apple.lsd");
+    HookEnvironment("com.apple.imagent");
 
     if (reboot)
         finish = "reboot";
