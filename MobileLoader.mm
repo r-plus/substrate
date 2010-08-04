@@ -52,7 +52,7 @@
 #include <objc/runtime.h>
 #include <substrate.h>
 
-#define ForSaurik 1
+#define ForSaurik 0
 
 static char MSWatch[PATH_MAX];
 
@@ -190,12 +190,8 @@ sigaction(signum, NULL, &old); { \
             meta = reinterpret_cast<CFDictionaryRef>(CFPropertyListCreateFromXMLData(kCFAllocatorDefault, data, kCFPropertyListImmutable, &error));
         }
 
-        bool load;
-        if (meta == NULL)
-            load = true;
-        else {
-            load = true;
-
+        bool load = true;
+        if (meta != NULL) {
             if (CFDictionaryRef filter = reinterpret_cast<CFDictionaryRef>(CFDictionaryGetValue(meta, CFSTR("Filter")))) {
                 if (CFArrayRef version = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("CoreFoundationVersion")))) {
                     load = false;
@@ -220,13 +216,23 @@ sigaction(signum, NULL, &old); { \
                             if (value <= kCFCoreFoundationVersionNumber)
                                 goto release;
                         }
-
-                        load = true;
                     }
+
+                    load = true;
                 }
 
-                if (CFArrayRef executables = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("Executables")))) {
+                bool any;
+                if (CFStringRef mode = reinterpret_cast<CFStringRef>(CFDictionaryGetValue(filter, CFSTR("Mode"))))
+                    any = CFEqual(mode, CFSTR("Any"));
+                else
+                    any = false;
+
+                if (any)
                     load = false;
+
+                if (CFArrayRef executables = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("Executables")))) {
+                    if (!any)
+                        load = false;
 
                     CFStringRef name(CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, slash, kCFStringEncodingUTF8, kCFAllocatorNull));
 
@@ -242,12 +248,13 @@ sigaction(signum, NULL, &old); { \
 
                     CFRelease(name);
 
-                    if (!load)
+                    if (!any && !load)
                         goto release;
                 }
 
                 if (CFArrayRef bundles = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("Bundles")))) {
-                    load = false;
+                    if (!any)
+                        load = false;
 
                     for (CFIndex i(0), count(CFArrayGetCount(bundles)); i != count; ++i) {
                         CFStringRef bundle(reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(bundles, i)));
@@ -259,12 +266,13 @@ sigaction(signum, NULL, &old); { \
                         }
                     }
 
-                    if (!load)
+                    if (!any && !load)
                         goto release;
                 }
 
                 if (CFArrayRef classes = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("Classes")))) {
-                    load = false;
+                    if (!any)
+                        load = false;
 
                     if (NSClassFromString != NULL)
                         for (CFIndex i(0), count(CFArrayGetCount(classes)); i != count; ++i) {
@@ -277,7 +285,7 @@ sigaction(signum, NULL, &old); { \
                             }
                         }
 
-                    if (!load)
+                    if (!any && !load)
                         goto release;
                 }
             }

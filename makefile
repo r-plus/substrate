@@ -37,7 +37,7 @@ MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
 package:
 	rm -rf mobilesubstrate
 	mkdir -p mobilesubstrate/DEBIAN
-	cp -a control postrm mobilesubstrate/DEBIAN
+	cp -a control extrainst_ postrm mobilesubstrate/DEBIAN
 	mkdir -p mobilesubstrate/Library/MobileSubstrate/DynamicLibraries
 	cp -a MobileSafety.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobilePaper.png mobilesubstrate/Library/MobileSubstrate
