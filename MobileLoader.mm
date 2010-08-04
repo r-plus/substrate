@@ -52,7 +52,7 @@
 #include <objc/runtime.h>
 #include <substrate.h>
 
-#define ForSaurik 0
+#define ForSaurik 1
 
 static char MSWatch[PATH_MAX];
 
@@ -68,8 +68,6 @@ extern "C" char ***_NSGetArgv(void);
 
 MSInitialize {
 #if 1
-    if (dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY | RTLD_NOLOAD) == NULL)
-        return;
     CFBundleRef bundle(CFBundleGetMainBundle());
     CFStringRef identifier(bundle == NULL ? NULL : CFBundleGetIdentifier(bundle));
 #else
@@ -235,6 +233,8 @@ sigaction(signum, NULL, &old); { \
                     for (CFIndex i(0), count(CFArrayGetCount(executables)); i != count; ++i) {
                         CFStringRef executable(reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(executables, i)));
                         if (CFEqual(executable, name)) {
+                            if (ForSaurik)
+                                CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Found: %@"), name);
                             load = true;
                             break;
                         }
@@ -252,6 +252,8 @@ sigaction(signum, NULL, &old); { \
                     for (CFIndex i(0), count(CFArrayGetCount(bundles)); i != count; ++i) {
                         CFStringRef bundle(reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(bundles, i)));
                         if (CFBundleGetBundleWithIdentifier(bundle) != NULL) {
+                            if (ForSaurik)
+                                CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Found: %@"), bundle);
                             load = true;
                             break;
                         }
@@ -268,6 +270,8 @@ sigaction(signum, NULL, &old); { \
                         for (CFIndex i(0), count(CFArrayGetCount(classes)); i != count; ++i) {
                             CFStringRef _class(reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(classes, i)));
                             if (NSClassFromString((NSString *) _class) != NULL) {
+                                if (ForSaurik)
+                                    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Found: %@"), _class);
                                 load = true;
                                 break;
                             }

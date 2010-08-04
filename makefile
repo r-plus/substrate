@@ -4,7 +4,7 @@ else
 target := $(PKG_TARG)-
 endif
 
-all: libsubstrate.dylib MobileSafety.dylib MobileSubstrate.dylib postrm extrainst_
+all: libsubstrate.dylib MobileLoader.dylib MobileSafety.dylib MobileSubstrate.dylib postrm extrainst_
 
 flags := -march=armv6 -mcpu=arm1176jzf-s -g0 -O2 -Wall #-Werror
 
@@ -18,7 +18,11 @@ libsubstrate.dylib: MobileHooker.mm makefile nlist.cpp MobileList.mm Struct.hpp
 	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup -framework CoreFoundation -I. -lobjc
 	ldid -S $@
 
-MobileSubstrate.dylib: MobileLoader.mm makefile
+MobileSubstrate.dylib: MobileBootstrap.cpp makefile
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -I.
+	ldid -S $@
+
+MobileLoader.dylib: MobileLoader.mm makefile
 	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -undefined dynamic_lookup -framework CoreFoundation -I. -lobjc
 	ldid -S $@
 
@@ -33,12 +37,13 @@ MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
 package:
 	rm -rf mobilesubstrate
 	mkdir -p mobilesubstrate/DEBIAN
-	cp -a control extrainst_ postrm mobilesubstrate/DEBIAN
+	cp -a control postrm mobilesubstrate/DEBIAN
 	mkdir -p mobilesubstrate/Library/MobileSubstrate/DynamicLibraries
 	cp -a MobileSafety.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobilePaper.png mobilesubstrate/Library/MobileSubstrate
 	#cp -a MobileUnions.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobileSubstrate.dylib mobilesubstrate/Library/MobileSubstrate
+	cp -a MobileLoader.dylib mobilesubstrate/Library/MobileSubstrate
 	mkdir -p mobilesubstrate/usr/include
 	cp -a substrate.h mobilesubstrate/usr/include
 	mkdir -p mobilesubstrate/usr/lib
