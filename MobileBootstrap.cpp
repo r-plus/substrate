@@ -45,7 +45,12 @@
 #include "substrate.h"
 
 MSInitialize {
+    // Skype
     if (dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY | RTLD_NOLOAD) == NULL)
         return;
-    dlopen("/Library/MobileSubstrate/MobileLoader.dylib", RTLD_LAZY | RTLD_LOCAL);
+
+    // Maps
+    dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", RTLD_LAZY | RTLD_GLOBAL);
+
+    dlopen("/Library/MobileSubstrate/MobileLoader.dylib", RTLD_LAZY | RTLD_GLOBAL);
 }

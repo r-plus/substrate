@@ -23,7 +23,7 @@ MobileSubstrate.dylib: MobileBootstrap.cpp makefile
 	ldid -S $@
 
 MobileLoader.dylib: MobileLoader.mm makefile
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -undefined dynamic_lookup -framework CoreFoundation -I. -lobjc
+	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -I. -framework CoreFoundation
 	ldid -S $@
 
 MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
