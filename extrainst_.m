@@ -88,6 +88,9 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.lsd");
     HookEnvironment("com.apple.imagent");
 
+    HookEnvironment("com.apple.mobile.lockdown");
+    HookEnvironment("com.apple.itdbprep.server");
+
     if (reboot)
         finish = "reboot";
 

@@ -13,14 +13,6 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 }
 
 #define dylib_ @"/Library/MobileSubstrate/MobileSubstrate.dylib"
-#define itunesstored_plist "/System/Library/LaunchDaemons/com.apple.itunesstored.plist"
-#define mediaserverd_plist "/System/Library/LaunchDaemons/com.apple.mediaserverd.plist"
-#define CommCenter_plist "/System/Library/LaunchDaemons/com.apple.CommCenter.plist"
-#define AOSNotification_plist "/System/Library/LaunchDaemons/com.apple.AOSNotification.plist"
-#define BTServer_plist "/System/Library/LaunchDaemons/com.apple.BTServer.plist"
-#define iapd_plist "/System/Library/LaunchDaemons/com.apple.iapd.plist"
-#define lsd_plist "/System/Library/LaunchDaemons/com.apple.lsd.plist"
-#define imagent_plist "/System/Library/LaunchDaemons/com.apple.imagent.plist"
 
 bool HookEnvironment(const char *path) {
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
@@ -59,6 +51,9 @@ bool HookEnvironment(const char *path) {
     return true;
 }
 
+#define HookEnvironment(name) \
+    HookEnvironment("/System/Library/LaunchDaemons/" name ".plist")
+
 int main(int argc, char *argv[]) {
     if (argc < 2 || (
         strcmp(argv[1], "abort-install") != 0 &&
@@ -72,17 +67,22 @@ int main(int argc, char *argv[]) {
         if (HookEnvironment(plist)) \
             system("launchctl unload "plist"; launchctl load "plist"");
 
-    HookEnvironment(itunesstored_plist);
-    HookEnvironment(mediaserverd_plist);
-    HookEnvironment(CommCenter_plist);
-    HookEnvironment(AOSNotification_plist);
-    HookEnvironment(BTServer_plist);
-    HookEnvironment(iapd_plist);
-    HookEnvironment(lsd_plist);
-    HookEnvironment(imagent_plist);
+    HookEnvironment("com.apple.mediaserverd");
+    HookEnvironment("com.apple.itunesstored");
+    HookEnvironment("com.apple.CommCenter");
+    HookEnvironment("com.apple.AOSNotification");
+
+    HookEnvironment("com.apple.BTServer");
+    HookEnvironment("com.apple.iapd");
+
+    HookEnvironment("com.apple.lsd");
+    HookEnvironment("com.apple.imagent");
+
+    HookEnvironment("com.apple.mobile.lockdown");
+    HookEnvironment("com.apple.itdbprep.server");
 
     const char *finish = "restart";
-    if (HookEnvironment("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"))
+    if (HookEnvironment("com.apple.SpringBoard"))
         finish = "reload";
 
     // XXX: damn you khan!
