@@ -42,11 +42,34 @@ IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix _default(NU
 void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result);
 #endif
 
+void *MSOpenMemory(void *data, size_t size);
+void MSCloseMemory(void *handle);
+
 #ifdef __cplusplus
 }
 #endif
 
 #ifdef __cplusplus
+
+struct MSHookMemory {
+    void *handle_;
+
+    MSHookMemory(void *data, size_t size) :
+        handle_(MSOpenMemory(data, size))
+    {
+    }
+
+    void Close() {
+        if (handle_ != NULL) {
+            MSCloseMemory(handle_);
+            handle_ = NULL;
+        }
+    }
+
+    ~MSHookMemory() {
+        Close();
+    }
+};
 
 #ifdef __APPLE__
 
