@@ -32,7 +32,7 @@
 #import <SpringBoard/SBStatusBarTimeView.h>
 #import <SpringBoard/SBUIController.h>
 
-#include <substrate.h>
+#include "CydiaSubstrate.h"
 
 Class $SafeModeAlertItem;
 Class $SBAlertItemsController;

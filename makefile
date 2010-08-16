@@ -27,7 +27,7 @@ Struct.hpp:
 	$$($(gcc) -print-prog-name=cc1obj) -print-objc-runtime-info </dev/null >$@
 
 libsubstrate.dylib: MobileHooker.mm makefile nlist.cpp Struct.hpp disasm.h
-	$(gcc) $(flags) -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup -framework CoreFoundation -lobjc
+	$(gcc) $(flags) -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate -undefined dynamic_lookup -framework CoreFoundation -lobjc
 	$(ldid) $@
 
 MobileSubstrate.dylib: MobileBootstrap.cpp makefile
@@ -51,20 +51,26 @@ package:
 	mkdir -p mobilesubstrate/DEBIAN
 	cp -a control extrainst_ postrm mobilesubstrate/DEBIAN
 	mkdir -p mobilesubstrate/Library/MobileSubstrate/DynamicLibraries
+	mkdir -p mobilesubstrate/Library/Frameworks/CydiaSubstrate.framework/Headers
 	cp -a MobileSafety.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobilePaper.png mobilesubstrate/Library/MobileSubstrate
 	cp -a MobileSubstrate.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobileLoader.dylib mobilesubstrate/Library/MobileSubstrate
 	mkdir -p mobilesubstrate/usr/include
-	cp -a substrate.h mobilesubstrate/usr/include
+	cp -a CydiaSubstrate.h mobilesubstrate/Library/Frameworks/CydiaSubstrate.framework/Headers
+	ln -s /Library/Frameworks/CydiaSubstrate.framework/Headers/CydiaSubstrate.h mobilesubstrate/usr/include/substrate.h
 	mkdir -p mobilesubstrate/usr/lib
-	cp -a libsubstrate.dylib mobilesubstrate/usr/lib
+	cp -a libsubstrate.dylib mobilesubstrate/Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
+	ln -s /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate mobilesubstrate/usr/lib/libsubstrate.dylib
 	dpkg-deb -b mobilesubstrate mobilesubstrate_$(shell grep ^Version: control | cut -d ' ' -f 2)_iphoneos-arm.deb
 
 install: MobileSubstrate.dylib MobileLoader.dylib libsubstrate.dylib
 	mkdir -p /Library/MobileSubstrate/DynamicLibraries
-	cp -a MobileSubstrate.dylib /Library/MobileSubstrate
-	cp -a MobileLoader.dylib /Library/MobileSubstrate
-	cp -a libsubstrate.dylib /usr/lib
+	mkdir -p /Library/Frameworks/CydiaSubstrate.framework/Headers
+	cp -a MobileSubstrate.dylib /Library/Frameworks/CydiaSubstrate.framework
+	ln -fs /Library/Frameworks/CydiaSubstrate.framework/MobileSubstrate.dylib /Library/MobileSubstrate
+	cp -a MobileLoader.dylib /Library/Frameworks/CydiaSubstrate.framework
+	cp -a libsubstrate.dylib /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
+	cp -a CydiaSubstrate.h /Library/Frameworks/CydiaSubstrate.framework/Headers
 
 .PHONY: all clean package

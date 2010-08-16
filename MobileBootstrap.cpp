@@ -19,14 +19,7 @@
 **/
 /* }}} */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-
-#include <dlfcn.h>
-#include <unistd.h>
-
-#include "substrate.h"
+#include "CydiaSubstrate.h"
 
 MSInitialize {
     // Skype
@@ -36,5 +29,5 @@ MSInitialize {
     // Maps
     dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", RTLD_LAZY | RTLD_GLOBAL);
 
-    dlopen("/Library/MobileSubstrate/MobileLoader.dylib", RTLD_LAZY | RTLD_GLOBAL);
+    dlopen("/Library/Frameworks/CydiaSubstrate.framework/MobileLoader.dylib", RTLD_LAZY | RTLD_GLOBAL);
 }

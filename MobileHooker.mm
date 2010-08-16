@@ -35,7 +35,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "substrate.h"
+#include "CydiaSubstrate.h"
 
 #define _trace() do { \
     fprintf(stderr, "_trace(%u)\n", __LINE__); \

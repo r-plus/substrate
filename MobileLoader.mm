@@ -32,7 +32,7 @@
 #include <unistd.h>
 
 #include <objc/runtime.h>
-#include <substrate.h>
+#include "CydiaSubstrate.h"
 
 #define ForSaurik 0
 

@@ -64,7 +64,7 @@ static bool _itv;
 #include <cstdio>
 #include <cstdlib>
 
-#include "substrate.h"
+#include "CydiaSubstrate.h"
 
 struct MSSymbolData {
     const char *name_;
