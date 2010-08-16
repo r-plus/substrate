@@ -971,7 +971,10 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
         width = MSGetInstructionWidthIntel(backup + offset);
         //_assert(width != 0 && offset + width <= used);
 
-        if (backup[offset] == 0xe9) {
+        if (backup[offset] == 0xeb) {
+            length -= 2;
+            length += MSSizeOfJump(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+        } else if (backup[offset] == 0xe9) {
             length -= 5;
             length += MSSizeOfJump(area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
         } else if (
@@ -1007,11 +1010,12 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
             width = MSGetInstructionWidthIntel(backup + offset);
             //_assert(width != 0 && offset + width <= used);
 
-            if (backup[offset] == 0xe9) {
+            if (backup[offset] == 0xeb)
+                MSWriteJump(current, area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+            else if (backup[offset] == 0xe9)
                 MSWriteJump(current, area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
-            } else if (
+            else if (
                 backup[offset] == 0xe3 ||
-                backup[offset] == 0xeb ||
                 (backup[offset] & 0xf0) == 0x70
             ) {
                 MSWrite<uint8_t>(current, backup[offset]);
