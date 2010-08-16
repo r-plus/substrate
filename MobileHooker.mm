@@ -979,7 +979,6 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
             length += MSSizeOfJump(area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
         } else if (
             backup[offset] == 0xe3 ||
-            backup[offset] == 0xeb ||
             (backup[offset] & 0xf0) == 0x70
         ) {
             length += 2;
