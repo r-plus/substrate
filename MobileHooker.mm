@@ -855,9 +855,9 @@ static size_t MSSizeOfJump(uintptr_t target) {
     return MSSizeOfJump(true, target);
 }
 
-/*static size_t MSSizeOfJump(void *target, void *source) {
+static size_t MSSizeOfJump(void *target, void *source) {
     return MSSizeOfJump(reinterpret_cast<uintptr_t>(target), reinterpret_cast<uintptr_t>(source));
-}*/
+}
 
 static size_t MSSizeOfJump(void *target) {
     return MSSizeOfJump(reinterpret_cast<uintptr_t>(target));
@@ -965,25 +965,24 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
         return;
     }
 
-    size_t basic(used + MSSizeOfJump(source + used));
-    size_t extra(0);
+    size_t length(used + MSSizeOfJump(source + used));
 
     for (size_t offset(0), width; offset != used; offset += width) {
         width = MSGetInstructionWidthIntel(backup + offset);
         //_assert(width != 0 && offset + width <= used);
 
         if (backup[offset] == 0xe9) {
-            basic -= 5;
-            basic += MSSizeOfJump(area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
+            length -= 5;
+            length += MSSizeOfJump(area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
         } else if (
             backup[offset] == 0xe3 ||
+            backup[offset] == 0xeb ||
             (backup[offset] & 0xf0) == 0x70
         ) {
-            extra += MSSizeOfJump(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+            length += 2;
+            length += MSSizeOfJump(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
         }
     }
-
-    size_t length(basic + extra);
 
     uint8_t *buffer(reinterpret_cast<uint8_t *>(mmap(
         NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
@@ -995,9 +994,6 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
         return;
     }
 
-    if (MSDebug)
-        NSLog(@"basic=0x%zx, extra=0x%zx, length=0x%zx", basic, extra, length);
-
     if (false) fail: {
         munmap(buffer, length);
         *result = NULL;
@@ -1006,7 +1002,6 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
     {
         uint8_t *current(buffer);
-        uint8_t *trailer(buffer + basic);
 
         for (size_t offset(0), width; offset != used; offset += width) {
             width = MSGetInstructionWidthIntel(backup + offset);
@@ -1016,11 +1011,15 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
                 MSWriteJump(current, area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
             } else if (
                 backup[offset] == 0xe3 ||
+                backup[offset] == 0xeb ||
                 (backup[offset] & 0xf0) == 0x70
             ) {
                 MSWrite<uint8_t>(current, backup[offset]);
-                MSWrite<uint8_t>(current, trailer - (current + 1));
-                MSWriteJump(trailer, area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+                MSWrite<uint8_t>(current, 2);
+                MSWrite<uint8_t>(current, 0xeb);
+                void *destiny(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+                MSWrite<uint8_t>(current, MSSizeOfJump(destiny, current + 1));
+                MSWriteJump(current, destiny);
             } else {
                 MSWrite(current, backup + offset, width);
             }
