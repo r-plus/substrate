@@ -1,43 +1,30 @@
-/* Cydia Substrate - Meta-Library Insert for iPhoneOS
- * Copyright (C) 2008-2009  Jay Freeman (saurik)
+/* Cydia Substrate - Powerful Code Insertion Platform
+ * Copyright (C) 2008-2010  Jay Freeman (saurik)
 */
 
+/* GNU Lesser General Public License, Version 3 {{{ */
 /*
- *        Redistribution and use in source and binary
- * forms, with or without modification, are permitted
- * provided that the following conditions are met:
+ * Cycript is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
  *
- * 1. Redistributions of source code must retain the
- *    above copyright notice, this list of conditions
- *    and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the
- *    above copyright notice, this list of conditions
- *    and the following disclaimer in the documentation
- *    and/or other materials provided with the
- *    distribution.
- * 3. The name of the author may not be used to endorse
- *    or promote products derived from this software
- *    without specific prior written permission.
+ * Cycript is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+ * License for more details.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS''
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
- * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
- * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Cycript.  If not, see <http://www.gnu.org/licenses/>.
+**/
+/* }}} */
 
 #import <Foundation/Foundation.h>
 
+// XXX: this is required by some code below
+#ifdef __arm__
 #include "Struct.hpp"
+#endif
 
 #include <mach/mach_init.h>
 #include <mach/vm_map.h>
@@ -53,6 +40,10 @@
 #define _trace() do { \
     fprintf(stderr, "_trace(%u)\n", __LINE__); \
 } while (false)
+
+#if defined(__i386__) || defined(__x86_64__)
+#include "disasm.h"
+#endif
 
 #ifdef __APPLE__
 #import <CoreFoundation/CFLogUtilities.h>
@@ -120,6 +111,63 @@ void MSLogHex(const void *vdata, size_t size, const char *mark = 0) {
         b = 0;
         d[0] = '\0';
     }
+}
+
+#ifdef __APPLE__
+struct MSMemoryHook {
+    mach_port_t self_;
+    uintptr_t base_;
+    size_t width_;
+
+    MSMemoryHook(mach_port_t self, uintptr_t base, size_t width) :
+        self_(self),
+        base_(base),
+        width_(width)
+    {
+    }
+};
+
+void *MSOpenMemory(void *data, size_t size) {
+    if (size == 0)
+        return NULL;
+
+    int page(getpagesize());
+
+    mach_port_t self(mach_task_self());
+    uintptr_t base(reinterpret_cast<uintptr_t>(data) / page * page);
+    size_t width(((reinterpret_cast<uintptr_t>(data) + size - 1) / page + 1) * page - base);
+
+    if (kern_return_t error = vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
+        fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
+        return NULL;
+    }
+
+    return new MSMemoryHook(self, base, width);
+}
+
+void MSCloseMemory(void *handle) {
+    MSMemoryHook *memory(reinterpret_cast<MSMemoryHook *>(handle));
+    if (kern_return_t error = vm_protect(memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
+        fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
+    delete memory;
+}
+
+extern "C" void __clear_cache (char *beg, char *end);
+
+void MSClearCache(void *data, size_t size) {
+    __clear_cache(reinterpret_cast<char *>(data), reinterpret_cast<char *>(data) + size);
+}
+#endif
+
+template <typename Type_>
+static void MSWrite(uint8_t *&buffer, Type_ value) {
+    *reinterpret_cast<Type_ *>(buffer) = value;
+    buffer += sizeof(Type_);
+}
+
+static void MSWrite(uint8_t *&buffer, uint8_t *data, size_t size) {
+    memcpy(buffer, data, size);
+    buffer += size;
 }
 
 #ifdef __arm__
@@ -218,8 +266,6 @@ enum A$c {
 #define T$msr_apsr_nzcvqg_rn(rn) /* msr apsr, rn */ \
     (T2$msr_apsr_nzcvqg_rn(rn) << 16 | T1$msr_apsr_nzcvqg_rn(rn))
 
-extern "C" void __clear_cache (char *beg, char *end);
-
 static inline bool A$pcrel$r(uint32_t ic) {
     return (ic & 0x0c000000) == 0x04000000 && (ic & 0xf0000000) != 0xf0000000 && (ic & 0x000f0000) == 0x000f0000;
 }
@@ -254,48 +300,6 @@ static inline bool T$pcrel$add(uint16_t ic) {
 
 static inline bool T$pcrel$ldrw(uint16_t ic) {
     return (ic & 0xff7f) == 0xf85f;
-}
-
-struct MSMemoryHook {
-    mach_port_t self_;
-    uintptr_t base_;
-    size_t width_;
-
-    MSMemoryHook(mach_port_t self, uintptr_t base, size_t width) :
-        self_(self),
-        base_(base),
-        width_(width)
-    {
-    }
-};
-
-void *MSOpenMemory(void *data, size_t size) {
-    if (size == 0)
-        return NULL;
-
-    int page(getpagesize());
-
-    mach_port_t self(mach_task_self());
-    uintptr_t base(reinterpret_cast<uintptr_t>(data) / page * page);
-    size_t width(((reinterpret_cast<uintptr_t>(data) + size - 1) / page + 1) * page - base);
-
-    if (kern_return_t error = vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
-        fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
-        return NULL;
-    }
-
-    return new MSMemoryHook(self, base, width);
-}
-
-void MSCloseMemory(void *handle) {
-    MSMemoryHook *memory(reinterpret_cast<MSMemoryHook *>(handle));
-    if (kern_return_t error = vm_protect(memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
-        fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
-    delete memory;
-}
-
-void MSClearCache(void *data, size_t size) {
-    __clear_cache(reinterpret_cast<char *>(data), reinterpret_cast<char *>(data) + size);
 }
 
 static size_t MSGetInstructionWidthThumb(void *start) {
@@ -416,6 +420,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
         if (buffer == MAP_FAILED) {
             fprintf(stderr, "MS:Error:mmap() = %d\n", errno);
+            *result = NULL;
             return;
         }
 
@@ -817,9 +822,225 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 }
 #endif
 
-#ifdef __i386__
+#if defined(__i386__) || defined(__x86_64__)
+static size_t MSGetInstructionWidthIntel(void *start) {
+    return disasm(reinterpret_cast<uint8_t *>(start));
+}
+
+#ifdef __LP64__
+static const bool ia32 = false;
+#else
+static const bool ia32 = true;
+#endif
+
+static bool MSIs32BitOffset(uintptr_t target, uintptr_t source) {
+    intptr_t offset(target - source);
+    return int32_t(offset) == offset;
+}
+
+static size_t MSSizeOfJump(bool blind, uintptr_t target, uintptr_t source = 0) {
+    if (ia32 || !blind && MSIs32BitOffset(target, source + 5))
+        return 5;
+    else if (uint64_t(target) >> 32 == 0)
+        return 6;
+    else
+        return 14;
+}
+
+static size_t MSSizeOfJump(uintptr_t target, uintptr_t source) {
+    return MSSizeOfJump(false, target, source);
+}
+
+static size_t MSSizeOfJump(uintptr_t target) {
+    return MSSizeOfJump(true, target);
+}
+
+/*static size_t MSSizeOfJump(void *target, void *source) {
+    return MSSizeOfJump(reinterpret_cast<uintptr_t>(target), reinterpret_cast<uintptr_t>(source));
+}*/
+
+static size_t MSSizeOfJump(void *target) {
+    return MSSizeOfJump(reinterpret_cast<uintptr_t>(target));
+}
+
+static void MSWriteJump(uint8_t *&current, uintptr_t target) {
+    uintptr_t source(reinterpret_cast<uintptr_t>(current));
+
+    if (ia32 || MSIs32BitOffset(target, source + 5)) {
+        MSWrite<uint8_t>(current, 0xe9);
+        MSWrite<uint32_t>(current, target - (source + 5));
+    } else {
+        MSWrite<uint8_t>(current, 0x68);
+        MSWrite<uint32_t>(current, target);
+
+        uint32_t high(uint64_t(target) >> 32);
+        if (high != 0) {
+            MSWrite<uint8_t>(current, 0xc7);
+            MSWrite<uint8_t>(current, 0x44);
+            MSWrite<uint8_t>(current, 0x24);
+            MSWrite<uint8_t>(current, 0x04);
+            MSWrite<uint32_t>(current, high);
+        }
+
+        MSWrite<uint8_t>(current, 0xc3);
+    }
+
+#if 0
+    MSWrite<uint8_t>(current, 0xff);
+    MSWrite<uint8_t>(current, 0x25);
+    MSWrite<uint32_t>(current, 0x00000000);
+    MSWrite<uintptr_t>(current, target);
+#endif
+}
+
+static void MSWriteJump(uint8_t *&current, void *target) {
+    return MSWriteJump(current, reinterpret_cast<uintptr_t>(target));
+}
+
 extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
-    fprintf(stderr, "MS:Error:x86\n");
+    if (MSDebug)
+        fprintf(stderr, "MSHookFunction(%p, %p, %p)\n", symbol, replace, result);
+    if (symbol == NULL)
+        return;
+
+    uintptr_t source(reinterpret_cast<uintptr_t>(symbol));
+    uintptr_t target(reinterpret_cast<uintptr_t>(replace));
+
+    uint8_t *area(reinterpret_cast<uint8_t *>(symbol));
+
+    size_t required(MSSizeOfJump(target, source));
+
+    if (MSDebug) {
+        char name[16];
+        sprintf(name, "%p", area);
+        MSLogHex(area, 32, name);
+    }
+
+    size_t used(0);
+    while (used < required) {
+        size_t width(MSGetInstructionWidthIntel(area + used));
+        if (width == 0) {
+            fprintf(stderr, "MS:Error:MSGetInstructionWidthIntel(%p) == 0", area + used);
+            return;
+        }
+
+        used += width;
+    }
+
+    size_t blank(used - required);
+
+    if (MSDebug) {
+        char name[16];
+        sprintf(name, "%p", area);
+        MSLogHex(area, used + sizeof(uint16_t), name);
+    }
+
+    uint8_t backup[used];
+    memcpy(backup, area, used);
+
+    MSHookMemory code(area, used); {
+        uint8_t *current(area);
+        MSWriteJump(current, target);
+        for (unsigned offset(0); offset != blank; ++offset)
+            MSWrite<uint8_t>(current, 0x90);
+        MSClearCache(area, used);
+    } code.Close();
+
+    if (MSDebug) {
+        char name[16];
+        sprintf(name, "%p", area);
+        MSLogHex(area, used + sizeof(uint16_t), name);
+    }
+
+    if (result == NULL)
+        return;
+
+    if (backup[0] == 0xe9) {
+        *result = reinterpret_cast<void *>(source + 5 + *reinterpret_cast<uint32_t *>(backup + 1));
+        return;
+    }
+
+    if (!ia32 && backup[0] == 0xff && backup[1] == 0x25) {
+        *result = *reinterpret_cast<void **>(source + 6 + *reinterpret_cast<uint32_t *>(backup + 2));
+        return;
+    }
+
+    size_t basic(used + MSSizeOfJump(source + used));
+    size_t extra(0);
+
+    for (size_t offset(0), width; offset != used; offset += width) {
+        width = MSGetInstructionWidthIntel(backup + offset);
+        //_assert(width != 0 && offset + width <= used);
+
+        if (backup[offset] == 0xe9) {
+            basic -= 5;
+            basic += MSSizeOfJump(area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
+        } else if (
+            backup[offset] == 0xe3 ||
+            (backup[offset] & 0xf0) == 0x70
+        ) {
+            extra += MSSizeOfJump(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+        }
+    }
+
+    size_t length(basic + extra);
+
+    uint8_t *buffer(reinterpret_cast<uint8_t *>(mmap(
+        NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
+    )));
+
+    if (buffer == MAP_FAILED) {
+        fprintf(stderr, "MS:Error:mmap() = %d\n", errno);
+        *result = NULL;
+        return;
+    }
+
+    if (MSDebug)
+        NSLog(@"basic=0x%zx, extra=0x%zx, length=0x%zx", basic, extra, length);
+
+    if (false) fail: {
+        munmap(buffer, length);
+        *result = NULL;
+        return;
+    }
+
+    {
+        uint8_t *current(buffer);
+        uint8_t *trailer(buffer + basic);
+
+        for (size_t offset(0), width; offset != used; offset += width) {
+            width = MSGetInstructionWidthIntel(backup + offset);
+            //_assert(width != 0 && offset + width <= used);
+
+            if (backup[offset] == 0xe9) {
+                MSWriteJump(current, area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
+            } else if (
+                backup[offset] == 0xe3 ||
+                (backup[offset] & 0xf0) == 0x70
+            ) {
+                MSWrite<uint8_t>(current, backup[offset]);
+                MSWrite<uint8_t>(current, trailer - (current + 1));
+                MSWriteJump(trailer, area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+            } else {
+                MSWrite(current, backup + offset, width);
+            }
+        }
+
+        MSWriteJump(current, area + used);
+    }
+
+    if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
+        fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
+        goto fail;
+    }
+
+    *result = buffer;
+
+    if (MSDebug) {
+        char name[16];
+        sprintf(name, "%p", *result);
+        MSLogHex(buffer, length, name);
+    }
 }
 #endif
 
@@ -869,6 +1090,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
 
     IMP old(NULL);
 
+// XXX: port this to x86
 #if defined(__arm__)
     if (!direct) {
         size_t length(13 * sizeof(uint32_t));

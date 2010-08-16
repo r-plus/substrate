@@ -1,3 +1,24 @@
+/* Cydia Substrate - Powerful Code Insertion Platform
+ * Copyright (C) 2008-2010  Jay Freeman (saurik)
+*/
+
+/* GNU Lesser General Public License, Version 3 {{{ */
+/*
+ * Cycript is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * Cycript is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+ * License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Cycript.  If not, see <http://www.gnu.org/licenses/>.
+**/
+/* }}} */
+
 #if 1
 /* Trace Profiler {{{ */
 #include <sys/time.h>
@@ -23,61 +44,6 @@ static bool _itv;
 /* }}} */
 #endif
 
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
- * Copyright (c) 1989, 1993
- * The Regents of the University of California.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *        This product includes software developed by the University of
- *        California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */
-
 #include <mach/mach.h>
 #include <mach/mach_init.h>
 
@@ -87,7 +53,7 @@ static bool _itv;
 #include <mach-o/nlist.h>
 
 #define BSD_KERNEL_PRIVATE
-#include <arm/exec.h>
+#include <machine/exec.h>
 
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -98,21 +64,26 @@ static bool _itv;
 #include <cstdio>
 #include <cstdlib>
 
-static int MSMachONameList_(const uint8_t *base, struct nlist *list, bool file) {
-    struct nlist *p;
-    const struct nlist *q;
-    int nreq;
+#include "substrate.h"
 
-    for (p = list, nreq = 0; p->n_un.n_name && p->n_un.n_name[0]; ++p, ++nreq) {
-        p->n_type = 0;
-        p->n_value = 0;
-        p->n_desc = 0;
-        p->n_sect = 0;
-    }
+struct MSSymbolData {
+    const char *name_;
+    uint8_t type_;
+    uint8_t sect_;
+    int16_t desc_;
+    uintptr_t value_;
+};
 
+#ifdef __LP64__
+typedef struct nlist_64 MSNameList;
+#else
+typedef struct nlist MSNameList;
+#endif
+
+int MSMachONameList_(const uint8_t *base, struct MSSymbolData *list, size_t nreq) {
     const struct exec *buf(reinterpret_cast<const struct exec *>(base));
 
-    if (NXSwapBigLongToHost(buf->a_magic) == FAT_MAGIC) {
+    if (OSSwapBigToHostInt32(buf->a_magic) == FAT_MAGIC) {
         struct host_basic_info hbi; {
             host_t host(mach_host_self());
             mach_msg_type_number_t count(HOST_BASIC_INFO_COUNT);
@@ -122,44 +93,47 @@ static int MSMachONameList_(const uint8_t *base, struct nlist *list, bool file) 
         }
 
         const struct fat_header *fh(reinterpret_cast<const struct fat_header *>(base));
-        uint32_t nfat_arch(NXSwapBigLongToHost(fh->nfat_arch));
+        uint32_t nfat_arch(OSSwapBigToHostInt32(fh->nfat_arch));
         const struct fat_arch *fat_archs(reinterpret_cast<const struct fat_arch *>(fh + 1));
 
-        for (uint32_t i(0); i != nfat_arch; ++i) {
-            cpu_type_t cputype(NXSwapBigLongToHost(fat_archs[i].cputype));
-            if (cputype != hbi.cpu_type)
-                continue;
-            buf = reinterpret_cast<const struct exec *>(base + NXSwapBigLongToHost(fat_archs[i].offset));
-            goto thin;
-        }
+        for (uint32_t i(0); i != nfat_arch; ++i)
+            if (static_cast<cpu_type_t>(OSSwapBigToHostInt32(fat_archs[i].cputype)) == hbi.cpu_type) {
+                buf = reinterpret_cast<const struct exec *>(base + OSSwapBigToHostInt32(fat_archs[i].offset));
+                goto thin;
+            }
 
         return -1;
     }
 
   thin:
-    const struct nlist *symbols;
+    const MSNameList *symbols;
     const char *strings;
     size_t n;
 
+    // XXX: this check looks really scary when it fails
     if (buf->a_magic == MH_MAGIC) {
         const struct mach_header *mh(reinterpret_cast<const struct mach_header *>(base));
         const struct load_command *load_commands(reinterpret_cast<const struct load_command *>(mh + 1));
 
         const struct symtab_command *stp(NULL);
+        const struct load_command *lcp;
 
-        const struct load_command *lcp(load_commands);
-        for (uint32_t i(0); i != mh->ncmds; ++i, lcp = reinterpret_cast<const struct load_command *>(reinterpret_cast<const uint8_t *>(lcp) + lcp->cmdsize)) {
+        lcp = load_commands;
+        for (uint32_t i(0); i != mh->ncmds; ++i) {
             if (
                 lcp->cmdsize % sizeof(long) != 0 || lcp->cmdsize <= 0 ||
                 reinterpret_cast<const uint8_t *>(lcp) + lcp->cmdsize > reinterpret_cast<const uint8_t *>(load_commands) + mh->sizeofcmds
             )
                 return -1;
+
             if (lcp->cmd == LC_SYMTAB) {
                 if (lcp->cmdsize != sizeof(struct symtab_command))
                     return -1;
                 stp = reinterpret_cast<const struct symtab_command *>(lcp);
                 goto found;
             }
+
+            lcp = reinterpret_cast<const struct load_command *>(reinterpret_cast<const uint8_t *>(lcp) + lcp->cmdsize);
         }
 
         return -1;
@@ -167,88 +141,109 @@ static int MSMachONameList_(const uint8_t *base, struct nlist *list, bool file) 
       found:
         n = stp->nsyms;
 
-        if (file) {
-            symbols = reinterpret_cast<const struct nlist *>(base + stp->symoff);
-            strings = reinterpret_cast<const char *>(base + stp->stroff);
-        } else {
-            symbols = NULL;
-            strings = NULL;
+        symbols = NULL;
+        strings = NULL;
 
-            lcp = load_commands;
-            for (uint32_t i(0); i != mh->ncmds; ++i, lcp = reinterpret_cast<const struct load_command *>(reinterpret_cast<const uint8_t *>(lcp) + lcp->cmdsize)) {
-                if (
-                    lcp->cmdsize % sizeof(long) != 0 || lcp->cmdsize <= 0 ||
-                    reinterpret_cast<const uint8_t *>(lcp) + lcp->cmdsize > reinterpret_cast<const uint8_t *>(load_commands) + mh->sizeofcmds
-                )
-                    return -1;
-                if (lcp->cmd == LC_SEGMENT) {
-                    if (lcp->cmdsize < sizeof(struct symtab_command))
-                        return -1;
-                    const struct segment_command *segment(reinterpret_cast<const struct segment_command *>(lcp));
-                    if (stp->symoff >= segment->fileoff && stp->symoff < segment->fileoff + segment->filesize)
-                        symbols = reinterpret_cast<const struct nlist *>(stp->symoff - segment->fileoff + segment->vmaddr);
-                    if (stp->stroff >= segment->fileoff && stp->stroff < segment->fileoff + segment->filesize)
-                        strings = reinterpret_cast<const char *>(stp->stroff - segment->fileoff + segment->vmaddr);
-                }
-            }
-
-            if (symbols == NULL || strings == NULL) {
-                _trace();
+        lcp = load_commands;
+        for (uint32_t i(0); i != mh->ncmds; ++i) {
+            if (
+                lcp->cmdsize % sizeof(long) != 0 || lcp->cmdsize <= 0 ||
+                reinterpret_cast<const uint8_t *>(lcp) + lcp->cmdsize > reinterpret_cast<const uint8_t *>(load_commands) + mh->sizeofcmds
+            )
                 return -1;
+
+            if (lcp->cmd == LC_SEGMENT) {
+                if (lcp->cmdsize < sizeof(struct symtab_command))
+                    return -1;
+                const struct segment_command *segment(reinterpret_cast<const struct segment_command *>(lcp));
+                if (stp->symoff >= segment->fileoff && stp->symoff < segment->fileoff + segment->filesize)
+                    symbols = reinterpret_cast<const MSNameList *>(stp->symoff - segment->fileoff + segment->vmaddr);
+                if (stp->stroff >= segment->fileoff && stp->stroff < segment->fileoff + segment->filesize)
+                    strings = reinterpret_cast<const char *>(stp->stroff - segment->fileoff + segment->vmaddr);
             }
+
+            lcp = reinterpret_cast<const struct load_command *>(reinterpret_cast<const uint8_t *>(lcp) + lcp->cmdsize);
+        }
+
+        if (symbols == NULL || strings == NULL) {
+            _trace();
+            return -1;
         }
     } else {
         /* XXX: is this right anymore?!? */
-        symbols = reinterpret_cast<const struct nlist *>(base + N_SYMOFF(*buf));
+        symbols = reinterpret_cast<const MSNameList *>(base + N_SYMOFF(*buf));
         strings = reinterpret_cast<const char *>(reinterpret_cast<const uint8_t *>(symbols) + buf->a_syms);
-        n = buf->a_syms / sizeof(struct nlist);
+        n = buf->a_syms / sizeof(MSNameList);
     }
 
     for (size_t m(0); m != n; ++m) {
-        q = &symbols[m];
+        const MSNameList *q(&symbols[m]);
         if (q->n_un.n_strx == 0 || (q->n_type & N_STAB) != 0)
             continue;
 
         const char *nambuf(strings + q->n_un.n_strx);
 
-        for (p = list; p->n_un.n_name && p->n_un.n_name[0]; ++p)
-            if (strcmp(p->n_un.n_name, nambuf) == 0) {
-                p->n_value = q->n_value;
-                p->n_type = q->n_type;
-                p->n_desc = q->n_desc;
-                p->n_sect = q->n_sect;
+        for (size_t item(0); item != nreq; ++item) {
+            struct MSSymbolData *p(list + item);
+            if (strcmp(p->name_, nambuf) != 0)
+                continue;
 
-                if (nreq == 0)
-                    return 0;
-                break;
-            }
+            p->value_ = q->n_value;
+            p->type_ = q->n_type;
+            p->desc_ = q->n_desc;
+            p->sect_ = q->n_sect;
+
+            if (--nreq == 0)
+                return 0;
+            break;
+        }
     }
 
     return nreq;
 }
 
-extern "C" int $__fdnlist(int fd, struct nlist *list) {
-    struct stat stat;
-    if (fstat(fd, &stat) == -1)
-        return -1;
-
-    size_t size = stat.st_size;
-    void *base = mmap(NULL, size, PROT_READ, MAP_FILE | MAP_SHARED, fd, 0);
-    if (base == MAP_FAILED)
-        return -1;
-
-    int value(MSMachONameList_(reinterpret_cast<const uint8_t *>(base), list, true));
-
-    /* XXX: error? */
-    munmap(base, size);
-    return value;
-}
-
+#ifndef __LP64__
 int (*_nlist)(const char *file, struct nlist *list);
 
-extern "C" int $nlist(const char *file, struct nlist *list) {
-    for (uint32_t index(0), count(_dyld_image_count()); index != count; ++index)
-        if (strcmp(_dyld_get_image_name(index), file) == 0)
-            return MSMachONameList_(reinterpret_cast<const uint8_t *>(_dyld_get_image_header(index)), list, false);
-    return (*_nlist)(file, list);
+extern "C" int $nlist(const char *file, struct nlist *names) {
+    for (uint32_t image(0), count(_dyld_image_count()); image != count; ++image)
+        if (strcmp(_dyld_get_image_name(image), file) == 0) {
+            size_t count(0);
+            for (struct nlist *name(names); name->n_un.n_name != NULL; ++name)
+                ++count;
+
+            MSSymbolData items[count];
+
+            for (size_t index(0); index != count; ++index) {
+                MSSymbolData &item(items[index]);
+                struct nlist &name(names[index]);
+
+                item.name_ = name.n_un.n_name;
+                item.type_ = 0;
+                item.sect_ = 0;
+                item.desc_ = 0;
+                item.value_ = 0;
+            }
+
+            int result(MSMachONameList_(reinterpret_cast<const uint8_t *>(_dyld_get_image_header(image)), items, count));
+
+            for (size_t index(0); index != count; ++index) {
+                MSSymbolData &item(items[index]);
+                struct nlist &name(names[index]);
+
+                name.n_type = item.type_;
+                name.n_sect = item.sect_;
+                name.n_desc = item.desc_;
+                name.n_value = item.value_;
+            }
+
+            return result;
+        }
+
+    return (*_nlist)(file, names);
 }
+
+MSInitialize {
+    MSHookFunction(&nlist, &$nlist, &_nlist);
+}
+#endif

@@ -4,35 +4,47 @@ else
 target := $(PKG_TARG)-
 endif
 
-all: libsubstrate.dylib MobileLoader.dylib MobileSafety.dylib MobileSubstrate.dylib postrm extrainst_
+flags := -I. -g0 -O2 -Wall -isystem extra -fno-exceptions #-Werror
+all := libsubstrate.dylib MobileLoader.dylib MobileSubstrate.dylib postrm extrainst_
 
-flags := -march=armv6 -mcpu=arm1176jzf-s -g0 -O2 -Wall #-Werror
+ifeq (,)
+gcc := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++
+ldid := true
+flags += -arch i386 -arch x86_64
+else
+gcc := $(target)gcc
+ldid := ldid
+flags += -march=armv6 -mcpu=arm1176jzf-s 
+all += MobileSafety.dyib
+endif
+
+all: $(all)
 
 clean:
 	rm -f libsubstrate.dylib postrm extrainst_ Struct.hpp
 
 Struct.hpp:
-	$$($(target)gcc -print-prog-name=cc1obj) -print-objc-runtime-info </dev/null >$@
+	$$($(gcc) -print-prog-name=cc1obj) -print-objc-runtime-info </dev/null >$@
 
-libsubstrate.dylib: MobileHooker.mm makefile nlist.cpp MobileList.mm Struct.hpp
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup -framework CoreFoundation -I. -lobjc
-	ldid -S $@
+libsubstrate.dylib: MobileHooker.mm makefile nlist.cpp Struct.hpp disasm.h
+	$(gcc) $(flags) -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -install_name /usr/lib/libsubstrate.dylib -undefined dynamic_lookup -framework CoreFoundation -lobjc
+	$(ldid) $@
 
 MobileSubstrate.dylib: MobileBootstrap.cpp makefile
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -I.
-	ldid -S $@
+	$(gcc) $(flags) -dynamiclib -o $@ $(filter %.cpp,$^)
+	$(ldid) $@
 
 MobileLoader.dylib: MobileLoader.mm makefile
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -I. -framework CoreFoundation
-	ldid -S $@
+	$(gcc) $(flags) -dynamiclib -o $@ $(filter %.mm,$^) -framework CoreFoundation
+	$(ldid) $@
 
 MobileSafety.dylib: MobileSafety.mm makefile libsubstrate.dylib
-	$(target)gcc $(flags) -fno-exceptions -dynamiclib -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -L. -lsubstrate -I. -framework UIKit
-	ldid -S $@
+	$(gcc) $(flags) -dynamiclib -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -L. -lsubstrate -framework UIKit
+	$(ldid) $@
 
 %: %.m makefile
-	$(target)gcc $(flags) -g0 -O2 -Wall -Werror -o $@ $(filter %.m,$^) -framework CoreFoundation -framework Foundation -lobjc
-	ldid -S $@
+	$(gcc) $(flags) -o $@ $(filter %.m,$^) -framework CoreFoundation -framework Foundation -lobjc
+	$(ldid) $@
 
 package:
 	rm -rf mobilesubstrate
@@ -41,7 +53,6 @@ package:
 	mkdir -p mobilesubstrate/Library/MobileSubstrate/DynamicLibraries
 	cp -a MobileSafety.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobilePaper.png mobilesubstrate/Library/MobileSubstrate
-	#cp -a MobileUnions.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobileSubstrate.dylib mobilesubstrate/Library/MobileSubstrate
 	cp -a MobileLoader.dylib mobilesubstrate/Library/MobileSubstrate
 	mkdir -p mobilesubstrate/usr/include
@@ -49,5 +60,11 @@ package:
 	mkdir -p mobilesubstrate/usr/lib
 	cp -a libsubstrate.dylib mobilesubstrate/usr/lib
 	dpkg-deb -b mobilesubstrate mobilesubstrate_$(shell grep ^Version: control | cut -d ' ' -f 2)_iphoneos-arm.deb
+
+install: MobileSubstrate.dylib MobileLoader.dylib libsubstrate.dylib
+	mkdir -p /Library/MobileSubstrate/DynamicLibraries
+	cp -a MobileSubstrate.dylib /Library/MobileSubstrate
+	cp -a MobileLoader.dylib /Library/MobileSubstrate
+	cp -a libsubstrate.dylib /usr/lib
 
 .PHONY: all clean package
