@@ -66,11 +66,17 @@ package:
 
 install: MobileSubstrate.dylib MobileLoader.dylib libsubstrate.dylib
 	mkdir -p /Library/MobileSubstrate/DynamicLibraries
-	mkdir -p /Library/Frameworks/CydiaSubstrate.framework/Headers
+	rm -rf /Library/Frameworks/CydiaSubstrate.framework
+	mkdir -p /Library/Frameworks/CydiaSubstrate.framework/Versions/A/Headers
+	mkdir -p /Library/Frameworks/CydiaSubstrate.framework/Versions/A/Resources
 	cp -a MobileSubstrate.dylib /Library/Frameworks/CydiaSubstrate.framework
 	ln -fs /Library/Frameworks/CydiaSubstrate.framework/MobileSubstrate.dylib /Library/MobileSubstrate
 	cp -a MobileLoader.dylib /Library/Frameworks/CydiaSubstrate.framework
-	cp -a libsubstrate.dylib /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
-	cp -a CydiaSubstrate.h /Library/Frameworks/CydiaSubstrate.framework/Headers
+	cp -a libsubstrate.dylib /Library/Frameworks/CydiaSubstrate.framework/Versions/A/CydiaSubstrate
+	cp -a CydiaSubstrate.h /Library/Frameworks/CydiaSubstrate.framework/Versions/A/Headers
+	ln -s A /Library/Frameworks/CydiaSubstrate.framework/Versions/Current
+	ln -s Versions/Current/Resources /Library/Frameworks/CydiaSubstrate.framework
+	ln -s Versions/Current/CydiaSubstrate /Library/Frameworks/CydiaSubstrate.framework
+	ln -s Versions/Current/Headers /Library/Frameworks/CydiaSubstrate.framework
 
 .PHONY: all clean package
