@@ -13,7 +13,7 @@ all := libsubstrate.dylib MobileLoader.dylib MobileSubstrate.dylib
 all += postrm extrainst_ MobileSafety.dylib
 
 gcc := /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++
-ldid := true
+ldid := ./ldid.sh
 
 ios := 3.2
 
