@@ -24,18 +24,31 @@
 #import <CoreGraphics/CGGeometry.h>
 #import <UIKit/UIKit.h>
 
-#import <SpringBoard/SBAlertItem.h>
-#import <SpringBoard/SBAlertItemsController.h>
-#import <SpringBoard/SBButtonBar.h>
-#import <SpringBoard/SBStatusBarController.h>
-#import <SpringBoard/SBStatusBarDataManager.h>
-#import <SpringBoard/SBStatusBarTimeView.h>
-#import <SpringBoard/SBUIController.h>
-
 #include "CydiaSubstrate.h"
+
+@class SBButtonBar;
+@class SBStatusBar;
+@class SBUIController;
 
 Class $SafeModeAlertItem;
 Class $SBAlertItemsController;
+
+@interface SBAlertItem : NSObject {
+}
+- (UIAlertView *) alertSheet;
+- (void) dismiss;
+@end
+
+@interface SBAlertItemsController : NSObject {
+}
++ (SBAlertItemsController *) sharedInstance;
+- (void) activateAlertItem:(SBAlertItem *)item;
+@end
+
+@interface SBStatusBarTimeView : UIView {
+}
+- (id) textFont;
+@end
 
 @interface UIApplication (CydiaSubstrate)
 - (void) applicationOpenURL:(id)url;
@@ -65,7 +78,7 @@ void SafeModeAlertItem$alertSheet$buttonClicked$(id self, SEL sel, id sheet, int
 }
 
 void SafeModeAlertItem$configure$requirePasscodeForActions$(id self, SEL sel, BOOL configure, BOOL require) {
-    id sheet([self alertSheet]);
+    UIAlertView *sheet([self alertSheet]);
     [sheet setDelegate:self];
     [sheet setBodyText:@"We apologize for the inconvenience, but SpringBoard has just crashed.\n\nMobileSubstrate /did not/ cause this problem: it has protected you from it.\n\nYour device is now running in Safe Mode. All extensions that support this safety system are disabled.\n\nReboot (or restart SpringBoard) to return to the normal mode. To return to this dialog touch the status bar."];
     [sheet addButtonWithTitle:@"OK"];
@@ -175,7 +188,7 @@ MSHook(void, SBStatusBarTimeView$tile, SBStatusBarTimeView *self, SEL sel) {
     if (_time != nil)
         [_time release];
     _time = [@"Exit Safe Mode" retain];
-    id font((id)[self textFont]);
+    id font([self textFont]);
     CGSize size([_time sizeWithFont:font]);
     CGRect frame([self frame]);
     _textRect.size = size;
