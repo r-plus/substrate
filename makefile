@@ -59,7 +59,7 @@ package:
 	for arch in i386 arm; do sudo ./package.sh "$${arch}"; done
 
 install: package
-	sudo dpkg -i *_$(shell grep ^Version: control | cut -d ' ' -f 2)_$(shell dpkg-architecture -qDEB_HOST_ARCH).deb
+	sudo dpkg -i *_$(shell grep ^Version: control | cut -d ' ' -f 2)_$(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null).deb
 
 manual: MobileSubstrate.dylib MobileLoader.dylib libsubstrate.dylib
 	mkdir -p /Library/MobileSubstrate/DynamicLibraries
