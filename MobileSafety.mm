@@ -37,6 +37,16 @@
 Class $SafeModeAlertItem;
 Class $SBAlertItemsController;
 
+@interface UIApplication (CydiaSubstrate)
+- (void) applicationOpenURL:(id)url;
+@end
+
+@interface UIAlertView (CydiaSubstrate)
+- (void) setForceHorizontalButtonsLayout:(BOOL)force;
+- (void) setBodyText:(NSString *)body;
+- (void) setNumberOfRows:(NSInteger)rows;
+@end
+
 void SafeModeAlertItem$alertSheet$buttonClicked$(id self, SEL sel, id sheet, int button) {
     switch (button) {
         case 1:
@@ -47,7 +57,7 @@ void SafeModeAlertItem$alertSheet$buttonClicked$(id self, SEL sel, id sheet, int
         break;
 
         case 3:
-            [UIApp applicationOpenURL:[NSURL URLWithString:@"http://cydia.saurik.com/safemode/"]];
+            [[UIApplication sharedApplication] applicationOpenURL:[NSURL URLWithString:@"http://cydia.saurik.com/safemode/"]];
         break;
     }
 
@@ -93,7 +103,7 @@ MSHook(void, SBStatusBar$touchesEnded$withEvent$, SBStatusBar *self, SEL sel, id
     _SBStatusBar$touchesEnded$withEvent$(self, sel, touches, event);
 }
 
-MSHook(void, SBStatusBar$mouseDown$, SBStatusBar *self, SEL sel, GSEventRef event) {
+MSHook(void, SBStatusBar$mouseDown$, SBStatusBar *self, SEL sel, void *event) {
     MSAlert();
     _SBStatusBar$mouseDown$(self, sel, event);
 }
@@ -165,8 +175,8 @@ MSHook(void, SBStatusBarTimeView$tile, SBStatusBarTimeView *self, SEL sel) {
     if (_time != nil)
         [_time release];
     _time = [@"Exit Safe Mode" retain];
-    GSFontRef font([self textFont]);
-    CGSize size([_time sizeWithFont:(id)font]);
+    id font((id)[self textFont]);
+    CGSize size([_time sizeWithFont:font]);
     CGRect frame([self frame]);
     _textRect.size = size;
     _textRect.origin.x = (frame.size.width - size.width) / 2;
