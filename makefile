@@ -47,7 +47,7 @@ MobileLoader.dylib: Loader.mm
 	$(gcc) $(all_flags) -dynamiclib -o $@ $(filter %.mm,$^) -framework CoreFoundation
 	$(ldid) $@
 
-MobileSafety.dylib: MobileSafety.mm libsubstrate.dylib
+MobileSafety.dylib: MobileSafety.mm libsubstrate.dylib CydiaSubstrate.h
 	$(gcc) $(armv6_flags) -dynamiclib -o $@ $(filter %.mm,$^) -framework Foundation -lobjc -framework CoreFoundation -L. -lsubstrate -framework UIKit
 	$(ldid) $@
 
