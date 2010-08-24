@@ -933,10 +933,6 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 #endif
 
 #if defined(__APPLE__) && defined(__arm__)
-extern "C" void _Z13MSHookMessageP10objc_classP13objc_selectorPFP11objc_objectS4_S2_zEPKc(Class _class, SEL sel, IMP imp, const char *prefix) {
-    MSHookMessage(_class, sel, imp, prefix);
-}
-
 extern "C" void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **result) {
     return MSHookFunction(symbol, replace, result);
 }

@@ -19,6 +19,8 @@
 **/
 /* }}} */
 
+#ifdef __APPLE__
+
 #import <Foundation/Foundation.h>
 
 // XXX: this is required by some code below
@@ -175,3 +177,10 @@ extern "C" void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result) {
     MSHookMessageInternal(_class, sel, imp, result, NULL);
 }
 
+#ifdef __arm__
+extern "C" void _Z13MSHookMessageP10objc_classP13objc_selectorPFP11objc_objectS4_S2_zEPKc(Class _class, SEL sel, IMP imp, const char *prefix) {
+    MSHookMessage(_class, sel, imp, prefix);
+}
+#endif
+
+#endif
