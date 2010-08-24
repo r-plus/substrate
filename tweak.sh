@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Bash Array Class {{{
-# level: expert
 function array() { eval "
     declare -a $1
 
@@ -12,7 +10,6 @@ function array() { eval "
         done
     }
 "; }
-# }}}
 
 shopt -s nullglob
 
@@ -32,6 +29,7 @@ if [[ -n ${ios} ]]; then
     armv6.+= -mcpu=arm1176jzf-s
     armv6.+= -miphoneos-version-min="${ios}"
     armv6.+= -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS"${ios}".sdk
+    armv6.+= -idirafter /usr/include
 
     armv6.+= -F/Library/Frameworks
 
@@ -53,15 +51,8 @@ for arch in "${archs[@]}"; do
 done
 
 flags.+= "${extra[@]}"
-
-for arch in "${archs[@]}"; do
-    flags.+= -arch "${arch}"
-done
-
 flags.+= -framework CydiaSubstrate
-
 flags.+= -dynamiclib
-flags.+= -o "${name}.dylib"
 
 function lower() {
     tr '[:upper:]' '[:lower:]'
@@ -69,6 +60,7 @@ function lower() {
 
 # XXX: this should ready some config file
 developer='Jay Freeman (saurik) <saurik@saurik.com>'
+namespace="com.saurik"
 
 substrate=mobilesubstrate
 
@@ -86,8 +78,10 @@ function control() {
     unset apt_author
     unset apt_depends
     unset apt_maintainer
+    unset apt_package
     unset apt_priority
     unset apt_section
+    unset apt_version
 
     while IFS= read -r line; do
         if [[ ${line} =~ ^%apt\ *([a-zA-Z_]*)\ *:\ *(.*) ]]; then
@@ -121,12 +115,20 @@ function control() {
         echo "maintainer: ${developer}"
     fi
 
+    if [[ -z ${apt_package} && -n ${namespace} ]]; then
+        echo "package: ${namespace}.$(lower <<<${name})"
+    fi
+
     if [[ -z ${apt_priority} ]]; then
         echo "priority: optional"
     fi
 
     if [[ -z ${apt_section} ]]; then
         echo "section: Tweaks"
+    fi
+
+    if [[ -z ${apt_version} ]]; then
+        echo "version: 0.9-1"
     fi
 }
 
@@ -158,15 +160,43 @@ barrier
 flags.+= -x objective-c++
 
 temp=$(mktemp ".${name}.XXX")
-process >"${temp}"
+array temps
+temps.+= "${temp}"
 
-"${gcc}" "${flags[@]}" "${temp}"
-exit=$?
+post=${temp}.mm
+process >"${post}"
+temps.+= "${post}"
 
-rm -f "${temp}"
-if [[ ${exit} != 0 ]]; then
-    exit "${exit}"
-fi
+function clean() {
+    rm -rf "${temps[@]}"
+    temps=()
+}
+
+function try() {
+    echo "$@"
+    "$@"
+    exit=$?
+    if [[ ${exit} != 0 ]]; then
+        clean
+        exit "${exit}"
+    fi
+}
+
+array thins
+for arch in "${archs[@]}"; do
+    thin="${temp}.${arch}.dylib"
+    thins.+= "${thin}"
+
+    echo "::: -arch ${arch}"
+    try "${gcc}" -arch "${arch}" "${flags[@]}" "${post}" -o "${thin}"
+    temps.+= "${thin}"
+
+    if [[ ${arch} == arm* ]]; then
+        ldid -S "${thin}"
+    fi
+done
+
+try lipo -create "${thins[@]}" -output "${name}.dylib"
 
 function field() {
     sed -e '
@@ -193,7 +223,15 @@ function package() {
     mkdir -p "${target}"
     cp -a "${name}.dylib" "${target}"
 
-    filter %plist >"${target}/${name}.plist"
+    {
+        echo -n "Filter = {Bundles = ("
+        comma=
+        for bundle in $(filter %filter); do
+            echo -n "${comma}\"${bundle}\""
+            comma=", "
+        done
+        echo ");};"
+    } >"${target}/${name}.plist"
 
     package=$(field package)
     version=$(field version)
@@ -207,6 +245,9 @@ function package() {
 }
 
 temp=$(mktemp -d ".${name}.XXX")
+temps.+= "${temp}"
+
 package mobilesubstrate iphoneos-arm
 package cydiasubstrate darwin-i386
-rm -rf "${temp}"
+
+clean
