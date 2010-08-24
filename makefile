@@ -35,15 +35,15 @@ clean:
 Struct.hpp:
 	$$($(gcc) -print-prog-name=cc1obj) -print-objc-runtime-info </dev/null >$@
 
-libsubstrate.dylib: MobileHooker.mm nlist.cpp Struct.hpp disasm.h
+libsubstrate.dylib: Hooker.mm nlist.cpp Struct.hpp disasm.h
 	$(gcc) $(all_flags) -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -install_name /Library/Frameworks/CydiaSubstrate.framework/Versions/A/CydiaSubstrate -undefined dynamic_lookup -framework CoreFoundation -lobjc
 	$(ldid) $@
 
-MobileSubstrate.dylib: MobileBootstrap.cpp
+MobileSubstrate.dylib: Bootstrap.cpp
 	$(gcc) $(all_flags) -dynamiclib -o $@ $(filter %.cpp,$^)
 	$(ldid) $@
 
-MobileLoader.dylib: MobileLoader.mm
+MobileLoader.dylib: Loader.mm
 	$(gcc) $(all_flags) -dynamiclib -o $@ $(filter %.mm,$^) -framework CoreFoundation
 	$(ldid) $@
 
