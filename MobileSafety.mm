@@ -26,12 +26,19 @@
 
 #include "CydiaSubstrate.h"
 
-@class SBButtonBar;
-@class SBStatusBar;
-@class SBUIController;
+MSClassHook(UIStatusBar)
+
+MSClassHook(UIImage)
+MSMetaClassHook(UIImage)
+
+MSClassHook(SBAlertItemsController)
+MSClassHook(SBButtonBar)
+MSClassHook(SBStatusBar)
+MSClassHook(SBStatusBarDataManager)
+MSClassHook(SBStatusBarTimeView)
+MSClassHook(SBUIController)
 
 Class $SafeModeAlertItem;
-Class $SBAlertItemsController;
 
 @interface SBAlertItem : NSObject {
 }
@@ -111,22 +118,22 @@ static void MSAlert() {
         [[$SBAlertItemsController sharedInstance] activateAlertItem:[[[$SafeModeAlertItem alloc] init] autorelease]];
 }
 
-MSHook(void, SBStatusBar$touchesEnded$withEvent$, SBStatusBar *self, SEL sel, id touches, id event) {
+MSInstanceMessageHook2(void, SBStatusBar, touchesEnded,withEvent, id, touches, id, event) {
     MSAlert();
-    _SBStatusBar$touchesEnded$withEvent$(self, sel, touches, event);
+    MSOldCall(touches, event);
 }
 
-MSHook(void, SBStatusBar$mouseDown$, SBStatusBar *self, SEL sel, void *event) {
+MSInstanceMessageHook1(void, SBStatusBar, mouseDown, void *, event) {
     MSAlert();
-    _SBStatusBar$mouseDown$(self, sel, event);
+    MSOldCall(event);
 }
 
-MSHook(void, UIStatusBar$touchesBegan$withEvent$, id self, SEL sel, void *arg0, void *arg1) {
+MSInstanceMessageHook2(void, UIStatusBar, touchesBegan,withEvent, void *, touches, void *, event) {
     MSAlert();
-    _UIStatusBar$touchesBegan$withEvent$(self, sel, arg0, arg1);
+    MSOldCall(touches, event);
 }
 
-MSHook(void, SBStatusBarDataManager$_updateTimeString, id self, SEL sel) {
+MSInstanceMessageHook0(void, SBStatusBarDataManager, _updateTimeString) {
     if (char *_data = &MSHookIvar<char>(self, "_data")) {
         char *timeString(_data + 20);
         strcpy(timeString, "Exit Safe Mode");
@@ -141,10 +148,10 @@ static void SBIconController$showInfoAlertIfNeeded(id self, SEL sel) {
     MSAlert();
 }
 
-MSHook(int, SBButtonBar$maxIconColumns, SBButtonBar *self, SEL sel) {
+MSInstanceMessageHook0(int, SBButtonBar, maxIconColumns) {
     static int max;
     if (max == 0) {
-        max = _SBButtonBar$maxIconColumns(self, sel);
+        max = MSOldCall();
         if (NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults])
             if (NSDictionary *iconState = [defaults objectForKey:@"iconState"])
                 if (NSDictionary *buttonBar = [iconState objectForKey:@"buttonBar"])
@@ -158,8 +165,8 @@ MSHook(int, SBButtonBar$maxIconColumns, SBButtonBar *self, SEL sel) {
     } return max;
 }
 
-MSHook(id, SBUIController$init, SBUIController *self, SEL sel) {
-    if ((self = _SBUIController$init(self, sel)) != nil) {
+MSInstanceMessageHook0(id, SBUIController, init) {
+    if ((self = MSOldCall()) != nil) {
         UIView *&_contentLayer(MSHookIvar<UIView *>(self, "_contentLayer"));
         UIView *&_contentView(MSHookIvar<UIView *>(self, "_contentView"));
 
@@ -178,11 +185,11 @@ MSHook(id, SBUIController$init, SBUIController *self, SEL sel) {
 
 #define Paper_ "/Library/MobileSubstrate/MobileSafety.png"
 
-MSHook(UIImage *, UIImage$defaultDesktopImage, UIImage *self, SEL sel) {
+MSClassMessageHook0(UIImage *, UIImage, defaultDesktopImage) {
     return [UIImage imageWithContentsOfFile:@Paper_];
 }
 
-MSHook(void, SBStatusBarTimeView$tile, SBStatusBarTimeView *self, SEL sel) {
+MSInstanceMessageHook0(void, SBStatusBarTimeView, tile) {
     NSString *&_time(MSHookIvar<NSString *>(self, "_time"));
     CGRect &_textRect(MSHookIvar<CGRect>(self, "_textRect"));
     if (_time != nil)
@@ -199,22 +206,11 @@ MSHook(void, SBStatusBarTimeView$tile, SBStatusBarTimeView *self, SEL sel) {
 #define Dylib_ "/Library/MobileSubstrate/MobileSubstrate.dylib"
 
 MSInitialize {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
     NSLog(@"MS:Warning: Entering Safe Mode");
 
-    _SBButtonBar$maxIconColumns = MSHookMessage(objc_getClass("SBButtonBar"), @selector(maxIconColumns), &$SBButtonBar$maxIconColumns);
-    _SBUIController$init = MSHookMessage(objc_getClass("SBUIController"), @selector(init), &$SBUIController$init);
-    _SBStatusBar$touchesEnded$withEvent$ = MSHookMessage(objc_getClass("SBStatusBar"), @selector(touchesEnded:withEvent:), &$SBStatusBar$touchesEnded$withEvent$);
-    _SBStatusBar$mouseDown$ = MSHookMessage(objc_getClass("SBStatusBar"), @selector(mouseDown:), &$SBStatusBar$mouseDown$);
-    _SBStatusBarDataManager$_updateTimeString = MSHookMessage(objc_getClass("SBStatusBarDataManager"), @selector(_updateTimeString), &$SBStatusBarDataManager$_updateTimeString);
-    _SBStatusBarTimeView$tile = MSHookMessage(objc_getClass("SBStatusBarTimeView"), @selector(tile), &$SBStatusBarTimeView$tile);
-
-    _UIStatusBar$touchesBegan$withEvent$ = MSHookMessage(objc_getClass("UIStatusBar"), @selector(touchesBegan:withEvent:), &$UIStatusBar$touchesBegan$withEvent$);
-
-    _UIImage$defaultDesktopImage = MSHookMessage(object_getClass(objc_getClass("UIImage")), @selector(defaultDesktopImage), &$UIImage$defaultDesktopImage);
-
-    char *dil = getenv("DYLD_INSERT_LIBRARIES");
+    char *dil(getenv("DYLD_INSERT_LIBRARIES"));
     if (dil == NULL)
         NSLog(@"MS:Error: DYLD_INSERT_LIBRARIES is unset?");
     else {
