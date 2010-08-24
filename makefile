@@ -30,7 +30,7 @@ all_flags += $(flags)
 all: $(all)
 
 clean:
-	rm -f libsubstrate.dylib postrm extrainst_ Struct.hpp
+	rm -f $(all) Struct.hpp
 
 Struct.hpp:
 	$$($(gcc) -print-prog-name=cc1obj) -print-objc-runtime-info </dev/null >$@
