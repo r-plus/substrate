@@ -32,7 +32,7 @@
 } while (false)
 
 #if defined(__i386__) || defined(__x86_64__)
-#include "disasm.h"
+#include "hde64.h"
 #endif
 
 #include "Debug.hpp"
@@ -710,10 +710,8 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
 #if defined(__i386__) || defined(__x86_64__)
 static size_t MSGetInstructionWidthIntel(void *start) {
-    struct disasm decode;
-    if (disasm(reinterpret_cast<uint8_t *>(start), &decode) == 0)
-        return 0;
-    return decode.len;
+    hde64s decode;
+    return hde64_disasm(start, &decode);
 }
 
 #ifdef __LP64__
@@ -870,8 +868,16 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
     size_t length(used + MSSizeOfJump(source + used));
 
     for (size_t offset(0), width; offset != used; offset += width) {
-        width = MSGetInstructionWidthIntel(backup + offset);
+        hde64s decode;
+        hde64_disasm(backup + offset, &decode);
+        width = decode.len;
         //_assert(width != 0 && offset + width <= used);
+
+#ifdef __LP64__
+        if ((decode.modrm & 0xc7) == 0x05) {
+            fprintf(stderr, "rip-relative\n");
+        } else
+#endif
 
         if (backup[offset] == 0xe8) {
             int32_t relative(*reinterpret_cast<int32_t *>(backup + offset + 1));
@@ -920,8 +926,17 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
         uint8_t *current(buffer);
 
         for (size_t offset(0), width; offset != used; offset += width) {
-            width = MSGetInstructionWidthIntel(backup + offset);
+            hde64s decode;
+            hde64_disasm(backup + offset, &decode);
+            width = decode.len;
             //_assert(width != 0 && offset + width <= used);
+
+#ifdef __LP64__
+            if ((decode.modrm & 0xc7) == 0x05) {
+                MSWrite(current, backup + offset, width);
+                fprintf(stderr, "rip-relative\n");
+            } else
+#endif
 
             if (backup[offset] == 0xe8) {
                 int32_t relative(*reinterpret_cast<int32_t *>(backup + offset + 1));
