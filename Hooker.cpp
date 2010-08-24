@@ -84,12 +84,12 @@ extern "C" void MSClearCache(void *data, size_t size) {
 #endif
 
 template <typename Type_>
-static void MSWrite(uint8_t *&buffer, Type_ value) {
+_disused static void MSWrite(uint8_t *&buffer, Type_ value) {
     *reinterpret_cast<Type_ *>(buffer) = value;
     buffer += sizeof(Type_);
 }
 
-static void MSWrite(uint8_t *&buffer, uint8_t *data, size_t size) {
+_disused static void MSWrite(uint8_t *&buffer, uint8_t *data, size_t size) {
     memcpy(buffer, data, size);
     buffer += size;
 }
@@ -720,52 +720,52 @@ static const bool ia32 = false;
 static const bool ia32 = true;
 #endif
 
-static bool MSIs32BitOffset(uintptr_t target, uintptr_t source) {
+_disused static bool MSIs32BitOffset(uintptr_t target, uintptr_t source) {
     intptr_t offset(target - source);
     return int32_t(offset) == offset;
 }
 
-static size_t MSSizeOfSkip() {
+_disused static size_t MSSizeOfSkip() {
     return 5;
 }
 
-static size_t MSSizeOfPushPointer(uintptr_t target) {
+_disused static size_t MSSizeOfPushPointer(uintptr_t target) {
     return uint64_t(target) >> 32 == 0 ? 5 : 13;
 }
 
-static size_t MSSizeOfPushPointer(void *target) {
+_disused static size_t MSSizeOfPushPointer(void *target) {
     return MSSizeOfPushPointer(reinterpret_cast<uintptr_t>(target));
 }
 
-static size_t MSSizeOfJump(bool blind, uintptr_t target, uintptr_t source = 0) {
+_disused static size_t MSSizeOfJump(bool blind, uintptr_t target, uintptr_t source = 0) {
     if (ia32 || !blind && MSIs32BitOffset(target, source + 5))
         return MSSizeOfSkip();
     else
         return MSSizeOfPushPointer(target) + 1;
 }
 
-static size_t MSSizeOfJump(uintptr_t target, uintptr_t source) {
+_disused static size_t MSSizeOfJump(uintptr_t target, uintptr_t source) {
     return MSSizeOfJump(false, target, source);
 }
 
-static size_t MSSizeOfJump(uintptr_t target) {
+_disused static size_t MSSizeOfJump(uintptr_t target) {
     return MSSizeOfJump(true, target);
 }
 
-static size_t MSSizeOfJump(void *target, void *source) {
+_disused static size_t MSSizeOfJump(void *target, void *source) {
     return MSSizeOfJump(reinterpret_cast<uintptr_t>(target), reinterpret_cast<uintptr_t>(source));
 }
 
-static size_t MSSizeOfJump(void *target) {
+_disused static size_t MSSizeOfJump(void *target) {
     return MSSizeOfJump(reinterpret_cast<uintptr_t>(target));
 }
 
-static void MSWriteSkip(uint8_t *&current, ssize_t size) {
+_disused static void MSWriteSkip(uint8_t *&current, ssize_t size) {
     MSWrite<uint8_t>(current, 0xe9);
     MSWrite<uint32_t>(current, size);
 }
 
-static void MSPushPointer(uint8_t *&current, uintptr_t target) {
+_disused static void MSPushPointer(uint8_t *&current, uintptr_t target) {
     MSWrite<uint8_t>(current, 0x68);
     MSWrite<uint32_t>(current, target);
 
@@ -778,11 +778,11 @@ static void MSPushPointer(uint8_t *&current, uintptr_t target) {
     }
 }
 
-static void MSPushPointer(uint8_t *&current, void *target) {
+_disused static void MSPushPointer(uint8_t *&current, void *target) {
     return MSPushPointer(current, reinterpret_cast<uintptr_t>(target));
 }
 
-static void MSWriteJump(uint8_t *&current, uintptr_t target) {
+_disused static void MSWriteJump(uint8_t *&current, uintptr_t target) {
     uintptr_t source(reinterpret_cast<uintptr_t>(current));
 
     if (ia32 || MSIs32BitOffset(target, source + 5))
@@ -793,9 +793,37 @@ static void MSWriteJump(uint8_t *&current, uintptr_t target) {
     }
 }
 
-static void MSWriteJump(uint8_t *&current, void *target) {
+_disused static void MSWriteJump(uint8_t *&current, void *target) {
     return MSWriteJump(current, reinterpret_cast<uintptr_t>(target));
 }
+
+_disused static void MSWritePop(uint8_t *&current, uint8_t target) {
+    if (target >> 3 != 0)
+        MSWrite<uint8_t>(current, 0x40 | (target & 0x08) >> 3);
+    MSWrite<uint8_t>(current, 0x58 | target & 0x07);
+}
+
+_disused static size_t MSSizeOfPop(uint8_t target) {
+    return target >> 3 != 0 ? 2 : 1;
+}
+
+_disused static void MSWriteMove64(uint8_t *&current, uint8_t source, uint8_t target) {
+    MSWrite<uint8_t>(current, 0x48 | (target & 0x08) >> 3 << 2 | (source & 0x08) >> 3);
+    MSWrite<uint8_t>(current, 0x8b);
+    MSWrite<uint8_t>(current, (target & 0x07) << 3 | source & 0x07);
+}
+
+_disused static size_t MSSizeOfMove64() {
+    return 3;
+}
+
+enum I$r {
+    I$rax, I$rcx, I$rdx, I$rbx,
+    // XXX: x[12] == rsp / rbp?
+    I$x1, I$x2, I$rsi, I$rdi,
+    I$r8, I$r9, I$r10, I$r11,
+    I$r12, I$r13, I$r14, I$r15,
+};
 
 extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
     if (MSDebug)
@@ -875,7 +903,16 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
 #ifdef __LP64__
         if ((decode.modrm & 0xc7) == 0x05) {
-            fprintf(stderr, "rip-relative\n");
+            if (decode.opcode == 0x8b) {
+                void *destiny(area + offset + width + int32_t(decode.disp.disp32));
+                uint8_t reg(decode.rex_r << 3 | decode.modrm_reg);
+                length += MSSizeOfPushPointer(destiny);
+                length += MSSizeOfPop(reg);
+                length += MSSizeOfMove64();
+            } else {
+                fprintf(stderr, "MS:Error: Unknown RIP-Relative (%.2x %.2x)\n", decode.opcode, decode.opcode2);
+                continue;
+            }
         } else
 #endif
 
@@ -933,8 +970,16 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
 #ifdef __LP64__
             if ((decode.modrm & 0xc7) == 0x05) {
-                MSWrite(current, backup + offset, width);
-                fprintf(stderr, "rip-relative\n");
+                if (decode.opcode == 0x8b) {
+                    void *destiny(area + offset + width + int32_t(decode.disp.disp32));
+                    uint8_t reg(decode.rex_r << 3 | decode.modrm_reg);
+                    MSPushPointer(current, destiny);
+                    MSWritePop(current, reg);
+                    MSWriteMove64(current, reg, reg);
+                } else {
+                    fprintf(stderr, "MS:Error: Unknown RIP-Relative (%.2x %.2x)\n", decode.opcode, decode.opcode2);
+                    goto copy;
+                }
             } else
 #endif
 
@@ -963,7 +1008,7 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
                 void *destiny(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
                 MSWrite<uint8_t>(current, MSSizeOfJump(destiny, current + 1));
                 MSWriteJump(current, destiny);
-            } else {
+            } else copy: {
                 MSWrite(current, backup + offset, width);
             }
         }
