@@ -19,18 +19,8 @@
 **/
 /* }}} */
 
-#import <Foundation/Foundation.h>
-
-// XXX: this is required by some code below
-#ifdef __arm__
-#include "Struct.hpp"
-#endif
-
 #include <mach/mach_init.h>
 #include <mach/vm_map.h>
-
-#include <objc/runtime.h>
-#include <objc/message.h>
 
 #include <sys/mman.h>
 #include <unistd.h>
@@ -45,73 +35,7 @@
 #include "disasm.h"
 #endif
 
-#ifdef __APPLE__
-#import <CoreFoundation/CFLogUtilities.h>
-/* XXX: proper CFStringRef conversion */
-#define lprintf(format, ...) \
-    CFLog(kCFLogLevelNotice, CFSTR(format), ## __VA_ARGS__)
-#else
-#define lprintf(format, ...) do { \
-    fprintf(stderr, format...); \
-    fprintf(stderr, "\n"); \
-} while (false)
-#endif
-
-bool MSDebug = false;
-
-static char _MSHexChar(uint8_t value) {
-    return value < 0x20 || value >= 0x80 ? '.' : value;
-}
-
-#define HexWidth_ 16
-#define HexDepth_ 4
-
-void MSLogHex(const void *vdata, size_t size, const char *mark = 0) {
-    const uint8_t *data((const uint8_t *) vdata);
-
-    size_t i(0), j;
-
-    char d[256];
-    size_t b(0);
-    d[0] = '\0';
-
-    while (i != size) {
-        if (i % HexWidth_ == 0) {
-            if (mark != NULL)
-                b += sprintf(d + b, "[%s] ", mark);
-            b += sprintf(d + b, "0x%.3zx:", i);
-        }
-
-        b += sprintf(d + b, " %.2x", data[i]);
-
-        if ((i + 1) % HexDepth_ == 0)
-            b += sprintf(d + b, " ");
-
-        if (++i % HexWidth_ == 0) {
-            b += sprintf(d + b, " ");
-            for (j = i - HexWidth_; j != i; ++j)
-                b += sprintf(d + b, "%c", _MSHexChar(data[j]));
-
-            lprintf("%s", d);
-            b = 0;
-            d[0] = '\0';
-        }
-    }
-
-    if (i % HexWidth_ != 0) {
-        for (j = i % HexWidth_; j != HexWidth_; ++j)
-            b += sprintf(d + b, "   ");
-        for (j = 0; j != (HexWidth_ - i % HexWidth_ + HexDepth_ - 1) / HexDepth_; ++j)
-            b += sprintf(d + b, " ");
-        b += sprintf(d + b, " ");
-        for (j = i / HexWidth_ * HexWidth_; j != i; ++j)
-            b += sprintf(d + b, "%c", _MSHexChar(data[j]));
-
-        lprintf("%s", d);
-        b = 0;
-        d[0] = '\0';
-    }
-}
+#include "Debug.hpp"
 
 #ifdef __APPLE__
 struct MSMemoryHook {
@@ -183,45 +107,7 @@ X 4790  ldr r*,[pc,#*]    */
 // x=0; while IFS= read -r line; do if [[ ${#line} -ne 0 && $line == +([^\;]): ]]; then x=2; elif [[ $line == ' +'* && $x -ne 0 ]]; then ((--x)); echo "$x${line}"; fi; done <WebCore.asm >WebCore.pc
 // grep pc WebCore.pc | cut -c 40- | sed -Ee 's/^ldr *(ip|r[0-9]*),\[pc,\#0x[0-9a-f]*\].*/ ldr r*,[pc,#*]/;s/^add *r[0-9]*,pc,r[0-9]*.*/ add r*, pc,r*/;s/^(st|ld)r *r([0-9]*),\[pc,r([0-9]*)\].*/ \1r r\2,[pc,r\3]/;s/^fld(s|d) *(s|d)[0-9]*,\[pc,#0x[0-9a-f]*].*/fld\1 \2*,[pc,#*]/' | sort | uniq -c | sort -n
 
-enum A$r {
-    A$r0, A$r1, A$r2, A$r3,
-    A$r4, A$r5, A$r6, A$r7,
-    A$r8, A$r9, A$r10, A$r11,
-    A$r12, A$r13, A$r14, A$r15,
-    A$sp = A$r13,
-    A$lr = A$r14,
-    A$pc = A$r15
-};
-
-enum A$c {
-    A$eq, A$ne, A$cs, A$cc,
-    A$mi, A$pl, A$vs, A$vc,
-    A$hi, A$ls, A$ge, A$lt,
-    A$gt, A$le, A$al,
-    A$hs = A$cs,
-    A$lo = A$cc
-};
-
-#define A$mrs_rm_cpsr(rd) /* mrs rd, cpsr */ \
-    (0xe10f0000 | ((rd) << 12))
-#define A$msr_cpsr_f_rm(rm) /* msr cpsr_f, rm */ \
-    (0xe128f000 | (rm))
-#define A$ldr_rd_$rn_im$(rd, rn, im) /* ldr rd, [rn, #im] */ \
-    (0xe5100000 | ((im) < 0 ? 0 : 1 << 23) | ((rn) << 16) | ((rd) << 12) | abs(im))
-#define A$str_rd_$rn_im$(rd, rn, im) /* sr rd, [rn, #im] */ \
-    (0xe5000000 | ((im) < 0 ? 0 : 1 << 23) | ((rn) << 16) | ((rd) << 12) | abs(im))
-#define A$sub_rd_rn_$im(rd, rn, im) /* sub, rd, rn, #im */ \
-    (0xe2400000 | ((rn) << 16) | ((rd) << 12) | (im & 0xff))
-#define A$blx_rm(rm) /* blx rm */ \
-    (0xe12fff30 | (rm))
-#define A$mov_rd_rm(rd, rm) /* mov rd, rm */ \
-    (0xe1a00000 | ((rd) << 12) | (rm))
-#define A$ldmia_sp$_$rs$(rs) /* ldmia sp!, {rs} */ \
-    (0xe8b00000 | (A$sp << 16) | (rs))
-#define A$stmdb_sp$_$rs$(rs) /* stmdb sp!, {rs} */ \
-    (0xe9200000 | (A$sp << 16) | (rs))
-#define A$stmia_sp$_$r0$  0xe8ad0001 /* stmia sp!, {r0}   */
-#define A$bx_r0           0xe12fff10 /* bx r0             */
+#include "ARM.hpp"
 
 #define T$pop_$r0$ 0xbc01 // pop {r0}
 #define T$b(im) /* b im */ \
@@ -1044,150 +930,6 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
         MSLogHex(buffer, length, name);
     }
 }
-#endif
-
-#ifdef __APPLE__
-
-extern "C" void *NSPushAutoreleasePool(unsigned);
-extern "C" void NSPopAutoreleasePool(void *);
-
-static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, const char *prefix) {
-    if (MSDebug)
-        fprintf(stderr, "MSHookMessageInternal(%s, %s, %p, %p, \"%s\")\n",
-            _class == nil ? "nil" : class_getName(_class),
-            sel == NULL ? "NULL" : sel_getName(sel),
-            imp, result, prefix
-        );
-    if (_class == nil) {
-        fprintf(stderr, "MS:Warning: nil class argument\n");
-        return;
-    } else if (sel == nil) {
-        fprintf(stderr, "MS:Warning: nil sel argument\n");
-        return;
-    } else if (imp == nil) {
-        fprintf(stderr, "MS:Warning: nil imp argument\n");
-        return;
-    }
-
-    const char *name(sel_getName(sel));
-
-    Method method(class_getInstanceMethod(_class, sel));
-    if (method == nil) {
-        fprintf(stderr, "MS:Warning: message not found [%s %s]\n", class_getName(_class), name);
-        return;
-    }
-
-    const char *type(method_getTypeEncoding(method));
-
-    bool direct(false);
-
-    unsigned count;
-    Method *methods(class_copyMethodList(_class, &count));
-    for (unsigned i(0); i != count; ++i)
-        if (methods[i] == method) {
-            direct = true;
-            break;
-        }
-    free(methods);
-
-    IMP old(NULL);
-
-// XXX: port this to x86
-#if defined(__arm__)
-    if (!direct) {
-        size_t length(13 * sizeof(uint32_t));
-
-        uint32_t *buffer(reinterpret_cast<uint32_t *>(mmap(
-            NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
-        )));
-
-        if (buffer == MAP_FAILED)
-            fprintf(stderr, "MS:Error:mmap() = %d\n", errno);
-        else if (false) fail:
-            munmap(buffer, length);
-        else {
-            bool stret;
-            // XXX: you can't return an array in C, but really... check for '['?!
-            // http://www.opensource.apple.com/source/gcc3/gcc3-1175/libobjc/sendmsg.c
-            if (*type != '[' && *type != '(' && *type != '{')
-                stret = false;
-            else {
-                void *pool(NSPushAutoreleasePool(0));
-                NSMethodSignature *signature([NSMethodSignature signatureWithObjCTypes:type]);
-                NSUInteger rlength([signature methodReturnLength]);
-                stret = rlength > OBJC_MAX_STRUCT_BY_VALUE || struct_forward_array[rlength];
-                NSPopAutoreleasePool(pool);
-            }
-
-            A$r rs(stret ? A$r1 : A$r0);
-            A$r rc(stret ? A$r2 : A$r1);
-            A$r re(stret ? A$r0 : A$r2);
-
-            buffer[ 0] = A$stmdb_sp$_$rs$((1 << rs) | (1 << re) | (1 << A$r3) | (1 << A$lr));
-            buffer[ 1] = A$ldr_rd_$rn_im$(A$r0, A$pc, (10 - 1 - 2) * 4);
-            buffer[ 2] = A$ldr_rd_$rn_im$(A$r1, A$pc, (11 - 2 - 2) * 4);
-            buffer[ 3] = A$ldr_rd_$rn_im$(A$lr, A$pc, (12 - 3 - 2) * 4);
-            buffer[ 4] = A$blx_rm(A$lr);
-            // XXX: if you store this value to the stack now you can avoid instruction 7 later
-            buffer[ 5] = A$mov_rd_rm(rc, A$r0);
-            buffer[ 6] = A$ldmia_sp$_$rs$((1 << rs) | (1 << re) | (1 << A$r3) | (1 << A$lr));
-            buffer[ 7] = A$str_rd_$rn_im$(rc, A$sp, -4);
-            buffer[ 8] = A$ldr_rd_$rn_im$(rc, A$pc, (11 - 8 - 2) * 4);
-            buffer[ 9] = A$ldr_rd_$rn_im$(A$pc, A$sp, -4);
-            buffer[10] = reinterpret_cast<uint32_t>(class_getSuperclass(_class));
-            buffer[11] = reinterpret_cast<uint32_t>(sel);
-            buffer[12] = reinterpret_cast<uint32_t>(stret ? &class_getMethodImplementation_stret : &class_getMethodImplementation);
-
-            if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
-                fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
-                goto fail;
-            }
-
-            old = reinterpret_cast<IMP>(buffer);
-
-            if (MSDebug) {
-                char name[16];
-                sprintf(name, "%p", old);
-                MSLogHex(buffer, length, name);
-            }
-        }
-    }
-#endif
-
-    if (old == NULL)
-        old = method_getImplementation(method);
-
-    if (result != NULL)
-        *result = old;
-
-    if (prefix != NULL) {
-        size_t namelen(strlen(name));
-        size_t fixlen(strlen(prefix));
-
-        char *newname(reinterpret_cast<char *>(alloca(fixlen + namelen + 1)));
-        memcpy(newname, prefix, fixlen);
-        memcpy(newname + fixlen, name, namelen + 1);
-
-        if (!class_addMethod(_class, sel_registerName(newname), old, type))
-            fprintf(stderr, "MS:Error: failed to rename [%s %s]\n", class_getName(_class), name);
-    }
-
-    if (direct)
-        method_setImplementation(method, imp);
-    else
-        class_addMethod(_class, sel, imp, type);
-}
-
-extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
-    IMP result(NULL);
-    MSHookMessageInternal(_class, sel, imp, &result, prefix);
-    return result;
-}
-
-extern "C" void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result) {
-    MSHookMessageInternal(_class, sel, imp, result, NULL);
-}
-
 #endif
 
 #if defined(__APPLE__) && defined(__arm__)

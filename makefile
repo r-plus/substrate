@@ -35,7 +35,7 @@ clean:
 Struct.hpp:
 	$$($(gcc) -print-prog-name=cc1obj) -print-objc-runtime-info </dev/null >$@
 
-libsubstrate.dylib: Hooker.mm nlist.cpp Struct.hpp disasm.h
+libsubstrate.dylib: Hooker.cpp ObjectiveC.mm nlist.cpp Struct.hpp disasm.h Debug.cpp Debug.hpp ARM.hpp
 	$(gcc) $(all_flags) -dynamiclib -o $@ $(filter %.mm,$^) $(filter %.cpp,$^) -install_name /Library/Frameworks/CydiaSubstrate.framework/Versions/A/CydiaSubstrate -undefined dynamic_lookup -framework CoreFoundation -lobjc
 	$(ldid) $@
 
