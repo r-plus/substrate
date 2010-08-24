@@ -19,31 +19,6 @@
 **/
 /* }}} */
 
-#if 1
-/* Trace Profiler {{{ */
-#include <sys/time.h>
-#include <stdbool.h>
-
-static struct timeval _ltv;
-static bool _itv;
-
-#define _trace() do { \
-    struct timeval _ctv; \
-    gettimeofday(&_ctv, NULL); \
-    if (!_itv) { \
-        _itv = true; \
-        _ltv = _ctv; \
-    } \
-    fprintf(stderr, "%lu.%.6u[%f]:_trace()@%s:%u[%s]\n", \
-        _ctv.tv_sec, _ctv.tv_usec, \
-        (_ctv.tv_sec - _ltv.tv_sec) + (_ctv.tv_usec - _ltv.tv_usec) / 1000000.0, \
-        __FILE__, __LINE__, __FUNCTION__\
-    ); \
-    _ltv = _ctv; \
-} while (false)
-/* }}} */
-#endif
-
 #include <mach/mach.h>
 #include <mach/mach_init.h>
 
@@ -54,12 +29,6 @@ static bool _itv;
 
 #define BSD_KERNEL_PRIVATE
 #include <machine/exec.h>
-
-#include <sys/mman.h>
-#include <sys/stat.h>
-
-#include <sys/types.h>
-#include <unistd.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -165,10 +134,8 @@ int MSMachONameList_(const uint8_t *base, struct MSSymbolData *list, size_t nreq
             lcp = reinterpret_cast<const struct load_command *>(reinterpret_cast<const uint8_t *>(lcp) + lcp->cmdsize);
         }
 
-        if (symbols == NULL || strings == NULL) {
-            _trace();
+        if (symbols == NULL || strings == NULL)
             return -1;
-        }
     } else {
         /* XXX: is this right anymore?!? */
         symbols = reinterpret_cast<const MSNameList *>(base + N_SYMOFF(*buf));
@@ -202,7 +169,7 @@ int MSMachONameList_(const uint8_t *base, struct MSSymbolData *list, size_t nreq
     return nreq;
 }
 
-#ifndef __LP64__
+#ifdef __arm__
 int (*_nlist)(const char *file, struct nlist *list);
 
 extern "C" int $nlist(const char *file, struct nlist *names) {
