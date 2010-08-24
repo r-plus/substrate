@@ -906,6 +906,7 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
             if (decode.opcode == 0x8b) {
                 void *destiny(area + offset + width + int32_t(decode.disp.disp32));
                 uint8_t reg(decode.rex_r << 3 | decode.modrm_reg);
+                length -= decode.len;
                 length += MSSizeOfPushPointer(destiny);
                 length += MSSizeOfPop(reg);
                 length += MSSizeOfMove64();
