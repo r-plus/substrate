@@ -19,6 +19,8 @@
 **/
 /* }}} */
 
+#ifdef __APPLE__
+
 #include <mach/mach.h>
 #include <mach/mach_init.h>
 
@@ -213,4 +215,6 @@ extern "C" int $nlist(const char *file, struct nlist *names) {
 MSInitialize {
     MSHookFunction(&nlist, &$nlist, &_nlist);
 }
+#endif
+
 #endif
