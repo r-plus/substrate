@@ -710,7 +710,10 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
 #if defined(__i386__) || defined(__x86_64__)
 static size_t MSGetInstructionWidthIntel(void *start) {
-    return disasm(reinterpret_cast<uint8_t *>(start));
+    struct disasm decode;
+    if (disasm(reinterpret_cast<uint8_t *>(start), &decode) == 0)
+        return 0;
+    return decode.len;
 }
 
 #ifdef __LP64__

@@ -1,7 +1,7 @@
 typedef uint8_t BYTE;
 typedef uint32_t DWORD;
 
-// disasm_flag values:
+// disasm->flag values:
 #define C_66           0x00000001       // 66-prefix
 #define C_67           0x00000002       // 67-prefix
 #define C_LOCK         0x00000004       // lock
@@ -15,37 +15,41 @@ typedef uint32_t DWORD;
 // returns: 1 if success
 //          0 if error
 
-int disasm(BYTE* opcode0)
+struct disasm {
+
+BYTE  seg;                       // CS DS ES SS FS GS
+BYTE  rep;                       // REPZ/REPNZ
+BYTE  opcode;                    // opcode
+BYTE  opcode2;                   // used when opcode==0F
+BYTE  modrm;                     // modxxxrm
+BYTE  sib;                       // scale-index-base
+BYTE  mem[8];                    // mem addr value
+BYTE  data[8];                   // data value
+
+DWORD len;                       // 0 if error
+DWORD flag;                      // C_xxx
+DWORD memsize;                   // value = disasm->mem
+DWORD datasize;                  // value = disasm->data
+DWORD defdata;                   // == C_66 ? 2 : 4
+DWORD defmem;                    // == C_67 ? 2 : 4
+
+};
+
+int disasm(BYTE* opcode0, struct disasm *disasm)
 {
   BYTE* opcode = opcode0;
 
-BYTE  disasm_seg;                       // CS DS ES SS FS GS
-BYTE  disasm_rep;                       // REPZ/REPNZ
-BYTE  disasm_opcode;                    // opcode
-BYTE  disasm_opcode2;                   // used when opcode==0F
-BYTE  disasm_modrm;                     // modxxxrm
-BYTE  disasm_sib;                       // scale-index-base
-BYTE  disasm_mem[8];                    // mem addr value
-BYTE  disasm_data[8];                   // data value
-
-DWORD disasm_len;                       // 0 if error
-DWORD disasm_flag;                      // C_xxx
-DWORD disasm_memsize;                   // value = disasm_mem
-DWORD disasm_datasize;                  // value = disasm_data
-DWORD disasm_defdata;                   // == C_66 ? 2 : 4
-DWORD disasm_defmem;                    // == C_67 ? 2 : 4
-
-  disasm_len = 0;
-  disasm_flag = 0;
-  disasm_datasize = 0;
-  disasm_memsize = 0;
-  disasm_defdata = 4;
-  disasm_defmem = 4;
+  disasm->len = 0;
+  disasm->flag = 0;
+  disasm->datasize = 0;
+  disasm->memsize = 0;
+  disasm->defdata = 4;
+  disasm->defmem = 4;
 
 retry:
-  disasm_opcode = *opcode++;
+  disasm->opcode = *opcode++;
 
-  switch (disasm_opcode)
+  switch (disasm->opcode)
   {
     case 0x00: case 0x01: case 0x02: case 0x03:
     case 0x08: case 0x09: case 0x0A: case 0x0B:
@@ -64,22 +68,22 @@ retry:
     case 0xD8: case 0xD9: case 0xDA: case 0xDB:
     case 0xDC: case 0xDD: case 0xDE: case 0xDF:
     case 0xFE: case 0xFF:
-               disasm_flag |= C_MODRM;
+               disasm->flag |= C_MODRM;
                break;
-    case 0xCD: disasm_datasize += *opcode==0x20 ? 1+4 : 1;
+    case 0xCD: disasm->datasize += *opcode==0x20 ? 1+4 : 1;
                break;
     case 0xF6:
-    case 0xF7: disasm_flag |= C_MODRM;
+    case 0xF7: disasm->flag |= C_MODRM;
                if (*opcode & 0x38) break;
                // continue if <test ..., xx>
     case 0x04: case 0x05: case 0x0C: case 0x0D:
     case 0x14: case 0x15: case 0x1C: case 0x1D:
     case 0x24: case 0x25: case 0x2C: case 0x2D:
     case 0x34: case 0x35: case 0x3C: case 0x3D:
-               if (disasm_opcode & 1)
-                 disasm_datasize += disasm_defdata;
+               if (disasm->opcode & 1)
+                 disasm->datasize += disasm->defdata;
                else
-                 disasm_datasize++;
+                 disasm->datasize++;
                break;
     case 0x6A:
     case 0xA8:
@@ -93,32 +97,32 @@ retry:
     case 0x7C: case 0x7D: case 0x7E: case 0x7F:
     case 0xEB:
     case 0xE0: case 0xE1: case 0xE2: case 0xE3:
-               disasm_datasize++;
+               disasm->datasize++;
                break;
     case 0x26: case 0x2E: case 0x36: case 0x3E:
     case 0x64: case 0x65:
-               if (disasm_flag & C_SEG) return 0;
-               disasm_flag |= C_SEG;
-               disasm_seg = disasm_opcode;
+               if (disasm->flag & C_SEG) return 0;
+               disasm->flag |= C_SEG;
+               disasm->seg = disasm->opcode;
                goto retry;
     case 0xF0:
-               if (disasm_flag & C_LOCK) return 0;
-               disasm_flag |= C_LOCK;
+               if (disasm->flag & C_LOCK) return 0;
+               disasm->flag |= C_LOCK;
                goto retry;
     case 0xF2: case 0xF3:
-               if (disasm_flag & C_REP) return 0;
-               disasm_flag |= C_REP;
-               disasm_rep = disasm_opcode;
+               if (disasm->flag & C_REP) return 0;
+               disasm->flag |= C_REP;
+               disasm->rep = disasm->opcode;
                goto retry;
     case 0x66:
-               if (disasm_flag & C_66) return 0;
-               disasm_flag |= C_66;
-               disasm_defdata = 2;
+               if (disasm->flag & C_66) return 0;
+               disasm->flag |= C_66;
+               disasm->defdata = 2;
                goto retry;
     case 0x67:
-               if (disasm_flag & C_67) return 0;
-               disasm_flag |= C_67;
-               disasm_defmem = 2;
+               if (disasm->flag & C_67) return 0;
+               disasm->flag |= C_67;
+               disasm->defmem = 2;
                goto retry;
     case 0x6B:
     case 0x80:
@@ -126,22 +130,22 @@ retry:
     case 0x83:
     case 0xC0:
     case 0xC1:
-    case 0xC6: disasm_datasize++;
-               disasm_flag |= C_MODRM;
+    case 0xC6: disasm->datasize++;
+               disasm->flag |= C_MODRM;
                break;
     case 0x69:
     case 0x81:
     case 0xC7:
-               disasm_datasize += disasm_defdata;
-               disasm_flag |= C_MODRM;
+               disasm->datasize += disasm->defdata;
+               disasm->flag |= C_MODRM;
                break;
     case 0x9A:
-    case 0xEA: disasm_datasize += 2 + disasm_defdata;
+    case 0xEA: disasm->datasize += 2 + disasm->defdata;
                break;
     case 0xA0:
     case 0xA1:
     case 0xA2:
-    case 0xA3: disasm_memsize += disasm_defmem;
+    case 0xA3: disasm->memsize += disasm->defmem;
                break;
     case 0x68:
     case 0xA9:
@@ -149,20 +153,20 @@ retry:
     case 0xBC: case 0xBD: case 0xBE: case 0xBF:
     case 0xE8:
     case 0xE9:
-               disasm_datasize += disasm_defdata;
+               disasm->datasize += disasm->defdata;
                break;
     case 0xC2:
-    case 0xCA: disasm_datasize += 2;
+    case 0xCA: disasm->datasize += 2;
                break;
     case 0xC8:
-               disasm_datasize += 3;
+               disasm->datasize += 3;
                break;
     case 0xF1:
                return 0;
     case 0x0F:
-      disasm_flag |= C_OPCODE2;
-      disasm_opcode2 = *opcode++;
-      switch (disasm_opcode2)
+      disasm->flag |= C_OPCODE2;
+      disasm->opcode2 = *opcode++;
+      switch (disasm->opcode2)
       {
         case 0x00: case 0x01: case 0x02: case 0x03:
         case 0x90: case 0x91: case 0x92: case 0x93:
@@ -180,7 +184,7 @@ retry:
         case 0xBC: case 0xBD: case 0xBE: case 0xBF:
         case 0xC0:
         case 0xC1:
-                   disasm_flag |= C_MODRM;
+                   disasm->flag |= C_MODRM;
                    break;
         case 0x06:
         case 0x08: case 0x09: case 0x0A: case 0x0B:
@@ -194,13 +198,13 @@ retry:
         case 0x84: case 0x85: case 0x86: case 0x87:
         case 0x88: case 0x89: case 0x8A: case 0x8B:
         case 0x8C: case 0x8D: case 0x8E: case 0x8F:
-                   disasm_datasize += disasm_defdata;
+                   disasm->datasize += disasm->defdata;
                    break;
         case 0xA4:
         case 0xAC:
         case 0xBA:
-                   disasm_datasize++;
-                   disasm_flag |= C_MODRM;
+                   disasm->datasize++;
+                   disasm->flag |= C_MODRM;
                    break;
         case 0x05: // SRK (syscall64)
                    break;
@@ -211,38 +215,38 @@ retry:
 
   } //switch
 
-  if (disasm_flag & C_MODRM)
+  if (disasm->flag & C_MODRM)
   {
-    disasm_modrm = *opcode++;
-    BYTE mod = disasm_modrm & 0xC0;
-    BYTE rm  = disasm_modrm & 0x07;
+    disasm->modrm = *opcode++;
+    BYTE mod = disasm->modrm & 0xC0;
+    BYTE rm  = disasm->modrm & 0x07;
     if (mod != 0xC0)
     {
-      if (mod == 0x40) disasm_memsize++;
-      if (mod == 0x80) disasm_memsize += disasm_defmem;
-      if (disasm_defmem == 2)           // modrm16
+      if (mod == 0x40) disasm->memsize++;
+      if (mod == 0x80) disasm->memsize += disasm->defmem;
+      if (disasm->defmem == 2)           // modrm16
       {
-        if ((mod == 0x00)&&(rm == 0x06)) disasm_memsize+=2;
+        if ((mod == 0x00)&&(rm == 0x06)) disasm->memsize+=2;
       }
       else                              // modrm32
       {
         if (rm==0x04)
         {
-          disasm_flag |= C_SIB;
-          disasm_sib = *opcode++;
-          rm = disasm_sib & 0x07;
+          disasm->flag |= C_SIB;
+          disasm->sib = *opcode++;
+          rm = disasm->sib & 0x07;
         }
-        if ((rm==0x05)&&(mod==0x00)) disasm_memsize+=4;
+        if ((rm==0x05)&&(mod==0x00)) disasm->memsize+=4;
       }
     }
   } // C_MODRM
 
-  for(DWORD i=0; i<disasm_memsize; i++)
-    disasm_mem[i] = *opcode++;
-  for(DWORD i=0; i<disasm_datasize; i++)
-    disasm_data[i] = *opcode++;
+  for(DWORD i=0; i<disasm->memsize; i++)
+    disasm->mem[i] = *opcode++;
+  for(DWORD i=0; i<disasm->datasize; i++)
+    disasm->data[i] = *opcode++;
 
-  disasm_len = opcode - opcode0;
+  disasm->len = opcode - opcode0;
 
-  return disasm_len;
+  return 1;
 } //disasm
