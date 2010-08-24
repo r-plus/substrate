@@ -918,28 +918,28 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 
         if (backup[offset] == 0xe8) {
             int32_t relative(*reinterpret_cast<int32_t *>(backup + offset + 1));
-            void *destiny(area + offset + 5 + relative);
+            void *destiny(area + offset + decode.len + relative);
 
             if (relative == 0) {
-                length -= 5;
+                length -= decode.len;
                 length += MSSizeOfPushPointer(destiny);
             } else {
                 length += MSSizeOfSkip();
                 length += MSSizeOfJump(destiny);
             }
         } else if (backup[offset] == 0xeb) {
-            length -= 2;
-            length += MSSizeOfJump(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+            length -= decode.len;
+            length += MSSizeOfJump(area + offset + decode.len + *reinterpret_cast<int8_t *>(backup + offset + 1));
         } else if (backup[offset] == 0xe9) {
-            length -= 5;
-            length += MSSizeOfJump(area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
+            length -= decode.len;
+            length += MSSizeOfJump(area + offset + decode.len + *reinterpret_cast<int32_t *>(backup + offset + 1));
         } else if (
             backup[offset] == 0xe3 ||
             (backup[offset] & 0xf0) == 0x70
             // XXX: opcode2 & 0xf0 is 0x80?
         ) {
-            length += 2;
-            length += MSSizeOfJump(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+            length += decode.len;
+            length += MSSizeOfJump(area + offset + decode.len + *reinterpret_cast<int8_t *>(backup + offset + 1));
         }
     }
 
@@ -986,18 +986,18 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
             if (backup[offset] == 0xe8) {
                 int32_t relative(*reinterpret_cast<int32_t *>(backup + offset + 1));
                 if (relative == 0)
-                    MSPushPointer(current, area + offset + 5);
+                    MSPushPointer(current, area + offset + decode.len);
                 else {
                     MSWrite<uint8_t>(current, 0xe8);
                     MSWrite<int32_t>(current, MSSizeOfSkip());
-                    void *destiny(area + offset + 5 + relative);
+                    void *destiny(area + offset + decode.len + relative);
                     MSWriteSkip(current, MSSizeOfJump(destiny, current + MSSizeOfSkip()));
                     MSWriteJump(current, destiny);
                 }
             } else if (backup[offset] == 0xeb)
-                MSWriteJump(current, area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+                MSWriteJump(current, area + offset + decode.len + *reinterpret_cast<int8_t *>(backup + offset + 1));
             else if (backup[offset] == 0xe9)
-                MSWriteJump(current, area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
+                MSWriteJump(current, area + offset + decode.len + *reinterpret_cast<int32_t *>(backup + offset + 1));
             else if (
                 backup[offset] == 0xe3 ||
                 (backup[offset] & 0xf0) == 0x70
@@ -1005,7 +1005,7 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
                 MSWrite<uint8_t>(current, backup[offset]);
                 MSWrite<uint8_t>(current, 2);
                 MSWrite<uint8_t>(current, 0xeb);
-                void *destiny(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
+                void *destiny(area + offset + decode.len + *reinterpret_cast<int8_t *>(backup + offset + 1));
                 MSWrite<uint8_t>(current, MSSizeOfJump(destiny, current + 1));
                 MSWriteJump(current, destiny);
             } else copy: {
