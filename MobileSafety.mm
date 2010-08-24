@@ -176,7 +176,7 @@ MSHook(id, SBUIController$init, SBUIController *self, SEL sel) {
     } return self;
 }
 
-#define Paper_ "/Library/MobileSubstrate/MobilePaper.png"
+#define Paper_ "/Library/MobileSubstrate/MobileSafety.png"
 
 MSHook(UIImage *, UIImage$defaultDesktopImage, UIImage *self, SEL sel) {
     return [UIImage imageWithContentsOfFile:@Paper_];

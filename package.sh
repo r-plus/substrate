@@ -54,7 +54,7 @@ if [[ ${arch} == arm ]]; then
     cp -a extrainst_ postrm "${pkg}"/DEBIAN
 
     cp -a MobileSafety.dylib "${fwk}"
-    cp -a MobilePaper.png "${fwk}"
+    cp -a MobileSafety.png "${fwk}"
 
     mkdir -p "${pkg}"/usr/lib
     ln -s /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate "${pkg}"/usr/lib/libsubstrate.dylib
