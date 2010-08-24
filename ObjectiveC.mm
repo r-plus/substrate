@@ -167,15 +167,17 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
         class_addMethod(_class, sel, imp, type);
 }
 
+extern "C" void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result) {
+    MSHookMessageInternal(_class, sel, imp, result, NULL);
+}
+
+#ifdef __arm__
 extern "C" IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
     IMP result(NULL);
     MSHookMessageInternal(_class, sel, imp, &result, prefix);
     return result;
 }
-
-extern "C" void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result) {
-    MSHookMessageInternal(_class, sel, imp, result, NULL);
-}
+#endif
 
 #ifdef __arm__
 extern "C" void _Z13MSHookMessageP10objc_classP13objc_selectorPFP11objc_objectS4_S2_zEPKc(Class _class, SEL sel, IMP imp, const char *prefix) {

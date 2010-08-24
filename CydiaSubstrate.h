@@ -38,7 +38,10 @@ extern "C" {
 void MSHookFunction(void *symbol, void *replace, void **result);
 
 #ifdef __APPLE__
+#ifdef __arm__
+__attribute__((__deprecated__))
 IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix _default(NULL));
+#endif
 void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result);
 #endif
 
@@ -100,10 +103,13 @@ struct IsClass {
 
 }
 
+#ifdef __arm__
 template <typename Type_>
+__attribute__((__deprecated__))
 static inline Type_ *MSHookMessage(Class _class, SEL sel, Type_ *imp, const char *prefix = NULL) {
     return reinterpret_cast<Type_ *>(MSHookMessage(_class, sel, reinterpret_cast<IMP>(imp), prefix));
 }
+#endif
 
 template <typename Type_>
 static inline void MSHookMessage(Class _class, SEL sel, Type_ *imp, Type_ **result) {
@@ -123,7 +129,14 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
     class_addMethod($ ## _class, @selector(arg0:), (IMP) &$ ## _class ## $ ## arg0 ## $, type);
 #define MSAddMessage2(_class, type, arg0, arg1) \
     class_addMethod($ ## _class, @selector(arg0:arg1:), (IMP) &$ ## _class ## $ ## arg0 ## $ ## arg1 ## $, type);
-
+#define MSAddMessage3(_class, type, arg0, arg1, arg2) \
+    class_addMethod($ ## _class, @selector(arg0:arg1:arg2:), (IMP) &$ ## _class ## $ ## arg0 ## $ ## arg1 ## $ ## arg2 ## $, type);
+#define MSAddMessage4(_class, type, arg0, arg1, arg2, arg3) \
+    class_addMethod($ ## _class, @selector(arg0:arg1:arg2:arg3:), (IMP) &$ ## _class ## $ ## arg0 ## $ ## arg1 ## $ ## arg2 ## $ ## arg3 ## $, type);
+#define MSAddMessage5(_class, type, arg0, arg1, arg2, arg3, arg4) \
+    class_addMethod($ ## _class, @selector(arg0:arg1:arg2:arg3:arg4:), (IMP) &$ ## _class ## $ ## arg0 ## $ ## arg1 ## $ ## arg2 ## $ ## arg3 ## $ ## arg4 ## $, type);
+#define MSAddMessage6(_class, type, arg0, arg1, arg2, arg3, arg4, arg5) \
+    class_addMethod($ ## _class, @selector(arg0:arg1:arg2:arg3:arg4:arg5:), (IMP) &$ ## _class ## $ ## arg0 ## $ ## arg1 ## $ ## arg2 ## $ ## arg3 ## $ ## arg4 ## $ ## arg5 ## $, type);
 
 #define MSHookMessage0(_class, arg0) \
     MSHookMessage($ ## _class, @selector(arg0), MSHake(_class ## $ ## arg0))

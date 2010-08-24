@@ -78,7 +78,7 @@ void MSCloseMemory(void *handle) {
 
 extern "C" void __clear_cache (char *beg, char *end);
 
-void MSClearCache(void *data, size_t size) {
+extern "C" void MSClearCache(void *data, size_t size) {
     __clear_cache(reinterpret_cast<char *>(data), reinterpret_cast<char *>(data) + size);
 }
 #endif

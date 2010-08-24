@@ -51,7 +51,7 @@ typedef struct nlist_64 MSNameList;
 typedef struct nlist MSNameList;
 #endif
 
-int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t nreq) {
+static int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t nreq) {
     const uint8_t *base(reinterpret_cast<const uint8_t *>(image));
     const struct exec *buf(reinterpret_cast<const struct exec *>(base));
 
@@ -175,7 +175,7 @@ int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t nreq) 
     return nreq;
 }
 
-const void *MSGetImageByName(const char *file) {
+extern "C" const void *MSGetImageByName(const char *file) {
     for (uint32_t image(0), count(_dyld_image_count()); image != count; ++image)
         if (strcmp(_dyld_get_image_name(image), file) == 0)
             return _dyld_get_image_header(image);
