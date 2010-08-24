@@ -819,8 +819,7 @@ _disused static size_t MSSizeOfMove64() {
 
 enum I$r {
     I$rax, I$rcx, I$rdx, I$rbx,
-    // XXX: x[12] == rsp / rbp?
-    I$x1, I$x2, I$rsi, I$rdi,
+    I$rsp, I$rbp, I$rsi, I$rdi,
     I$r8, I$r9, I$r10, I$r11,
     I$r12, I$r13, I$r14, I$r15,
 };
