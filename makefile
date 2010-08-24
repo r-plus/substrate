@@ -55,7 +55,7 @@ MobileSafety.dylib: MobileSafety.mm libsubstrate.dylib
 	$(gcc) $(armv6_flags) -o $@ $(filter %.m,$^) -framework CoreFoundation -framework Foundation -lobjc
 	$(ldid) $@
 
-package:
+package: all
 	for arch in i386 arm; do sudo ./package.sh "$${arch}"; done
 
 install: package
