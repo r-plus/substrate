@@ -19,6 +19,8 @@
 # along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 # }}}
 
+set -e
+
 arch=$1
 shift 1
 
