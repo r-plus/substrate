@@ -724,13 +724,23 @@ static bool MSIs32BitOffset(uintptr_t target, uintptr_t source) {
     return int32_t(offset) == offset;
 }
 
+static size_t MSSizeOfSkip() {
+    return 5;
+}
+
+static size_t MSSizeOfPushPointer(uintptr_t target) {
+    return uint64_t(target) >> 32 == 0 ? 5 : 13;
+}
+
+static size_t MSSizeOfPushPointer(void *target) {
+    return MSSizeOfPushPointer(reinterpret_cast<uintptr_t>(target));
+}
+
 static size_t MSSizeOfJump(bool blind, uintptr_t target, uintptr_t source = 0) {
     if (ia32 || !blind && MSIs32BitOffset(target, source + 5))
-        return 5;
-    else if (uint64_t(target) >> 32 == 0)
-        return 6;
+        return MSSizeOfSkip();
     else
-        return 14;
+        return MSSizeOfPushPointer(target) + 1;
 }
 
 static size_t MSSizeOfJump(uintptr_t target, uintptr_t source) {
@@ -749,25 +759,35 @@ static size_t MSSizeOfJump(void *target) {
     return MSSizeOfJump(reinterpret_cast<uintptr_t>(target));
 }
 
+static void MSWriteSkip(uint8_t *&current, ssize_t size) {
+    MSWrite<uint8_t>(current, 0xe9);
+    MSWrite<uint32_t>(current, size);
+}
+
+static void MSPushPointer(uint8_t *&current, uintptr_t target) {
+    MSWrite<uint8_t>(current, 0x68);
+    MSWrite<uint32_t>(current, target);
+
+    if (uint32_t high = uint64_t(target) >> 32) {
+        MSWrite<uint8_t>(current, 0xc7);
+        MSWrite<uint8_t>(current, 0x44);
+        MSWrite<uint8_t>(current, 0x24);
+        MSWrite<uint8_t>(current, 0x04);
+        MSWrite<uint32_t>(current, high);
+    }
+}
+
+static void MSPushPointer(uint8_t *&current, void *target) {
+    return MSPushPointer(current, reinterpret_cast<uintptr_t>(target));
+}
+
 static void MSWriteJump(uint8_t *&current, uintptr_t target) {
     uintptr_t source(reinterpret_cast<uintptr_t>(current));
 
-    if (ia32 || MSIs32BitOffset(target, source + 5)) {
-        MSWrite<uint8_t>(current, 0xe9);
-        MSWrite<uint32_t>(current, target - (source + 5));
-    } else {
-        MSWrite<uint8_t>(current, 0x68);
-        MSWrite<uint32_t>(current, target);
-
-        uint32_t high(uint64_t(target) >> 32);
-        if (high != 0) {
-            MSWrite<uint8_t>(current, 0xc7);
-            MSWrite<uint8_t>(current, 0x44);
-            MSWrite<uint8_t>(current, 0x24);
-            MSWrite<uint8_t>(current, 0x04);
-            MSWrite<uint32_t>(current, high);
-        }
-
+    if (ia32 || MSIs32BitOffset(target, source + 5))
+        MSWriteSkip(current, target - (source + 5));
+    else {
+        MSPushPointer(current, target);
         MSWrite<uint8_t>(current, 0xc3);
     }
 
@@ -857,7 +877,18 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
         width = MSGetInstructionWidthIntel(backup + offset);
         //_assert(width != 0 && offset + width <= used);
 
-        if (backup[offset] == 0xeb) {
+        if (backup[offset] == 0xe8) {
+            int32_t relative(*reinterpret_cast<int32_t *>(backup + offset + 1));
+            void *destiny(area + offset + 5 + relative);
+
+            if (relative == 0) {
+                length -= 5;
+                length += MSSizeOfPushPointer(destiny);
+            } else {
+                length += MSSizeOfSkip();
+                length += MSSizeOfJump(destiny);
+            }
+        } else if (backup[offset] == 0xeb) {
             length -= 2;
             length += MSSizeOfJump(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
         } else if (backup[offset] == 0xe9) {
@@ -895,7 +926,18 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
             width = MSGetInstructionWidthIntel(backup + offset);
             //_assert(width != 0 && offset + width <= used);
 
-            if (backup[offset] == 0xeb)
+            if (backup[offset] == 0xe8) {
+                int32_t relative(*reinterpret_cast<int32_t *>(backup + offset + 1));
+                if (relative == 0)
+                    MSPushPointer(current, area + offset + 5);
+                else {
+                    MSWrite<uint8_t>(current, 0xe8);
+                    MSWrite<int32_t>(current, MSSizeOfSkip());
+                    void *destiny(area + offset + 5 + relative);
+                    MSWriteSkip(current, MSSizeOfJump(destiny, current + MSSizeOfSkip()));
+                    MSWriteJump(current, destiny);
+                }
+            } else if (backup[offset] == 0xeb)
                 MSWriteJump(current, area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
             else if (backup[offset] == 0xe9)
                 MSWriteJump(current, area + offset + 5 + *reinterpret_cast<int32_t *>(backup + offset + 1));
