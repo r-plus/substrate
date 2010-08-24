@@ -790,13 +790,6 @@ static void MSWriteJump(uint8_t *&current, uintptr_t target) {
         MSPushPointer(current, target);
         MSWrite<uint8_t>(current, 0xc3);
     }
-
-#if 0
-    MSWrite<uint8_t>(current, 0xff);
-    MSWrite<uint8_t>(current, 0x25);
-    MSWrite<uint32_t>(current, 0x00000000);
-    MSWrite<uintptr_t>(current, target);
-#endif
 }
 
 static void MSWriteJump(uint8_t *&current, void *target) {
@@ -897,6 +890,7 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
         } else if (
             backup[offset] == 0xe3 ||
             (backup[offset] & 0xf0) == 0x70
+            // XXX: opcode2 & 0xf0 is 0x80?
         ) {
             length += 2;
             length += MSSizeOfJump(area + offset + 2 + *reinterpret_cast<int8_t *>(backup + offset + 1));
