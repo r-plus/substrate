@@ -51,7 +51,8 @@ typedef struct nlist_64 MSNameList;
 typedef struct nlist MSNameList;
 #endif
 
-int MSMachONameList_(const uint8_t *base, struct MSSymbolData *list, size_t nreq) {
+int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t nreq) {
+    const uint8_t *base(reinterpret_cast<const uint8_t *>(image));
     const struct exec *buf(reinterpret_cast<const struct exec *>(base));
 
     if (OSSwapBigToHostInt32(buf->a_magic) == FAT_MAGIC) {
@@ -145,6 +146,8 @@ int MSMachONameList_(const uint8_t *base, struct MSSymbolData *list, size_t nreq
         n = buf->a_syms / sizeof(MSNameList);
     }
 
+    size_t start(0);
+
     for (size_t m(0); m != n; ++m) {
         const MSNameList *q(&symbols[m]);
         if (q->n_un.n_strx == 0 || (q->n_type & N_STAB) != 0)
@@ -152,7 +155,7 @@ int MSMachONameList_(const uint8_t *base, struct MSSymbolData *list, size_t nreq
 
         const char *nambuf(strings + q->n_un.n_strx);
 
-        for (size_t item(0); item != nreq; ++item) {
+        for (size_t item(start); item != nreq; ++item) {
             struct MSSymbolData *p(list + item);
             if (strcmp(p->name_, nambuf) != 0)
                 continue;
@@ -164,6 +167,7 @@ int MSMachONameList_(const uint8_t *base, struct MSSymbolData *list, size_t nreq
 
             if (--nreq == 0)
                 return 0;
+            ++start;
             break;
         }
     }
@@ -171,49 +175,55 @@ int MSMachONameList_(const uint8_t *base, struct MSSymbolData *list, size_t nreq
     return nreq;
 }
 
+const void *MSGetImageByName(const char *file) {
+    for (uint32_t image(0), count(_dyld_image_count()); image != count; ++image)
+        if (strcmp(_dyld_get_image_name(image), file) == 0)
+            return _dyld_get_image_header(image);
+    return NULL;
+}
+
 #ifdef __arm__
 int (*_nlist)(const char *file, struct nlist *list);
 
 extern "C" int $nlist(const char *file, struct nlist *names) {
-    for (uint32_t image(0), count(_dyld_image_count()); image != count; ++image)
-        if (strcmp(_dyld_get_image_name(image), file) == 0) {
-            size_t count(0);
-            for (struct nlist *name(names); name->n_un.n_name != NULL; ++name)
-                ++count;
+    const void *image(MSGetImageByName(file));
+    if (image == NULL)
+        return (*_nlist)(file, names);
 
-            MSSymbolData items[count];
+    size_t count(0);
+    for (struct nlist *list(names); list->n_un.n_name != NULL; ++list)
+        ++count;
 
-            for (size_t index(0); index != count; ++index) {
-                MSSymbolData &item(items[index]);
-                struct nlist &name(names[index]);
+    MSSymbolData items[count];
 
-                item.name_ = name.n_un.n_name;
-                item.type_ = 0;
-                item.sect_ = 0;
-                item.desc_ = 0;
-                item.value_ = 0;
-            }
+    for (size_t index(0); index != count; ++index) {
+        MSSymbolData &item(items[index]);
+        struct nlist &name(names[index]);
 
-            int result(MSMachONameList_(reinterpret_cast<const uint8_t *>(_dyld_get_image_header(image)), items, count));
+        item.name_ = name.n_un.n_name;
+        item.type_ = 0;
+        item.sect_ = 0;
+        item.desc_ = 0;
+        item.value_ = 0;
+    }
 
-            for (size_t index(0); index != count; ++index) {
-                MSSymbolData &item(items[index]);
-                struct nlist &name(names[index]);
+    int result(MSMachONameList_(image, items, count));
 
-                name.n_type = item.type_;
-                name.n_sect = item.sect_;
-                name.n_desc = item.desc_;
-                name.n_value = item.value_;
-            }
+    for (size_t index(0); index != count; ++index) {
+        MSSymbolData &item(items[index]);
+        struct nlist &name(names[index]);
 
-            return result;
-        }
+        name.n_type = item.type_;
+        name.n_sect = item.sect_;
+        name.n_desc = item.desc_;
+        name.n_value = item.value_;
+    }
 
-    return (*_nlist)(file, names);
+    return result;
 }
 
 MSInitialize {
-    MSHookFunction(&nlist, &$nlist, &_nlist);
+    MSHookFunction(&nlist, MSHake(nlist));
 }
 #endif
 
