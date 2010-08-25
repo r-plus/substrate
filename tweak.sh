@@ -139,18 +139,25 @@ EOF
 
     sed -e '
         /^%hook / {
-            s/^%hook \(.*[^a-zA-Z_]\)\([a-zA-Z_]*\)(/MSHook(\1, \2, /;
+            s/^%hook \(.*[^a-zA-Z_]\)\([a-zA-Z_]*\)(/#undef MSOldCall_'$'\\\n''#define MSOldCall_ _\2'$'\\\n''MSHook(\1, \2, /;
         };
-        s/%original/MSOldCall/g;
+        s/^%class \(.*\)/MSHookClass(\1)/;
+        s/%original/MSOldCall_/g;
         /^%/ s/^.*//;
-    ' "${code}"
+        i\
+        %line
+        =;
+    ' "${code}" | sed -ne '
+        /^%line$/ { n; s/^/#line /; h; p; n; p; d; };
+        /^%line / !{ x; p; x; p; };
+    '
 }
 
 function barrier() {
     echo '=================================================='
 }
 
-process | grep -v '^$'
+process | grep -Ev '^#line|^$'
 barrier
 control
 barrier
