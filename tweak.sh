@@ -138,8 +138,8 @@ function process() {
 EOF
 
     sed -e '
-        /^%function / {
-            s/^%function \(.*[^a-zA-Z_]\)\([a-zA-Z_]*\)(/MSHook(\1, \2, /;
+        /^%hook / {
+            s/^%hook \(.*[^a-zA-Z_]\)\([a-zA-Z_]*\)(/MSHook(\1, \2, /;
         };
         s/%original/MSOldCall/g;
         /^%/ s/^.*//;
