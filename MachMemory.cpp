@@ -39,7 +39,7 @@ struct MSMemoryHook {
     }
 };
 
-void *MSOpenMemory(void *data, size_t size) {
+extern "C" void *MSOpenMemory(void *data, size_t size) {
     if (size == 0)
         return NULL;
 
@@ -57,7 +57,7 @@ void *MSOpenMemory(void *data, size_t size) {
     return new MSMemoryHook(self, base, width);
 }
 
-void MSCloseMemory(void *handle) {
+extern "C" void MSCloseMemory(void *handle) {
     MSMemoryHook *memory(reinterpret_cast<MSMemoryHook *>(handle));
     if (kern_return_t error = vm_protect(memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
         fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
