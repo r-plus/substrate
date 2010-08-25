@@ -102,6 +102,8 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.mobile.lockdown");
     HookEnvironment("com.apple.itdbprep.server");
 
+    HookEnvironment("com.apple.locationd");
+
     const char *finish = "restart";
     if (HookEnvironment("com.apple.SpringBoard"))
         finish = "reload";
