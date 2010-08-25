@@ -151,8 +151,6 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (symbol == NULL)
         return;
 
-    // XXX: if the last instruction of this set is a 32-bit instruction, this does not work
-
     uint16_t *area(reinterpret_cast<uint16_t *>(symbol));
 
     unsigned align((reinterpret_cast<uintptr_t>(area) & 0x2) == 0 ? 0 : 1);
