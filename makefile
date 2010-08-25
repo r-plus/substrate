@@ -22,7 +22,7 @@ armv6_flags += -miphoneos-version-min=$(ios)
 armv6_flags += -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS$(ios).sdk
 
 armv6_flags := -arch armv6 $(foreach flag,$(armv6_flags),-Xarch_armv6 $(flag))
-all_flags := -arch i386 -arch x86_64 $(armv6_flags)
+all_flags := -arch ppc -arch i386 -arch x86_64 $(armv6_flags)
 
 armv6_flags += $(flags)
 all_flags += $(flags)
@@ -56,7 +56,7 @@ MobileSafety.dylib: MobileSafety.mm libsubstrate.dylib CydiaSubstrate.h
 	$(ldid) $@
 
 package: all
-	for arch in i386 arm; do sudo ./package.sh "$${arch}"; done
+	for arch in ppc i386 arm; do sudo ./package.sh "$${arch}"; done
 
 install: package
 	sudo dpkg -i *_$(shell grep ^Version: control | cut -d ' ' -f 2)_$(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null).deb
