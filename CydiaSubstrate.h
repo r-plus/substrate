@@ -47,6 +47,7 @@ void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result);
 
 void *MSOpenMemory(void *data, size_t size);
 void MSCloseMemory(void *handle);
+void MSClearCache(void *data, size_t size);
 
 #ifdef __cplusplus
 }
