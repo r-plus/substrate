@@ -15,7 +15,8 @@ shopt -s nullglob
 
 code=$1
 
-name=$(basename "${code}" .mm)
+ext=mm
+name=${code%.${ext}}
 
 ios=3.2
 
@@ -166,13 +167,11 @@ barrier
 echo g++ "${flags[@]}"
 barrier
 
-flags.+= -x objective-c++
-
 temp=$(mktemp ".${name}.XXX")
 array temps
 temps.+= "${temp}"
 
-post=${temp}.mm
+post=${temp}.${ext}
 process >"${post}"
 temps.+= "${post}"
 
@@ -205,6 +204,7 @@ for arch in "${archs[@]}"; do
     fi
 done
 
+barrier
 try lipo -create "${thins[@]}" -output "${name}.dylib"
 
 function field() {
