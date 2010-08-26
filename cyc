@@ -1,0 +1,389 @@
+#!/usr/bin/env bash
+
+c=(
+    $'\e[0m'    #  0: neutral
+    $'\e[0;30m' #  1: black
+    $'\e[1;30m' #  2: dark gray
+    $'\e[0;31m' #  3: red
+    $'\e[1;31m' #  4: light red
+    $'\e[0;32m' #  5: green
+    $'\e[1;32m' #  6: light green
+    $'\e[0;33m' #  7: brown
+    $'\e[1;33m' #  8: yellow
+    $'\e[0;34m' #  9: blue
+    $'\e[1;34m' # 10: light blue
+    $'\e[0;35m' # 11: purple
+    $'\e[1;35m' # 12: light purple
+    $'\e[0;36m' # 13: cyan
+    $'\e[1;36m' # 14: light cyan
+    $'\e[0;37m' # 15: light gray
+    $'\e[1;37m' # 16: white
+)
+
+shopt -s nullglob
+
+function ebl:array() { eval "
+    declare -a $1
+
+    function $1.+=() {
+        while [[ \$# != 0 ]]; do
+            $1[\${#$1[@]}]=\$1
+            shift 1
+        done
+    }
+
+    function $1.==() {
+        for v in \"\${$1[@]}\"; do
+            if [[ \$v == \$1 ]]; then
+                return 0
+            fi
+        done
+
+        return 1
+    }
+"; }
+
+function fatal() {
+    echo "$(basename "$0"): $1" 1>&2
+    exit 1
+}
+
+function usage() {
+    echo "Usage: $(basename "$0")"
+}
+
+ios=
+mac=
+output=
+
+ebl:array modes
+ebl:array codes
+
+while [[ $# != 0 ]]; do
+    if [[ ${1:0:1} != - ]]; then
+        codes.+= "$1"
+    else case "${1:1:1}" in
+        (-) shift 1; break;;
+        (i) ios=${1:2};;
+        (m) mac=${1:2};;
+        (o) output=${1:2};;
+        (p) modes.+= package;;
+        (P) modes.+= package install;;
+        (s) modes.+= substrate;;
+        (*) usage; exit 1;;
+    esac fi
+    shift 1
+done
+
+if [[ ${#codes[@]} == 0 ]]; then
+    code=
+    ext=
+    name=
+elif [[ ${#codes[@]} == 1 ]]; then
+    code=${codes[0]}
+    ext=mm
+    name=${code%.${ext}}
+else
+    fatal 'more than one source code file unsupported'
+fi
+
+ebl:array archs
+ebl:array flags
+
+if [[ -n ${ios} ]]; then
+    gcc=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++
+    archs.+= armv6
+
+    ebl:array armv6
+    armv6.+= -mcpu=arm1176jzf-s
+    armv6.+= -miphoneos-version-min="${ios}"
+    armv6.+= -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS"${ios}".sdk
+    armv6.+= -idirafter /usr/include
+    armv6.+= -F/Library/Frameworks
+
+    for flag in "${armv6[@]}"; do
+        flags.+= -Xarch_armv6 "${flag}" 
+    done
+else
+    gcc=g++
+fi
+
+if [[ -n ${mac} ]]; then
+    archs.+= i386 x86_64
+fi
+
+flags.+= "$@"
+
+flags.+= -Wall #XXX:-Werror
+flags.+= -fmessage-length=0
+
+if [[ ${#codes[@]} != 0 ]]; then
+    ebl:array extra
+    for arch in "${archs[@]}"; do
+        while IFS= read -r line; do
+            # XXX: deduplicate flags
+            for flag in ${line#%flag *}; do
+                extra.+= "-Xarch_${arch}" "${flag}"
+            done
+        done < <("${gcc}" -arch "${arch}" -E "${flags[@]}" "${codes[@]}" | grep '^%flag ')
+    done
+fi
+
+flags.+= "${extra[@]}"
+
+if modes.== substrate; then
+    flags.+= -framework CydiaSubstrate
+    flags.+= -dynamiclib
+
+    if [[ -z ${output} ]]; then
+        output=${name}.dylib
+    fi
+fi
+
+# crap {{{
+function lower() {
+    tr '[:upper:]' '[:lower:]'
+}
+
+# XXX: this should ready some config file
+developer='Jay Freeman (saurik) <saurik@saurik.com>'
+namespace="com.saurik"
+
+function filter() {
+    sed -e '
+        /^'"$1"' / {
+            s/^'"$1"' *//;
+            p;
+        };
+    d;' "${codes[@]}"
+}
+
+function control() {
+    # XXX: use local
+    unset apt_architecture
+    unset apt_author
+    unset apt_depends
+    unset apt_maintainer
+    unset apt_package
+    unset apt_priority
+    unset apt_section
+    unset apt_version
+
+    local line
+    while IFS= read -r line; do
+        if [[ ${line} =~ ^%apt\ *([a-zA-Z_]*)\ *:\ *(.*) ]]; then
+            local field value
+            field=${BASH_REMATCH[1]}
+            field=$(lower <<<${field})
+
+            value=${BASH_REMATCH[2]}
+            if [[ ${field} == depends && ${value} != *${substrate}* ]]; then
+                value="${value}, ${substrate}"
+            fi
+
+            echo "${field}: ${value}"
+            # XXX: escaping is wrong
+            eval "apt_${field}='${value}'"
+        fi
+    done < <(cat "${codes[@]}")
+
+    if [[ -z ${apt_architecture} && -n ${architecture} ]]; then
+        echo "architecture: ${architecture}"
+    fi
+
+    if [[ -z ${apt_author} && -n ${developer} ]]; then
+        echo "author: ${developer}"
+    fi
+
+    if [[ -z ${apt_depends} && -n ${substrate} ]]; then
+        echo "depends: ${substrate}"
+    fi
+
+    if [[ -z ${apt_maintainer} && -n ${developer} ]]; then
+        echo "maintainer: ${developer}"
+    fi
+
+    if [[ -z ${apt_package} && -n ${namespace} && -n ${name} ]]; then
+        echo "package: ${namespace}.$(lower <<<${name})"
+    fi
+
+    if [[ -z ${apt_priority} ]]; then
+        echo "priority: optional"
+    fi
+
+    if [[ -z ${apt_section} ]]; then
+        echo "section: Tweaks"
+    fi
+
+    if [[ -z ${apt_version} ]]; then
+        echo "version: 0.9-1"
+    fi
+}
+
+function process() {
+    local code=$1
+    shift 1
+
+    cat <<EOF
+#line 1 "${code}"
+EOF
+
+    sed -e '
+        s/^%hook \(.*[^a-zA-Z_]\)\([a-zA-Z_]*\)(/#undef MSOldCall_'$'\\\n''#define MSOldCall_ _\2'$'\\\n''MSHook(\1, \2, /;
+        s/^%class \(.*\)/MSHookClass(\1)/;
+        s/%original/MSOldCall_/g;
+        /^%/ s/^.*//;
+        /'$'\\n''/ {
+            i\
+            %line
+            =;
+            s/$/'$'\\\n''%enil/;
+        };
+    ' "${code}" | sed -ne '
+        /^%line$/ { n; s/^/#line /; h; p; n; p; d; };
+        /^%enil$/ { x; s/^.*$//; x; d; };
+        x; /./ p; x; p;
+    '
+}
+
+function barrier() {
+    echo '=================================================='
+}
+# }}}
+
+for code in "${codes[@]}"; do
+    process "${code}" | grep -Ev '^$|^#'
+    barrier
+done
+
+if modes.== package; then
+    substrate=mobilesubstrate
+    control
+    barrier
+fi
+
+temp=$(mktemp ".cyc.XXX")
+ebl:array temps
+temps.+= "${temp}"
+
+ebl:array posts
+for code in "${codes[@]}"; do
+    post=${temp}.${code}
+    process "${code}" >"${post}"
+    temps.+= "${post}"
+    posts.+= "${post}"
+done
+
+function clean() {
+    rm -rf "${temps[@]}"
+    temps=()
+}
+
+function try() {
+    echo "${c[2]}$@${c[0]}"
+    "$@"
+    exit=$?
+    if [[ ${exit} != 0 ]]; then
+        clean
+        exit "${exit}"
+    fi
+}
+
+if [[ -n ${output} && ${#archs[@]} > 1 ]]; then
+    echo g++ "${flags[@]}"
+    barrier
+
+    ebl:array thins
+    for arch in "${archs[@]}"; do
+        thin="${temp}.${arch}"
+        thins.+= "${thin}"
+
+        echo -n "${c[16]}${output}(${arch}):${c[0]} "
+        try "${gcc}" -arch "${arch}" "${flags[@]}" "${posts[@]}" -o "${thin}"
+        temps.+= "${thin}"
+
+        if [[ ${arch} == arm* ]]; then
+            ldid -S "${thin}"
+        fi
+    done
+
+    if [[ ${#thins[@]} == 1 ]]; then
+        cp -a "${thins[0]}" "${output}"
+    else
+        echo -n "${c[16]}${output}(*):${c[0]} "
+        try lipo -create "${thins[@]}" -output "${output}"
+    fi
+else
+    ebl:array extra
+
+    for arch in "${archs[@]}"; do
+        extra.+= -arch "${arch}"
+    done
+
+    if [[ -n ${output} ]]; then
+        extra.+= -o "${output}"
+    fi
+
+    try "${gcc}" "${extra[@]}" "${flags[@]}" "${posts[@]}"
+fi
+
+if modes.== package; then
+    host=$(dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null)
+
+    function field() {
+        sed -e '
+            /^'"$1"' *:/ {
+                s/^[^:]*: *//;
+                p;
+            };
+        d;' "${control}"
+    }
+
+    function package() {
+        substrate=$1
+        architecture=$2
+
+        rm -rf "${temp}"/*
+
+        mkdir -p "${temp}"/DEBIAN
+        control="${temp}/DEBIAN/control"
+        control >"${control}"
+
+        target=${temp}/Library/MobileSubstrate/DynamicLibraries
+        mkdir -p "${target}"
+        cp -a "${output}" "${target}"
+
+        {
+            echo -n "Filter = {Bundles = ("
+            comma=
+            for bundle in $(filter %filter); do
+                echo -n "${comma}\"${bundle}\""
+                comma=", "
+            done
+            echo ");};"
+        } >"${target}/${name}.plist"
+
+        package=$(field package)
+        version=$(field version)
+
+        barrier
+        find "${temp}" -type f
+
+        deb=${package}_${version}_${architecture}.deb
+        dpkg-deb -b "${temp}" "${deb}" 2>/dev/null
+
+        if modes.== install && [[ ${architecture} == ${host} ]]; then
+            barrier
+            sudo dpkg -i "${deb}"
+        fi
+    }
+
+    # XXX: reuse earlier temp
+    temp=$(mktemp -d ".${name}.XXX")
+    temps.+= "${temp}"
+
+    package mobilesubstrate iphoneos-arm
+    package cydiasubstrate darwin-i386
+fi
+
+clean
