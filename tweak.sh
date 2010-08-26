@@ -138,18 +138,20 @@ function process() {
 EOF
 
     sed -e '
-        /^%hook / {
-            s/^%hook \(.*[^a-zA-Z_]\)\([a-zA-Z_]*\)(/#undef MSOldCall_'$'\\\n''#define MSOldCall_ _\2'$'\\\n''MSHook(\1, \2, /;
-        };
+        s/^%hook \(.*[^a-zA-Z_]\)\([a-zA-Z_]*\)(/#undef MSOldCall_'$'\\\n''#define MSOldCall_ _\2'$'\\\n''MSHook(\1, \2, /;
         s/^%class \(.*\)/MSHookClass(\1)/;
         s/%original/MSOldCall_/g;
         /^%/ s/^.*//;
-        i\
-        %line
-        =;
+        /'$'\\n''/ {
+            i\
+            %line
+            =;
+            s/$/'$'\\\n''%enil/;
+        };
     ' "${code}" | sed -ne '
         /^%line$/ { n; s/^/#line /; h; p; n; p; d; };
-        /^%line / !{ x; p; x; p; };
+        /^%enil$/ { x; s/^.*$//; x; d; };
+        x; /./ p; x; p;
     '
 }
 
@@ -157,7 +159,7 @@ function barrier() {
     echo '=================================================='
 }
 
-process | grep -Ev '^#line|^$'
+process | grep -Ev '^$|^#'
 barrier
 control
 barrier
