@@ -24,7 +24,11 @@ set -e
 ios=-i3.2
 mac=-m10.5
 
-flags=(-O2 -g0 -isystem extra -fno-exceptions)
+declare -a flags
+flags+=(-O2 -g0)
+
+flags+=(-isystem extra)
+flags+=(-fno-exceptions)
 
 ./cyc "${ios}" "${mac}" -olibsubstrate.dylib -- "${flags[@]}" -dynamiclib MachMemory.cpp Hooker.cpp ObjectiveC.mm nlist.cpp hde64c/src/hde64.c Debug.cpp \
     -framework CoreFoundation \

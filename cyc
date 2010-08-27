@@ -22,26 +22,19 @@ c=(
 
 shopt -s nullglob
 
-function ebl:array() { eval "
-    declare -a $1
+function has() {
+    value=$1
+    shift 1
 
-    function $1.+=() {
-        while [[ \$# != 0 ]]; do
-            $1[\${#$1[@]}]=\$1
-            shift 1
-        done
-    }
+    while [[ $# != 0 ]]; do
+        if [[ $1 == ${value} ]]; then
+            return 0
+        fi
+        shift 1
+    done
 
-    function $1.==() {
-        for v in \"\${$1[@]}\"; do
-            if [[ \$v == \$1 ]]; then
-                return 0
-            fi
-        done
-
-        return 1
-    }
-"; }
+    return 1
+}
 
 function fatal() {
     echo "$(basename "$0"): $1" 1>&2
@@ -56,20 +49,20 @@ ios=
 mac=
 output=
 
-ebl:array modes
-ebl:array codes
+declare -a modes
+declare -a codes
 
 while [[ $# != 0 ]]; do
     if [[ ${1:0:1} != - ]]; then
-        codes.+= "$1"
+        codes+=("$1")
     else case "${1:1:1}" in
         (-) shift 1; break;;
         (i) ios=${1:2};;
         (m) mac=${1:2};;
         (o) output=${1:2};;
-        (p) modes.+= package;;
-        (P) modes.+= package install;;
-        (s) modes.+= substrate;;
+        (p) modes+=(package);;
+        (P) modes+=(package install);;
+        (s) modes+=(substrate);;
         (*) usage; exit 1;;
     esac fi
     shift 1
@@ -93,49 +86,49 @@ for code in "${codes[@]}"; do
     fi
 done
 
-ebl:array archs
-ebl:array flags
+declare -a archs
+declare -a flags
 
-if modes.== substrate && [[ -z ${mac} && -z ${ios} ]]; then
+if has substrate "${modes[@]}" && [[ -z ${mac} && -z ${ios} ]]; then
     mac=10.6
 fi
 
 if [[ -n ${mac} ]]; then
-    archs.+= i386 x86_64
+    archs+=(i386 x86_64)
 fi
 
 if [[ -n ${ios} ]]; then
     gcc=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++
-    archs.+= armv6
+    archs+=(armv6)
 
-    ebl:array armv6
-    armv6.+= -mcpu=arm1176jzf-s
-    armv6.+= -miphoneos-version-min="${ios}"
-    armv6.+= -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS"${ios}".sdk
-    armv6.+= -idirafter /usr/include
-    armv6.+= -F/Library/Frameworks
+    declare -a armv6
+    armv6+=(-mcpu=arm1176jzf-s)
+    armv6+=(-miphoneos-version-min="${ios}")
+    armv6+=(-isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS"${ios}".sdk)
+    armv6+=(-idirafter /usr/include)
+    armv6+=(-F/Library/Frameworks)
 
     for flag in "${armv6[@]}"; do
-        flags.+= -Xarch_armv6 "${flag}" 
+        flags+=(-Xarch_armv6 "${flag}")
     done
 else
     gcc=g++
 fi
 
-flags.+= "$@"
+flags+=("$@")
 
-flags.+= -Wall #XXX:-Werror
-flags.+= -fmessage-length=0
+flags+=(-Wall) #XXX:-Werror
+flags+=(-fmessage-length=0)
 
 if [[ ${#codes[@]} != 0 ]]; then
-    ebl:array extra
+    declare -a extra
 
     # XXX: this is duplicated (obviously)
     if [[ ${#archs[@]} == 0 ]]; then
         while IFS= read -r line; do
             # XXX: deduplicate flags
             for flag in ${line#%flag *}; do
-                extra.+= "${flag}"
+                extra+=("${flag}")
             done
         done < <("${gcc}" -E "${flags[@]}" "${codes[@]}" | grep '^%flag ')
     else
@@ -143,18 +136,18 @@ if [[ ${#codes[@]} != 0 ]]; then
             while IFS= read -r line; do
                 # XXX: deduplicate flags
                 for flag in ${line#%flag *}; do
-                    extra.+= "-Xarch_${arch}" "${flag}"
+                    extra+=("-Xarch_${arch}" "${flag}")
                 done
             done < <("${gcc}" -arch "${arch}" -E "${flags[@]}" "${codes[@]}" | grep '^%flag ')
         done
     fi
 fi
 
-flags.+= "${extra[@]}"
+flags+=("${extra[@]}")
 
-if modes.== substrate; then
-    flags.+= -framework CydiaSubstrate
-    flags.+= -dynamiclib
+if has substrate "${modes[@]}"; then
+    flags+=(-framework CydiaSubstrate)
+    flags+=(-dynamiclib)
 
     if [[ -z ${output} ]]; then
         output=${name}.dylib
@@ -278,15 +271,15 @@ for code in "${codes[@]}"; do
 done
 
 temp=$(mktemp ".cyc.XXX")
-ebl:array temps
-temps.+= "${temp}"
+declare -a temps
+temps+=("${temp}")
 
-ebl:array posts
+declare -a posts
 for code in "${codes[@]}"; do
     post=${temp}.${code}
     process "${code}" >"${post}"
-    temps.+= "${post}"
-    posts.+= "${post}"
+    temps+=("${post}")
+    posts+=("${post}")
 done
 
 function clean() {
@@ -313,14 +306,14 @@ function try() {
 if [[ -n ${output} && ${#archs[@]} > 1 ]]; then
     echo g++ "${c[2]}${flags[@]}${c[0]}"
 
-    ebl:array thins
+    declare -a thins
     for arch in "${archs[@]}"; do
         thin="${temp}.${arch}"
-        thins.+= "${thin}"
+        thins+=("${thin}")
 
         echo "    ${c[16]}${arch}${c[0]}: ${c[2]}-arch ${arch} -o ${thin}${c[0]}"
         try_ "${gcc}" -arch "${arch}" "${flags[@]}" "${posts[@]}" -o "${thin}"
-        temps.+= "${thin}"
+        temps+=("${thin}")
 
         if [[ ${arch} == arm* ]]; then
             try ldid -S "${thin}"
@@ -333,20 +326,20 @@ if [[ -n ${output} && ${#archs[@]} > 1 ]]; then
         try lipo -create "${thins[@]}" -output "${output}"
     fi
 else
-    ebl:array extra
+    declare -a extra
 
     for arch in "${archs[@]}"; do
-        extra.+= -arch "${arch}"
+        extra+=(-arch "${arch}")
     done
 
     if [[ -n ${output} ]]; then
-        extra.+= -o "${output}"
+        extra+=(-o "${output}")
     fi
 
     try "${gcc}" "${extra[@]}" "${flags[@]}" "${posts[@]}"
 fi
 
-if modes.== package; then
+if has substrate "${modes[@]}"; then
     host=$(dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null)
 
     substrate=mobilesubstrate
@@ -395,7 +388,7 @@ if modes.== package; then
         deb=${package}_${version}_${architecture}.deb
         try dpkg-deb -b "${temp}" "${deb}" 2>/dev/null
 
-        if modes.== install && [[ ${architecture} == ${host} ]]; then
+        if has install "${modes[@]}" && [[ ${architecture} == ${host} ]]; then
             barrier
             sudo dpkg -i "${deb}"
         fi
@@ -403,7 +396,7 @@ if modes.== package; then
 
     # XXX: reuse earlier temp
     temp=$(mktemp -d ".${name}.XXX")
-    temps.+= "${temp}"
+    temps+=("${temp}")
 
     package mobilesubstrate iphoneos-arm
     package cydiasubstrate darwin-i386
