@@ -19,6 +19,8 @@
 # along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 # }}}
 
+PATH=${0%/*}:${PATH}
+
 set -e
 
 ios=-i3.2
@@ -30,23 +32,23 @@ flags+=(-O2 -g0)
 flags+=(-isystem extra)
 flags+=(-fno-exceptions)
 
-./cyc "${ios}" "${mac}" -olibsubstrate.dylib -- "${flags[@]}" -dynamiclib MachMemory.cpp Hooker.cpp ObjectiveC.mm nlist.cpp hde64c/src/hde64.c Debug.cpp \
+cycc "${ios}" "${mac}" -olibsubstrate.dylib -- "${flags[@]}" -dynamiclib MachMemory.cpp Hooker.cpp ObjectiveC.mm nlist.cpp hde64c/src/hde64.c Debug.cpp \
     -framework CoreFoundation \
     -install_name /Library/Frameworks/CydiaSubstrate.framework/Versions/A/CydiaSubstrate \
     -undefined dynamic_lookup \
     -Ihde64c/include
 
-./cyc "${ios}" "${mac}" -oMobileSubstrate.dylib -- "${flags[@]}" -dynamiclib Bootstrap.cpp
+cycc "${ios}" "${mac}" -oMobileSubstrate.dylib -- "${flags[@]}" -dynamiclib Bootstrap.cpp
 
-./cyc "${ios}" "${mac}" -oMobileLoader.dylib -- "${flags[@]}" -dynamiclib Loader.mm \
+cycc "${ios}" "${mac}" -oMobileLoader.dylib -- "${flags[@]}" -dynamiclib Loader.mm \
     -framework CoreFoundation
 
-./cyc "${ios}" -oMobileSafety.dylib -- "${flags[@]}" -dynamiclib MobileSafety.mm \
+cycc "${ios}" -oMobileSafety.dylib -- "${flags[@]}" -dynamiclib MobileSafety.mm \
     -framework CoreFoundation -framework Foundation -framework UIKit \
     -L. -lsubstrate -lobjc
 
 for name in extrainst_ postrm; do
-    ./cyc "${ios}" -o"${name}" -- "${name}".m "${flags[@]}" \
+    cycc "${ios}" -o"${name}" -- "${name}".m "${flags[@]}" \
         -framework CoreFoundation -framework Foundation
 done
 

@@ -42,8 +42,20 @@ function fatal() {
 }
 
 function usage() {
-    echo "Usage: $(basename "$0") [-i<iOS>] [-m<Mac OS>] [-o<Output>] [<code>*] [-- <flag>*]"
+    echo "Usage: $(basename "$0") [<opts | code>*] [-- <flag>*]"
+    echo "  opts <- configuration for cycc itself"
+    echo "    -i#.#: build for iOS version #.#"
+    echo "    -m#.#: build for Mac OS version #.#"
+    echo "    -oXXX: use output filename XXX"
+    echo "    -s   : compile substrate extension"
+    echo "  code <- set of source files to preprocess"
+    echo "  flag <- pass-through to gcc execution"
 }
+
+if [[ $# == 0 ]]; then
+    usage
+    exit 0
+fi
 
 ios=
 mac=
@@ -56,6 +68,7 @@ while [[ $# != 0 ]]; do
     if [[ ${1:0:1} != - ]]; then
         codes+=("$1")
     else case "${1:1:1}" in
+        # XXX: long arguments
         (-) shift 1; break;;
         (i) ios=${1:2};;
         (m) mac=${1:2};;
@@ -63,7 +76,8 @@ while [[ $# != 0 ]]; do
         (p) modes+=(package);;
         (P) modes+=(package install);;
         (s) modes+=(substrate);;
-        (*) usage; exit 1;;
+        (\?) usage; exit 0;;
+        (*) usage 1>&2; exit 1;;
     esac fi
     shift 1
 done
