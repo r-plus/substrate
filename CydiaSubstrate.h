@@ -35,7 +35,8 @@ extern "C" {
 extern "C" {
 #endif
 
-void MSGetSymbolsInImage(const void *image, size_t count, const char *names[], void *values[]);
+void MSFindSymbols(const void *image, size_t count, const char *names[], void *values[]);
+void *MSFindSymbol(const void *image, const char *name);
 
 void MSHookFunction(void *symbol, void *replace, void **result);
 

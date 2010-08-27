@@ -146,7 +146,7 @@ static int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t
         n = buf->a_syms / sizeof(MSNameList);
     }
 
-    size_t start(0);
+    size_t result(nreq);
 
     for (size_t m(0); m != n; ++m) {
         const MSNameList *q(&symbols[m]);
@@ -155,24 +155,24 @@ static int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t
 
         const char *nambuf(strings + q->n_un.n_strx);
 
-        for (size_t item(start); item != nreq; ++item) {
+        for (size_t item(0); item != nreq; ++item) {
             struct MSSymbolData *p(list + item);
-            if (strcmp(p->name_, nambuf) != 0)
+            if (p->name_ == NULL || strcmp(p->name_, nambuf) != 0)
                 continue;
 
+            p->name_ = NULL;
             p->value_ = q->n_value;
             p->type_ = q->n_type;
             p->desc_ = q->n_desc;
             p->sect_ = q->n_sect;
 
-            if (--nreq == 0)
+            if (--result == 0)
                 return 0;
-            ++start;
             break;
         }
     }
 
-    return nreq;
+    return result;
 }
 
 extern "C" const void *MSGetImageByName(const char *file) {
@@ -182,7 +182,7 @@ extern "C" const void *MSGetImageByName(const char *file) {
     return NULL;
 }
 
-extern "C" void MSGetSymbolsInImage(const void *image, size_t count, const char *names[], void *values[]) {
+extern "C" void MSFindSymbols(const void *image, size_t count, const char *names[], void *values[]) {
     MSSymbolData items[count];
 
     for (size_t index(0); index != count; ++index) {
@@ -195,15 +195,33 @@ extern "C" void MSGetSymbolsInImage(const void *image, size_t count, const char 
         item.value_ = 0;
     }
 
-    MSMachONameList_(image, items, count);
+    if (image != NULL)
+        MSMachONameList_(image, items, count);
+    else {
+        size_t remain(count);
+
+        for (uint32_t image(0), count(_dyld_image_count()); image != count; ++image) {
+            remain -= MSMachONameList_(_dyld_get_image_header(image), items, count);
+            if (remain == 0)
+                break;
+        }
+    }
 
     for (size_t index(0); index != count; ++index) {
         MSSymbolData &item(items[index]);
         uintptr_t value(item.value_);
+#ifdef __arm__
         if ((item.desc_ & N_ARM_THUMB_DEF) != 0)
             value |= 0x00000001;
+#endif
         values[index] = reinterpret_cast<void *>(value);
     }
+}
+
+extern "C" void *MSFindSymbol(const void *image, const char *name) {
+    void *value;
+    MSFindSymbols(image, 1, &name, &value);
+    return value;
 }
 
 #ifdef __arm__
