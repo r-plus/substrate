@@ -90,6 +90,10 @@ fi
 ebl:array archs
 ebl:array flags
 
+if [[ -n ${mac} ]]; then
+    archs.+= i386 x86_64
+fi
+
 if [[ -n ${ios} ]]; then
     gcc=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++
     archs.+= armv6
@@ -106,10 +110,6 @@ if [[ -n ${ios} ]]; then
     done
 else
     gcc=g++
-fi
-
-if [[ -n ${mac} ]]; then
-    archs.+= i386 x86_64
 fi
 
 flags.+= "$@"
@@ -308,7 +308,7 @@ if [[ -n ${output} && ${#archs[@]} > 1 ]]; then
         temps.+= "${thin}"
 
         if [[ ${arch} == arm* ]]; then
-            ldid -S "${thin}"
+            try ldid -S "${thin}"
         fi
     done
 
