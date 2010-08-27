@@ -106,6 +106,7 @@ declare -a archs
 declare -a flags
 
 if has substrate "${modes[@]}" && [[ -z ${mac} && -z ${ios} ]]; then
+    # XXX: this should be based on the system you are currently running
     mac=10.6
 fi
 
@@ -114,6 +115,7 @@ if [[ -n ${mac} ]]; then
 fi
 
 if [[ -n ${ios} ]]; then
+    # XXX: if you are currently on an iphone, this will be incorrect
     gcc=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++
     archs+=(armv6)
 
@@ -419,8 +421,13 @@ if has package "${modes[@]}"; then
     temp=$(mktemp -d ".${name}.XXX")
     temps+=("${temp}")
 
-    package mobilesubstrate iphoneos-arm
-    package cydiasubstrate darwin-i386
+    if has armv6 "${archs[@]}"; then
+        package mobilesubstrate iphoneos-arm
+    fi
+
+    if has i386 "${archs[@]}"; then
+        package cydiasubstrate darwin-i386
+    fi
 fi
 
 clean
