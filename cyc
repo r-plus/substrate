@@ -49,7 +49,7 @@ function fatal() {
 }
 
 function usage() {
-    echo "Usage: $(basename "$0")"
+    echo "Usage: $(basename "$0") [-i<iOS>] [-m<Mac OS>] [-o<Output>] [<code>*] [-- <flag>*]"
 }
 
 ios=
@@ -87,8 +87,18 @@ else
     fatal 'more than one source code file unsupported'
 fi
 
+for code in "${codes[@]}"; do
+    if [[ ! -e "${code}" ]]; then
+        fatal "${code} does not exist"
+    fi
+done
+
 ebl:array archs
 ebl:array flags
+
+if modes.== substrate && [[ -z ${mac} && -z ${ios} ]]; then
+    mac=10.6
+fi
 
 if [[ -n ${mac} ]]; then
     archs.+= i386 x86_64
@@ -119,14 +129,25 @@ flags.+= -fmessage-length=0
 
 if [[ ${#codes[@]} != 0 ]]; then
     ebl:array extra
-    for arch in "${archs[@]}"; do
+
+    # XXX: this is duplicated (obviously)
+    if [[ ${#archs[@]} == 0 ]]; then
         while IFS= read -r line; do
             # XXX: deduplicate flags
             for flag in ${line#%flag *}; do
-                extra.+= "-Xarch_${arch}" "${flag}"
+                extra.+= "${flag}"
             done
-        done < <("${gcc}" -arch "${arch}" -E "${flags[@]}" "${codes[@]}" | grep '^%flag ')
-    done
+        done < <("${gcc}" -E "${flags[@]}" "${codes[@]}" | grep '^%flag ')
+    else
+        for arch in "${archs[@]}"; do
+            while IFS= read -r line; do
+                # XXX: deduplicate flags
+                for flag in ${line#%flag *}; do
+                    extra.+= "-Xarch_${arch}" "${flag}"
+                done
+            done < <("${gcc}" -arch "${arch}" -E "${flags[@]}" "${codes[@]}" | grep '^%flag ')
+        done
+    fi
 fi
 
 flags.+= "${extra[@]}"
@@ -256,12 +277,6 @@ for code in "${codes[@]}"; do
     barrier
 done
 
-if modes.== package; then
-    substrate=mobilesubstrate
-    control
-    barrier
-fi
-
 temp=$(mktemp ".cyc.XXX")
 ebl:array temps
 temps.+= "${temp}"
@@ -303,7 +318,7 @@ if [[ -n ${output} && ${#archs[@]} > 1 ]]; then
         thin="${temp}.${arch}"
         thins.+= "${thin}"
 
-        echo "${c[16]}${arch}${c[0]}: ${c[2]}-arch ${arch} -o ${thin}${c[0]}"
+        echo "    ${c[16]}${arch}${c[0]}: ${c[2]}-arch ${arch} -o ${thin}${c[0]}"
         try_ "${gcc}" -arch "${arch}" "${flags[@]}" "${posts[@]}" -o "${thin}"
         temps.+= "${thin}"
 
@@ -333,6 +348,10 @@ fi
 
 if modes.== package; then
     host=$(dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null)
+
+    substrate=mobilesubstrate
+    barrier
+    control
 
     function field() {
         sed -e '
@@ -371,7 +390,7 @@ if modes.== package; then
         version=$(field version)
 
         barrier
-        find "${temp}" -type f
+        (cd "${temp}" && find . -type f)
 
         deb=${package}_${version}_${architecture}.deb
         try dpkg-deb -b "${temp}" "${deb}" 2>/dev/null
