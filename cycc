@@ -42,8 +42,8 @@ function fatal() {
 }
 
 function usage() {
-    echo "Usage: $(basename "$0") [<opts | code>*] [-- <flag>*]"
-    echo "  opts <- configuration for cycc itself"
+    echo "Usage: $(basename "$0") [<option | code>*] [-- <flag>*]"
+    echo "  option <- configuration for cycc itself"
     echo "    -i#.#: build for iOS version #.#"
     echo "    -m#.#: build for Mac OS version #.#"
     echo "    -oXXX: use output filename XXX"
