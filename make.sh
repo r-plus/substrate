@@ -53,7 +53,7 @@ for name in extrainst_ postrm; do
 done
 
 for arch in ppc i386 arm; do
-    sudo ./package.sh "${arch}"
+    ./package.sh "${arch}"
 done
 
 echo

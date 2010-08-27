@@ -25,54 +25,60 @@ arch=$1
 shift 1
 
 pkg=package.${arch}
-rm -rf "${pkg}"
+sudo rm -rf "${pkg}"
 
 mkdir -p "${pkg}"/DEBIAN
 control=${pkg}/DEBIAN/control
 cat control."${arch}" control >"${control}"
 
-lib=${pkg}/Library/MobileSubstrate
-mkdir -p "${lib}"/DynamicLibraries
+lib=/Library/MobileSubstrate
+mkdir -p "${pkg}/${lib}/DynamicLibraries"
 
-base=/Library/Frameworks/CydiaSubstrate.framework
+fwk=/Library/Frameworks/CydiaSubstrate.framework
+cur=${fwk}/Versions/Current
+ver=${fwk}/Versions/0
 
-fwk=${pkg}${base}
-ver=${fwk}/Versions/A
-mkdir -p "${ver}"/Resources
-ln -s A "${fwk}"/Versions/Current
+mkdir -p "${pkg}/${ver}/Resources"
+ln -s 0 "${pkg}/${cur}"
 
-for sub in CydiaSubstrate Headers Resources; do
-    ln -s Versions/Current/"${sub}" "${fwk}"
+for sub in Commands Headers Libraries Resources; do
+    mkdir -p "${pkg}/${ver}/${sub}"
+    ln -s "Versions/Current/${sub}" "${pkg}/${fwk}"
 done
 
-mkdir -p "${ver}"/Headers
-cp -a CydiaSubstrate.h "${ver}"/Headers
+cp -a Info.plist "${pkg}/${ver}/Resources/Info.plist"
+cp -a CydiaSubstrate.h "${pkg}/${ver}/Headers"
 
-cp -a MobileSubstrate.dylib "${fwk}"
-cp -a MobileLoader.dylib "${fwk}"
+cp -a MobileSubstrate.dylib "${pkg}/${fwk}"
+cp -a MobileLoader.dylib "${pkg}/${fwk}"
 
-cp -a libsubstrate.dylib "${ver}"/CydiaSubstrate
-cp -a Info.plist "${ver}"/Resources/Info.plist
+cp -a libsubstrate.dylib "${pkg}/${ver}/CydiaSubstrate"
+ln -s "Versions/Current/CydiaSubstrate" "${pkg}/${fwk}"
+
+mkdir -p "${pkg}/usr/lib"
+ln -s libsubstrate.0.dylib "${pkg}/usr/lib/libsubstrate.dylib"
+ln -s "${ver}/CydiaSubstrate" "${pkg}/usr/lib/libsubstrate.0.dylib"
+
+mkdir -p "${pkg}/usr/include"
+ln -s "${fwk}/Headers/CydiaSubstrate.h" "${pkg}/usr/include/substrate.h"
+
+mkdir -p "${pkg}/usr/bin"
+ln -s "${cur}/Commands/cycc" "${pkg}/usr/bin"
+cp -a cycc "${pkg}/${cur}/Commands"
 
 if [[ ${arch} == arm ]]; then
-    cp -a extrainst_ postrm "${pkg}"/DEBIAN
+    cp -a extrainst_ postrm "${pkg}/DEBIAN"
 
-    cp -a MobileSafety.dylib "${fwk}"
-    cp -a MobileSafety.png "${fwk}"
+    cp -a MobileSafety.dylib "${pkg}/${fwk}"
+    cp -a MobileSafety.png "${pkg}/${fwk}"
 
-    ln -s "${base}"/MobileSubstrate.dylib "${lib}"/MobileSubstrate.dylib
-
-    mkdir -p "${pkg}"/usr/lib
-    ln -s "${base}"/CydiaSubstrate "${pkg}"/usr/lib/libsubstrate.dylib
-
-    mkdir -p "${pkg}"/usr/include
-    ln -s "${base}"/Headers/CydiaSubstrate.h "${pkg}"/usr/include/substrate.h
+    ln -s "${fwk}"/MobileSubstrate.dylib "${pkg}/${lib}/MobileSubstrate.dylib"
 fi
 
 function field() {
     grep ^"$1": "${control}" | cut -d ' ' -f 2
 }
 
-chown -R root:staff "${pkg}"
-#(cd "${pkg}" && find . -type f)
-dpkg-deb -b "${pkg}" "$(field Package)_$(field Version)_$(field Architecture).deb" 2>/dev/null
+sudo chown -R root:staff "${pkg}"
+(cd "${pkg}" && find . -type f -o -type l)
+dpkg-deb -b "${pkg}" "$(field Package)_$(field Version)_$(field Architecture).deb" #2>/dev/null
