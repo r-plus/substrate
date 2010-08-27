@@ -49,6 +49,7 @@ cp -a MobileSubstrate.dylib "${fwk}"
 cp -a MobileLoader.dylib "${fwk}"
 
 cp -a libsubstrate.dylib "${ver}"/CydiaSubstrate
+cp -a Info.plist "${ver}"/Resources/Info.plist
 
 if [[ ${arch} == arm ]]; then
     cp -a extrainst_ postrm "${pkg}"/DEBIAN
@@ -68,4 +69,5 @@ function field() {
 }
 
 chown -R root:staff "${pkg}"
+#(cd "${pkg}" && find . -type f)
 dpkg-deb -b "${pkg}" "$(field Package)_$(field Version)_$(field Architecture).deb" 2>/dev/null
