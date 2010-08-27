@@ -170,7 +170,6 @@ if has substrate "${modes[@]}"; then
     fi
 fi
 
-# crap {{{
 function lower() {
     tr '[:upper:]' '[:lower:]'
 }
@@ -276,7 +275,6 @@ EOF
         x; /./ p; x; p;
     '
 }
-# }}}
 
 if has verbose "${modes[@]}"; then
     for code in "${codes[@]}"; do
