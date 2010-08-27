@@ -279,8 +279,7 @@ function clean() {
     temps=()
 }
 
-function try() {
-    echo "${c[2]}$@${c[0]}"
+function try_() {
     "$@"
     exit=$?
     if [[ ${exit} != 0 ]]; then
@@ -289,17 +288,23 @@ function try() {
     fi
 }
 
+function try() {
+    local first=$1
+    shift 1
+    echo "${first##*/} ${c[2]}$@${c[0]}"
+    try_ "${first}" "$@"
+}
+
 if [[ -n ${output} && ${#archs[@]} > 1 ]]; then
-    echo g++ "${flags[@]}"
-    barrier
+    echo g++ "${c[2]}${flags[@]}${c[0]}"
 
     ebl:array thins
     for arch in "${archs[@]}"; do
         thin="${temp}.${arch}"
         thins.+= "${thin}"
 
-        echo -n "${c[16]}${output}(${arch}):${c[0]} "
-        try "${gcc}" -arch "${arch}" "${flags[@]}" "${posts[@]}" -o "${thin}"
+        echo "${c[16]}${arch}${c[0]}: ${c[2]}-arch ${arch} -o ${thin}${c[0]}"
+        try_ "${gcc}" -arch "${arch}" "${flags[@]}" "${posts[@]}" -o "${thin}"
         temps.+= "${thin}"
 
         if [[ ${arch} == arm* ]]; then
@@ -310,7 +315,6 @@ if [[ -n ${output} && ${#archs[@]} > 1 ]]; then
     if [[ ${#thins[@]} == 1 ]]; then
         cp -a "${thins[0]}" "${output}"
     else
-        echo -n "${c[16]}${output}(*):${c[0]} "
         try lipo -create "${thins[@]}" -output "${output}"
     fi
 else
@@ -370,7 +374,7 @@ if modes.== package; then
         find "${temp}" -type f
 
         deb=${package}_${version}_${architecture}.deb
-        dpkg-deb -b "${temp}" "${deb}" 2>/dev/null
+        try dpkg-deb -b "${temp}" "${deb}" 2>/dev/null
 
         if modes.== install && [[ ${architecture} == ${host} ]]; then
             barrier
@@ -387,3 +391,4 @@ if modes.== package; then
 fi
 
 clean
+echo

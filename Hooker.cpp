@@ -147,6 +147,13 @@ static size_t MSGetInstructionWidthARM(void *start) {
     return 4;
 }
 
+extern "C" size_t MSGetInstructionWidth(void *start) {
+    if ((reinterpret_cast<uintptr_t>(start) & 0x1) == 0)
+        return MSGetInstructionWidthARM(start);
+    else
+        return MSGetInstructionWidthThumb(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(start) & ~0x1));
+}
+
 static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     if (symbol == NULL)
         return;
@@ -956,7 +963,11 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
                 void *destiny(area + offset + decode.len + *reinterpret_cast<int8_t *>(backup + offset + 1));
                 MSWrite<uint8_t>(current, MSSizeOfJump(destiny, current + 1));
                 MSWriteJump(current, destiny);
-            } else copy: {
+            } else
+#ifdef __LP64__
+                copy:
+#endif
+            {
                 MSWrite(current, backup + offset, width);
             }
         }

@@ -35,6 +35,8 @@ extern "C" {
 extern "C" {
 #endif
 
+void MSGetSymbolsInImage(const void *image, size_t count, const char *names[], void *values[]);
+
 void MSHookFunction(void *symbol, void *replace, void **result);
 
 #ifdef __APPLE__

@@ -182,6 +182,30 @@ extern "C" const void *MSGetImageByName(const char *file) {
     return NULL;
 }
 
+extern "C" void MSGetSymbolsInImage(const void *image, size_t count, const char *names[], void *values[]) {
+    MSSymbolData items[count];
+
+    for (size_t index(0); index != count; ++index) {
+        MSSymbolData &item(items[index]);
+
+        item.name_ = names[index];
+        item.type_ = 0;
+        item.sect_ = 0;
+        item.desc_ = 0;
+        item.value_ = 0;
+    }
+
+    MSMachONameList_(image, items, count);
+
+    for (size_t index(0); index != count; ++index) {
+        MSSymbolData &item(items[index]);
+        uintptr_t value(item.value_);
+        if ((item.desc_ & N_ARM_THUMB_DEF) != 0)
+            value |= 0x00000001;
+        values[index] = reinterpret_cast<void *>(value);
+    }
+}
+
 #ifdef __arm__
 int (*_nlist)(const char *file, struct nlist *list);
 

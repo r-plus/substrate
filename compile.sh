@@ -50,4 +50,5 @@ for arch in ppc i386 arm; do
     sudo ./package.sh "${arch}"
 done
 
+echo
 sudo dpkg -i *"_$(grep ^Version: control | cut -d ' ' -f 2)_$(dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null).deb"
