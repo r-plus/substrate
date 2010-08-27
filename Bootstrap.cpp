@@ -29,5 +29,5 @@ MSInitialize {
     // Maps
     dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", RTLD_LAZY | RTLD_GLOBAL);
 
-    dlopen("/Library/Frameworks/CydiaSubstrate.framework/MobileLoader.dylib", RTLD_LAZY | RTLD_GLOBAL);
+    dlopen("/Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib", RTLD_LAZY | RTLD_GLOBAL);
 }

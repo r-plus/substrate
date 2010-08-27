@@ -35,36 +35,37 @@ lib=/Library/MobileSubstrate
 mkdir -p "${pkg}/${lib}/DynamicLibraries"
 
 fwk=/Library/Frameworks/CydiaSubstrate.framework
-cur=${fwk}/Versions/Current
-ver=${fwk}/Versions/0
 
-mkdir -p "${pkg}/${ver}/Resources"
-ln -s 0 "${pkg}/${cur}"
+if [[ ${arch} == arm ]]; then
+    rsc=${fwk}
+else
+    rsc=${fwk}/Resources
+fi
 
-for sub in Commands Headers Libraries Resources; do
-    mkdir -p "${pkg}/${ver}/${sub}"
-    ln -s "Versions/Current/${sub}" "${pkg}/${fwk}"
+mkdir -p "${pkg}/${rsc}"
+
+for sub in Commands Headers Libraries; do
+    mkdir -p "${pkg}/${fwk}/${sub}"
 done
 
-cp -a Info.plist "${pkg}/${ver}/Resources/Info.plist"
-cp -a CydiaSubstrate.h "${pkg}/${ver}/Headers"
+cp -a Info.plist "${pkg}/${rsc}/Info.plist"
+cp -a CydiaSubstrate.h "${pkg}/${fwk}/Headers"
 
-cp -a MobileSubstrate.dylib "${pkg}/${fwk}"
-cp -a MobileLoader.dylib "${pkg}/${fwk}"
+cp -a SubstrateBootstrap.dylib "${pkg}/${fwk}/Libraries"
+cp -a SubstrateLoader.dylib "${pkg}/${fwk}/Libraries"
 
-cp -a libsubstrate.dylib "${pkg}/${ver}/CydiaSubstrate"
-ln -s "Versions/Current/CydiaSubstrate" "${pkg}/${fwk}"
+cp -a libsubstrate.dylib "${pkg}/${fwk}/CydiaSubstrate"
 
 mkdir -p "${pkg}/usr/lib"
 ln -s libsubstrate.0.dylib "${pkg}/usr/lib/libsubstrate.dylib"
-ln -s "${ver}/CydiaSubstrate" "${pkg}/usr/lib/libsubstrate.0.dylib"
+ln -s "${fwk}/CydiaSubstrate" "${pkg}/usr/lib/libsubstrate.0.dylib"
 
 mkdir -p "${pkg}/usr/include"
 ln -s "${fwk}/Headers/CydiaSubstrate.h" "${pkg}/usr/include/substrate.h"
 
 mkdir -p "${pkg}/usr/bin"
-ln -s "${cur}/Commands/cycc" "${pkg}/usr/bin"
-cp -a cycc "${pkg}/${cur}/Commands"
+ln -s "${fwk}/Commands/cycc" "${pkg}/usr/bin"
+cp -a cycc "${pkg}/${fwk}/Commands"
 
 if [[ ${arch} == arm ]]; then
     cp -a extrainst_ postrm "${pkg}/DEBIAN"
@@ -72,7 +73,7 @@ if [[ ${arch} == arm ]]; then
     cp -a MobileSafety.dylib "${pkg}/${fwk}"
     cp -a MobileSafety.png "${pkg}/${fwk}"
 
-    ln -s "${fwk}"/MobileSubstrate.dylib "${pkg}/${lib}/MobileSubstrate.dylib"
+    ln -s "${fwk}"/Libraries/SubstrateBootstrap.dylib "${pkg}/${lib}/MobileSubstrate.dylib"
 fi
 
 function field() {

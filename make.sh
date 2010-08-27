@@ -34,13 +34,13 @@ flags+=(-fno-exceptions)
 
 cycc "${ios}" "${mac}" -olibsubstrate.dylib -- "${flags[@]}" -dynamiclib MachMemory.cpp Hooker.cpp ObjectiveC.mm nlist.cpp hde64c/src/hde64.c Debug.cpp \
     -framework CoreFoundation \
-    -install_name /Library/Frameworks/CydiaSubstrate.framework/Versions/A/CydiaSubstrate \
+    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate \
     -undefined dynamic_lookup \
     -Ihde64c/include
 
-cycc "${ios}" "${mac}" -oMobileSubstrate.dylib -- "${flags[@]}" -dynamiclib Bootstrap.cpp
+cycc "${ios}" "${mac}" -oSubstrateBootstrap.dylib -- "${flags[@]}" -dynamiclib Bootstrap.cpp
 
-cycc "${ios}" "${mac}" -oMobileLoader.dylib -- "${flags[@]}" -dynamiclib Loader.mm \
+cycc "${ios}" "${mac}" -oSubstrateLoader.dylib -- "${flags[@]}" -dynamiclib Loader.mm \
     -framework CoreFoundation
 
 cycc "${ios}" -oMobileSafety.dylib -- "${flags[@]}" -dynamiclib MobileSafety.mm \

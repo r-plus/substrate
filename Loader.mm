@@ -44,7 +44,7 @@ static void MSAction(int sig, siginfo_t *info, void *uap) {
 }
 
 #define Libraries_ "/Library/MobileSubstrate/DynamicLibraries"
-#define Safety_ "/Library/MobileSubstrate/MobileSafety.dylib"
+#define Safety_ "/Library/Frameworks/CydiaSubstrate.framework/MobileSafety.dylib"
 
 extern "C" char ***_NSGetArgv(void);
 
