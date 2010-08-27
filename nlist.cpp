@@ -37,6 +37,10 @@
 
 #include "CydiaSubstrate.h"
 
+#define _trace() do { \
+    fprintf(stderr, "_trace(%u)\n", __LINE__); \
+} while (false)
+
 struct MSSymbolData {
     const char *name_;
     uint8_t type_;
@@ -46,13 +50,31 @@ struct MSSymbolData {
 };
 
 #ifdef __LP64__
-typedef struct nlist_64 MSNameList;
+typedef struct mach_header_64 mach_header_xx;
+typedef struct nlist_64 nlist_xx;
+typedef struct segment_command_64 segment_command_xx;
+
+static const uint32_t LC_SEGMENT_XX = LC_SEGMENT_64;
+static const uint32_t MH_MAGIC_XX = MH_MAGIC_64;
 #else
-typedef struct nlist MSNameList;
+typedef struct mach_header mach_header_xx;
+typedef struct nlist nlist_xx;
+typedef struct segment_command segment_command_xx;
+
+static const uint32_t LC_SEGMENT_XX = LC_SEGMENT;
+static const uint32_t MH_MAGIC_XX = MH_MAGIC;
 #endif
 
-static int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t nreq) {
-    const uint8_t *base(reinterpret_cast<const uint8_t *>(image));
+static ssize_t MSMachONameList_(const void *stuff, struct MSSymbolData *list, size_t nreq) {
+    // XXX: ok, this is just pathetic; API fail much?
+    size_t slide(0);
+    for (uint32_t image(0), images(_dyld_image_count()); image != images; ++image)
+        if (_dyld_get_image_header(image) == stuff) {
+            slide = _dyld_get_image_vmaddr_slide(image);
+            break;
+        }
+
+    const uint8_t *base(reinterpret_cast<const uint8_t *>(stuff));
     const struct exec *buf(reinterpret_cast<const struct exec *>(base));
 
     if (OSSwapBigToHostInt32(buf->a_magic) == FAT_MAGIC) {
@@ -78,17 +100,22 @@ static int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t
     }
 
   thin:
-    const MSNameList *symbols;
+    const nlist_xx *symbols;
     const char *strings;
     size_t n;
 
     // XXX: this check looks really scary when it fails
-    if (buf->a_magic == MH_MAGIC) {
-        const struct mach_header *mh(reinterpret_cast<const struct mach_header *>(base));
+    if (buf->a_magic == MH_MAGIC_XX) {
+        const mach_header_xx *mh(reinterpret_cast<const mach_header_xx *>(base));
         const struct load_command *load_commands(reinterpret_cast<const struct load_command *>(mh + 1));
 
         const struct symtab_command *stp(NULL);
         const struct load_command *lcp;
+
+        /* forlc (command, mh, LC_SYMTAB, struct symtab_command) {
+            stp = command;
+            goto found;
+        } */
 
         lcp = load_commands;
         for (uint32_t i(0); i != mh->ncmds; ++i) {
@@ -116,6 +143,11 @@ static int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t
         symbols = NULL;
         strings = NULL;
 
+        /* forlc (command, mh, LC_SEGMENT_XX, segment_command_xx) {
+            stp = command;
+            goto found;
+        } */
+
         lcp = load_commands;
         for (uint32_t i(0); i != mh->ncmds; ++i) {
             if (
@@ -124,14 +156,14 @@ static int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t
             )
                 return -1;
 
-            if (lcp->cmd == LC_SEGMENT) {
-                if (lcp->cmdsize < sizeof(struct symtab_command))
+            if (lcp->cmd == LC_SEGMENT_XX) {
+                if (lcp->cmdsize < sizeof(segment_command_xx))
                     return -1;
-                const struct segment_command *segment(reinterpret_cast<const struct segment_command *>(lcp));
+                const segment_command_xx *segment(reinterpret_cast<const segment_command_xx *>(lcp));
                 if (stp->symoff >= segment->fileoff && stp->symoff < segment->fileoff + segment->filesize)
-                    symbols = reinterpret_cast<const MSNameList *>(stp->symoff - segment->fileoff + segment->vmaddr);
+                    symbols = reinterpret_cast<const nlist_xx *>(stp->symoff - segment->fileoff + segment->vmaddr + slide);
                 if (stp->stroff >= segment->fileoff && stp->stroff < segment->fileoff + segment->filesize)
-                    strings = reinterpret_cast<const char *>(stp->stroff - segment->fileoff + segment->vmaddr);
+                    strings = reinterpret_cast<const char *>(stp->stroff - segment->fileoff + segment->vmaddr + slide);
             }
 
             lcp = reinterpret_cast<const struct load_command *>(reinterpret_cast<const uint8_t *>(lcp) + lcp->cmdsize);
@@ -141,15 +173,15 @@ static int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t
             return -1;
     } else {
         /* XXX: is this right anymore?!? */
-        symbols = reinterpret_cast<const MSNameList *>(base + N_SYMOFF(*buf));
+        symbols = reinterpret_cast<const nlist_xx *>(base + N_SYMOFF(*buf));
         strings = reinterpret_cast<const char *>(reinterpret_cast<const uint8_t *>(symbols) + buf->a_syms);
-        n = buf->a_syms / sizeof(MSNameList);
+        n = buf->a_syms / sizeof(nlist_xx);
     }
 
     size_t result(nreq);
 
     for (size_t m(0); m != n; ++m) {
-        const MSNameList *q(&symbols[m]);
+        const nlist_xx *q(&symbols[m]);
         if (q->n_un.n_strx == 0 || (q->n_type & N_STAB) != 0)
             continue;
 
@@ -176,7 +208,7 @@ static int MSMachONameList_(const void *image, struct MSSymbolData *list, size_t
 }
 
 extern "C" const void *MSGetImageByName(const char *file) {
-    for (uint32_t image(0), count(_dyld_image_count()); image != count; ++image)
+    for (uint32_t image(0), images(_dyld_image_count()); image != images; ++image)
         if (strcmp(_dyld_get_image_name(image), file) == 0)
             return _dyld_get_image_header(image);
     return NULL;
@@ -200,8 +232,14 @@ extern "C" void MSFindSymbols(const void *image, size_t count, const char *names
     else {
         size_t remain(count);
 
-        for (uint32_t image(0), count(_dyld_image_count()); image != count; ++image) {
-            remain -= MSMachONameList_(_dyld_get_image_header(image), items, count);
+        for (uint32_t image(0), images(_dyld_image_count()); image != images; ++image) {
+            //fprintf(stderr, ":: %s\n", _dyld_get_image_name(image));
+
+            ssize_t result(MSMachONameList_(_dyld_get_image_header(image), items, count));
+            if (result == -1)
+                continue;
+
+            remain -= count - result;
             if (remain == 0)
                 break;
         }
