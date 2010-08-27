@@ -31,10 +31,13 @@ mkdir -p "${pkg}"/DEBIAN
 control=${pkg}/DEBIAN/control
 cat control."${arch}" control >"${control}"
 
-mkdir -p "${pkg}"/Library/MobileSubstrate/DynamicLibraries
+lib=${pkg}/Library/MobileSubstrate
+mkdir -p "${lib}"/DynamicLibraries
 
-fwk="${pkg}"/Library/Frameworks/CydiaSubstrate.framework
-ver="${fwk}"/Versions/A
+base=/Library/Frameworks/CydiaSubstrate.framework
+
+fwk=${pkg}${base}
+ver=${fwk}/Versions/A
 mkdir -p "${ver}"/Resources
 ln -s A "${fwk}"/Versions/Current
 
@@ -57,11 +60,13 @@ if [[ ${arch} == arm ]]; then
     cp -a MobileSafety.dylib "${fwk}"
     cp -a MobileSafety.png "${fwk}"
 
+    ln -s "${base}"/MobileSubstrate.dylib "${lib}"/MobileSubstrate.dylib
+
     mkdir -p "${pkg}"/usr/lib
-    ln -s /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate "${pkg}"/usr/lib/libsubstrate.dylib
+    ln -s "${base}"/CydiaSubstrate "${pkg}"/usr/lib/libsubstrate.dylib
 
     mkdir -p "${pkg}"/usr/include
-    ln -s /Library/Frameworks/CydiaSubstrate.framework/Headers/CydiaSubstrate.h "${pkg}"/usr/include/substrate.h
+    ln -s "${base}"/Headers/CydiaSubstrate.h "${pkg}"/usr/include/substrate.h
 fi
 
 function field() {
