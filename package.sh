@@ -81,5 +81,5 @@ function field() {
 }
 
 sudo chown -R root:staff "${pkg}"
-(cd "${pkg}" && find . -type f -o -type l)
-dpkg-deb -b "${pkg}" "$(field Package)_$(field Version)_$(field Architecture).deb" #2>/dev/null
+#(cd "${pkg}" && find . -type f -o -type l)
+dpkg-deb -b "${pkg}" "$(field Package)_$(field Version)_$(field Architecture).deb"

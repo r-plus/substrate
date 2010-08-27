@@ -32,6 +32,13 @@ flags+=(-O2 -g0)
 flags+=(-isystem extra)
 flags+=(-fno-exceptions)
 
+cycc=$(which cycc)
+
+function cycc() {
+    "${cycc}" "$@"
+    echo
+}
+
 cycc "${ios}" "${mac}" -olibsubstrate.dylib -- "${flags[@]}" -dynamiclib MachMemory.cpp Hooker.cpp ObjectiveC.mm nlist.cpp hde64c/src/hde64.c Debug.cpp \
     -framework CoreFoundation \
     -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate \

@@ -48,6 +48,7 @@ function usage() {
     echo "    -m#.#: build for Mac OS version #.#"
     echo "    -oXXX: use output filename XXX"
     echo "    -s   : compile substrate extension"
+    echo "    -v   : also dump pre-processed code"
     echo "  code <- set of source files to preprocess"
     echo "  flag <- pass-through to gcc execution"
 }
@@ -76,6 +77,7 @@ while [[ $# != 0 ]]; do
         (p) modes+=(package);;
         (P) modes+=(package install);;
         (s) modes+=(substrate);;
+        (v) modes+=(verbose);;
         (\?) usage; exit 0;;
         (*) usage 1>&2; exit 1;;
     esac fi
@@ -191,6 +193,7 @@ function control() {
     unset apt_architecture
     unset apt_author
     unset apt_depends
+    unset apt_description
     unset apt_maintainer
     unset apt_package
     unset apt_priority
@@ -273,16 +276,14 @@ EOF
         x; /./ p; x; p;
     '
 }
-
-function barrier() {
-    echo '=================================================='
-}
 # }}}
 
-for code in "${codes[@]}"; do
-    process "${code}" | grep -Ev '^$|^#'
-    barrier
-done
+if has verbose "${modes[@]}"; then
+    for code in "${codes[@]}"; do
+        process "${code}" | grep -Ev '^$|^#'
+        echo
+    done
+fi
 
 temp=$(mktemp ".cyc.XXX")
 declare -a temps
@@ -353,12 +354,14 @@ else
     try "${gcc}" "${extra[@]}" "${flags[@]}" "${posts[@]}"
 fi
 
-if has substrate "${modes[@]}"; then
+if has package "${modes[@]}"; then
     host=$(dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null)
 
-    substrate=mobilesubstrate
-    barrier
-    control
+    if has verbose "${modes[@]}"; then
+        substrate=mobilesubstrate
+        echo
+        control
+    fi
 
     function field() {
         sed -e '
@@ -396,14 +399,20 @@ if has substrate "${modes[@]}"; then
         package=$(field package)
         version=$(field version)
 
-        barrier
-        (cd "${temp}" && find . -type f)
+        echo
+        if has verbose "${modes[@]}"; then
+            (cd "${temp}" && find . -type f)
+        fi
 
         deb=${package}_${version}_${architecture}.deb
-        try dpkg-deb -b "${temp}" "${deb}" 2>/dev/null
+
+        { try dpkg-deb -b "${temp}" "${deb}" 2>&1 1>&3 | sed -e "
+            /^warning, \`[^\']*\' contains user-defined field \`[^\']*\'$/ d;
+            /^dpkg-deb: ignoring [0-9]* warnings about the control file(s)$/ d;
+        "; } 3>/dev/stdout
 
         if has install "${modes[@]}" && [[ ${architecture} == ${host} ]]; then
-            barrier
+            echo
             sudo dpkg -i "${deb}"
         fi
     }
@@ -417,4 +426,3 @@ if has substrate "${modes[@]}"; then
 fi
 
 clean
-echo
