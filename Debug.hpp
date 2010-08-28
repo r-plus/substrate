@@ -34,7 +34,7 @@
 } while (false)
 #endif
 
-extern bool MSDebug;
+extern "C" bool MSDebug;
 void MSLogHex(const void *vdata, size_t size, const char *mark = 0);
 
 #endif//SUBSTRATE_DEBUG_HPP

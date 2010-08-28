@@ -658,7 +658,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     *result = buffer;
 }
 
-extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
+_extern void MSHookFunction(void *symbol, void *replace, void **result) {
     if (MSDebug)
         fprintf(stderr, "MSHookFunction(%p, %p, %p)\n", symbol, replace, result);
     if ((reinterpret_cast<uintptr_t>(symbol) & 0x1) == 0)
@@ -784,7 +784,7 @@ enum I$r {
     I$r12, I$r13, I$r14, I$r15,
 };
 
-extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
+_extern void MSHookFunction(void *symbol, void *replace, void **result) {
     if (MSDebug)
         fprintf(stderr, "MSHookFunction(%p, %p, %p)\n", symbol, replace, result);
     if (symbol == NULL)
@@ -996,7 +996,7 @@ extern "C" void MSHookFunction(void *symbol, void *replace, void **result) {
 #endif
 
 #if defined(__APPLE__) && defined(__arm__)
-extern "C" void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **result) {
+_extern void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **result) {
     return MSHookFunction(symbol, replace, result);
 }
 #endif

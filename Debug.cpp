@@ -19,12 +19,14 @@
 **/
 /* }}} */
 
+#include "CydiaSubstrate.h"
 #include "Debug.hpp"
 
 #include <stdint.h>
 #include <cstdlib>
 #include <cstdio>
 
+_extern bool MSDebug;
 bool MSDebug = false;
 
 static char _MSHexChar(uint8_t value) {

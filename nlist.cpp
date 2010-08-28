@@ -207,14 +207,14 @@ static ssize_t MSMachONameList_(const void *stuff, struct MSSymbolData *list, si
     return result;
 }
 
-extern "C" const void *MSGetImageByName(const char *file) {
+_extern const void *MSGetImageByName(const char *file) {
     for (uint32_t image(0), images(_dyld_image_count()); image != images; ++image)
         if (strcmp(_dyld_get_image_name(image), file) == 0)
             return _dyld_get_image_header(image);
     return NULL;
 }
 
-extern "C" void MSFindSymbols(const void *image, size_t count, const char *names[], void *values[]) {
+_extern void MSFindSymbols(const void *image, size_t count, const char *names[], void *values[]) {
     MSSymbolData items[count];
 
     for (size_t index(0); index != count; ++index) {
@@ -239,6 +239,13 @@ extern "C" void MSFindSymbols(const void *image, size_t count, const char *names
             if (result == -1)
                 continue;
 
+            // XXX: maybe avoid this happening at all? a flag to NSMachONameList_?
+            for (size_t index(0); index != count; ++index) {
+                MSSymbolData &item(items[index]);
+                if (item.name_ == NULL && item.value_ == 0)
+                    item.name_ = names[index];
+            }
+
             remain -= count - result;
             if (remain == 0)
                 break;
@@ -256,16 +263,14 @@ extern "C" void MSFindSymbols(const void *image, size_t count, const char *names
     }
 }
 
-extern "C" void *MSFindSymbol(const void *image, const char *name) {
+_extern void *MSFindSymbol(const void *image, const char *name) {
     void *value;
     MSFindSymbols(image, 1, &name, &value);
     return value;
 }
 
 #ifdef __arm__
-int (*_nlist)(const char *file, struct nlist *list);
-
-extern "C" int $nlist(const char *file, struct nlist *names) {
+MSHook(int, nlist, const char *file, struct nlist *names) {
     const void *image(MSGetImageByName(file));
     if (image == NULL)
         return (*_nlist)(file, names);

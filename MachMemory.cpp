@@ -19,6 +19,8 @@
 **/
 /* }}} */
 
+#include "CydiaSubstrate.h"
+
 #include <mach/mach_init.h>
 #include <mach/vm_map.h>
 
@@ -39,7 +41,7 @@ struct MSMemoryHook {
     }
 };
 
-extern "C" void *MSOpenMemory(void *data, size_t size) {
+_extern void *MSOpenMemory(void *data, size_t size) {
     if (size == 0)
         return NULL;
 
@@ -57,7 +59,7 @@ extern "C" void *MSOpenMemory(void *data, size_t size) {
     return new MSMemoryHook(self, base, width);
 }
 
-extern "C" void MSCloseMemory(void *handle) {
+_extern void MSCloseMemory(void *handle) {
     MSMemoryHook *memory(reinterpret_cast<MSMemoryHook *>(handle));
     if (kern_return_t error = vm_protect(memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
         fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
@@ -66,7 +68,7 @@ extern "C" void MSCloseMemory(void *handle) {
 
 extern "C" void __clear_cache (char *beg, char *end);
 
-extern "C" void MSClearCache(void *data, size_t size) {
+_extern void MSClearCache(void *data, size_t size) {
     __clear_cache(reinterpret_cast<char *>(data), reinterpret_cast<char *>(data) + size);
 }
 #endif

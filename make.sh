@@ -31,6 +31,7 @@ flags+=(-O2 -g0)
 
 flags+=(-isystem extra)
 flags+=(-fno-exceptions)
+flags+=(-fvisibility=hidden)
 
 cycc=$(which cycc)
 

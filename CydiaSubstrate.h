@@ -25,6 +25,9 @@ extern "C" {
 #define _disused \
     __attribute__((__unused__))
 
+#define _extern \
+    extern "C" __attribute__((__visibility__("default")))
+
 #ifdef __cplusplus
 #define _default(value) = value
 #else
@@ -34,6 +37,8 @@ extern "C" {
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+const void *MSGetImageByName(const char *file);
 
 void MSFindSymbols(const void *image, size_t count, const char *names[], void *values[]);
 void *MSFindSymbol(const void *image, const char *name);
