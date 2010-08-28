@@ -186,6 +186,7 @@ static ssize_t MSMachONameList_(const void *stuff, struct MSSymbolData *list, si
             continue;
 
         const char *nambuf(strings + q->n_un.n_strx);
+        //fprintf(stderr, " == %s\n", nambuf);
 
         for (size_t item(0); item != nreq; ++item) {
             struct MSSymbolData *p(list + item);
@@ -214,7 +215,7 @@ _extern const void *MSGetImageByName(const char *file) {
     return NULL;
 }
 
-_extern void MSFindSymbols(const void *image, size_t count, const char *names[], void *values[]) {
+static void MSFindSymbols(const void *image, size_t count, const char *names[], void *values[]) {
     MSSymbolData items[count];
 
     for (size_t index(0); index != count; ++index) {
