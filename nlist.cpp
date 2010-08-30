@@ -71,9 +71,12 @@ static ssize_t MSMachONameList_(const void *stuff, struct MSSymbolData *list, si
     for (uint32_t image(0), images(_dyld_image_count()); image != images; ++image)
         if (_dyld_get_image_header(image) == stuff) {
             slide = _dyld_get_image_vmaddr_slide(image);
-            break;
+            goto fat;
         }
 
+    return -1;
+
+  fat:
     const uint8_t *base(reinterpret_cast<const uint8_t *>(stuff));
     const struct exec *buf(reinterpret_cast<const struct exec *>(base));
 
@@ -171,12 +174,13 @@ static ssize_t MSMachONameList_(const void *stuff, struct MSSymbolData *list, si
 
         if (symbols == NULL || strings == NULL)
             return -1;
-    } else {
+    // XXX: detect a.out somehow?
+    } else if (false) {
         /* XXX: is this right anymore?!? */
         symbols = reinterpret_cast<const nlist_xx *>(base + N_SYMOFF(*buf));
         strings = reinterpret_cast<const char *>(reinterpret_cast<const uint8_t *>(symbols) + buf->a_syms);
         n = buf->a_syms / sizeof(nlist_xx);
-    }
+    } else return -1;
 
     size_t result(nreq);
 
