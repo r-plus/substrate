@@ -33,8 +33,9 @@ flags+=(-isystem extra)
 flags+=(-fno-exceptions)
 flags+=(-fvisibility=hidden)
 
-flags+=(-Xarch_i386 -fobjc-gc)
-flags+=(-Xarch_x86_64 -fobjc-gc)
+declare -a mflags
+mflags+=(-Xarch_i386 -fobjc-gc)
+mflags+=(-Xarch_x86_64 -fobjc-gc)
 
 cycc=$(which cycc)
 
@@ -43,7 +44,9 @@ function cycc() {
     echo
 }
 
-cycc "${ios}" "${mac}" -olibsubstrate.dylib -- "${flags[@]}" -dynamiclib MachMemory.cpp Hooker.cpp ObjectiveC.mm nlist.cpp hde64c/src/hde64.c Debug.cpp \
+cycc "${ios}" "${mac}" -oObjectiveC.o -- -c "${flags[@]}" "${mflags[@]}" ObjectiveC.mm
+
+cycc "${ios}" "${mac}" -olibsubstrate.dylib -- "${flags[@]}" -dynamiclib MachMemory.cpp Hooker.cpp ObjectiveC.o nlist.cpp hde64c/src/hde64.c Debug.cpp \
     -framework CoreFoundation \
     -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate \
     -undefined dynamic_lookup \
@@ -51,7 +54,7 @@ cycc "${ios}" "${mac}" -olibsubstrate.dylib -- "${flags[@]}" -dynamiclib MachMem
 
 cycc "${ios}" "${mac}" -oSubstrateBootstrap.dylib -- "${flags[@]}" -dynamiclib Bootstrap.cpp
 
-cycc "${ios}" "${mac}" -oSubstrateLoader.dylib -- "${flags[@]}" -dynamiclib Loader.mm \
+cycc "${ios}" "${mac}" -oSubstrateLoader.dylib -- "${flags[@]}" -dynamiclib Loader.cpp \
     -framework CoreFoundation
 
 cycc "${ios}" -oMobileSafety.dylib -- "${flags[@]}" -dynamiclib MobileSafety.mm \

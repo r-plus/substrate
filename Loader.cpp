@@ -19,10 +19,10 @@
 **/
 /* }}} */
 
-#import <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CoreFoundation.h>
 
-#import <CoreFoundation/CFPriv.h>
-#import <CoreFoundation/CFLogUtilities.h>
+#include <CoreFoundation/CFPriv.h>
+#include <CoreFoundation/CFLogUtilities.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>

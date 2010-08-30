@@ -21,6 +21,13 @@ c=(
 )
 
 shopt -s nullglob
+shopt -s extglob
+
+# XXX: detect or something?
+# XXX: gcc?
+otool=otool
+lipo=lipo
+ldid=ldid
 
 function has() {
     value=$1
@@ -331,14 +338,17 @@ if [[ -n ${output} && ${#archs[@]} > 1 ]]; then
         temps+=("${thin}")
 
         if [[ ${arch} == arm* ]]; then
-            try ldid -S "${thin}"
+            type=$("${otool}" -vh "${output}" | sed -e 's/  */ /g; /^MH_/ p; d;' | cut -d ' ' -f 5)
+            if [[ ${type} == @(EXECUTE|DYLIB|BUNDLE) ]]; then
+                try "${ldid}" -S "${thin}"
+            fi
         fi
     done
 
     if [[ ${#thins[@]} == 1 ]]; then
         cp -a "${thins[0]}" "${output}"
     else
-        try lipo -create "${thins[@]}" -output "${output}"
+        try "${lipo}" -create "${thins[@]}" -output "${output}"
     fi
 else
     declare -a extra

@@ -23,7 +23,7 @@
 #define SUBSTRATE_DEBUG_HPP
 
 #ifdef __APPLE__
-#import <CoreFoundation/CFLogUtilities.h>
+#include <CoreFoundation/CFLogUtilities.h>
 /* XXX: proper CFStringRef conversion */
 #define lprintf(format, ...) \
     CFLog(kCFLogLevelNotice, CFSTR(format), ## __VA_ARGS__)
