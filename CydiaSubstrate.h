@@ -168,16 +168,16 @@ static inline Type_ &MSHookIvar(id self, const char *name) {
 #define MSIgnore_(name, dollar, colon)
 
 #define MSMessage_(extra, type, _class, name, dollar, colon, call, args...) \
-    static type _$ ## name ## $ ## dollar(Class _cls, type (*_old)(_class, SEL, ## args), type (*_spr)(struct objc_super *, SEL, ## args), _class self, SEL _cmd, ## args); \
+    static type _$ ## name ## $ ## dollar(Class _cls, type (*_old)(_class, SEL, ## args, ...), type (*_spr)(struct objc_super *, SEL, ## args, ...), _class self, SEL _cmd, ## args); \
     MSHook(type, name ## $ ## dollar, _class self, SEL _cmd, ## args) { \
         Class const _cls($ ## name); \
-        type (* const _old)(_class, SEL, ## args) = _ ## name ## $ ## dollar; \
-        typedef type (*msgSendSuper_t)(struct objc_super *, SEL, ## args); \
+        type (* const _old)(_class, SEL, ## args, ...) = reinterpret_cast<type (* const)(_class, SEL, ## args, ...)>(_ ## name ## $ ## dollar); \
+        typedef type (*msgSendSuper_t)(struct objc_super *, SEL, ## args, ...); \
         msgSendSuper_t const _spr(::etl::IsClass<type>::value ? reinterpret_cast<msgSendSuper_t>(&objc_msgSendSuper_stret) : reinterpret_cast<msgSendSuper_t>(&objc_msgSendSuper)); \
         return _$ ## name ## $ ## dollar call; \
     } \
     extra(name, dollar, colon) \
-    static _finline type _$ ## name ## $ ## dollar(Class _cls, type (*_old)(_class, SEL, ## args), type (*_spr)(struct objc_super *, SEL, ## args), _class self, SEL _cmd, ## args)
+    static _finline type _$ ## name ## $ ## dollar(Class _cls, type (*_old)(_class, SEL, ## args, ...), type (*_spr)(struct objc_super *, SEL, ## args, ...), _class self, SEL _cmd, ## args)
 
 /* for((x=1;x!=7;++x)){ echo -n "#define MSMessage${x}_(extra, type, _class, name";for((y=0;y!=x;++y));do echo -n ", sel$y";done;for((y=0;y!=x;++y));do echo -n ", type$y, arg$y";done;echo ") \\";echo -n "    MSMessage_(extra, type, _class, name,";for((y=0;y!=x;++y));do if [[ $y -ne 0 ]];then echo -n " ##";fi;echo -n " sel$y ## $";done;echo -n ", ";for((y=0;y!=x;++y));do echo -n "sel$y:";done;echo -n ", (_cls, _old, _spr, self, _cmd";for((y=0;y!=x;++y));do echo -n ", arg$y";done;echo -n ")";for((y=0;y!=x;++y));do echo -n ", type$y arg$y";done;echo ")";} */
 
