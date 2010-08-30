@@ -33,6 +33,9 @@ flags+=(-isystem extra)
 flags+=(-fno-exceptions)
 flags+=(-fvisibility=hidden)
 
+flags+=(-Xarch_i386 -fobjc-gc)
+flags+=(-Xarch_x86_64 -fobjc-gc)
+
 cycc=$(which cycc)
 
 function cycc() {
