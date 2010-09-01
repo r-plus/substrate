@@ -1,3 +1,5 @@
 Package: mobilesubstrate
 Architecture: iphoneos-arm
 Name: Mobile Substrate
+Author: Jay Freeman (saurik) <saurik@saurik.com>
+Depiction: http://cydia.saurik.com/info/mobilesubstrate/
