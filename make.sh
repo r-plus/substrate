@@ -71,12 +71,4 @@ for arch in i386 arm; do
 done
 
 echo
-
-cpu=$(uname -p)
-if [[ ${cpu} == arm ]]; then
-    os=iphoneos
-else
-    os=macos
-fi
-
-PATH=/Library/Cydia/bin:/usr/sbin:/usr/bin:/sbin:/bin sudo dpkg -i *"_$(grep ^Version: control | cut -d ' ' -f 2)_${os}-${cpu}.deb"
+PATH=/Library/Cydia/bin:/usr/sbin:/usr/bin:/sbin:/bin sudo dpkg -i com.cydia.substrate_"$(grep ^Version: control | cut -d ' ' -f 2)"_cydia.deb
