@@ -66,7 +66,7 @@ for name in extrainst_ postrm; do
         -framework CoreFoundation -framework Foundation
 done
 
-for arch in ppc i386 arm; do
+for arch in i386 arm; do
     ./package.sh "${arch}"
 done
 
