@@ -23,7 +23,7 @@ PATH=${0%/*}:${PATH}
 
 set -e
 
-ios=-i2.0-4.0
+ios=-i2.0
 mac=-m10.5
 
 declare -a flags
@@ -40,7 +40,7 @@ mflags+=(-Xarch_x86_64 -fobjc-gc)
 cycc=$(which cycc)
 
 function cycc() {
-    "${cycc}" "$@"
+    "${cycc}" -r4.0 "$@"
     echo
 }
 

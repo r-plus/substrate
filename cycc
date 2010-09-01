@@ -52,8 +52,9 @@ function usage() {
     echo "Usage: $(basename "$0") [<option | code>*] [-- <flag>*]"
     echo "  option <- configuration for cycc itself"
     echo "    -i#.#: build for iOS version #.#"
-    echo "    -m#.#: build for Mac OS version #.#"
+    echo "    -m#.#: build for Mac OS X version #.#"
     echo "    -oXXX: use output filename XXX"
+    echo "    -i#.#: build with gcc version #.#"
     echo "    -s   : compile substrate extension"
     echo "    -v   : also dump pre-processed code"
     echo "  code <- set of source files to preprocess"
@@ -65,6 +66,7 @@ if [[ $# == 0 ]]; then
     exit 0
 fi
 
+gcc=g++
 ios=
 mac=
 output=
@@ -78,19 +80,12 @@ while [[ $# != 0 ]]; do
     else case "${1:1:1}" in
         # XXX: long arguments
         (-) shift 1; break;;
-
-        (i)
-            ios=${1:2}
-            if [[ ${ios} == *-* ]]; then
-                gvr=-${ios#*-}
-                ios=${ios%%-*}
-            fi
-        ;;
-
+        (i) ios=${1:2};;
         (m) mac=${1:2};;
         (o) output=${1:2};;
         (p) modes+=(package);;
         (P) modes+=(package install);;
+        (r) gcc=${gcc}-${1:2};;
         (s) modes+=(substrate);;
         (v) modes+=(verbose);;
         (\?) usage; exit 0;;
@@ -131,7 +126,7 @@ fi
 
 if [[ -n ${ios} ]]; then
     # XXX: if you are currently on an iphone, this will be incorrect
-    gcc=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++${gvr}
+    gcc=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/${gcc}${gvr}
     archs+=(armv6)
 
     declare -a armv6
@@ -144,8 +139,6 @@ if [[ -n ${ios} ]]; then
     for flag in "${armv6[@]}"; do
         flags+=(-Xarch_armv6 "${flag}")
     done
-else
-    gcc=g++
 fi
 
 flags+=("$@")
@@ -334,7 +327,7 @@ function try() {
 }
 
 if [[ -n ${output} && ${#archs[@]} > 1 ]]; then
-    echo g++ "${c[2]}${flags[@]}${c[0]}"
+    echo "${gcc##*/}" "${c[2]}${flags[@]}${c[0]}"
 
     declare -a thins
     for arch in "${archs[@]}"; do
