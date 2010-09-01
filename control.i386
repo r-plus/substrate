@@ -1,3 +1,4 @@
 Package: com.cydia.substrate
 Architecture: cydia
 Depends: cy+cpu.arm | cy+cpu.i386, cy+os.macosx (>= 10.5) | cy+os.ios (>= 2.0)
+Name: Cydia Substrate

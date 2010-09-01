@@ -3,7 +3,6 @@ Section: System
 Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Version: 0.9.3256-1
 Description: powerful code insertion platform
-Name: Mobile Substrate
 Author: Jay Freeman (saurik) <saurik@saurik.com>
 Tag: role::developer
 Depiction: http://cydia.saurik.com/info/mobilesubstrate/
