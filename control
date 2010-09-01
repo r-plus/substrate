@@ -1,6 +1,6 @@
 Priority: optional
-Section: System
-Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
 Version: 0.9.3256-1
 Description: powerful code insertion platform
+Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
+Section: System
 Tag: role::developer
