@@ -30,6 +30,7 @@
 #include <mach-o/nlist.h>
 
 #define BSD_KERNEL_PRIVATE
+#include <machine/types.h>
 #include <machine/exec.h>
 
 #include <cstdio>

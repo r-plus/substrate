@@ -1,2 +1,2 @@
-Package: cydiasubstrate
-Architecture: darwin-powerpc
+Package: com.cydia.substrate
+Architecture: macosx-powerpc

@@ -78,7 +78,15 @@ while [[ $# != 0 ]]; do
     else case "${1:1:1}" in
         # XXX: long arguments
         (-) shift 1; break;;
-        (i) ios=${1:2};;
+
+        (i)
+            ios=${1:2}
+            if [[ ${ios} == *-* ]]; then
+                gvr=-${ios#*-}
+                ios=${ios%%-*}
+            fi
+        ;;
+
         (m) mac=${1:2};;
         (o) output=${1:2};;
         (p) modes+=(package);;
@@ -123,7 +131,7 @@ fi
 
 if [[ -n ${ios} ]]; then
     # XXX: if you are currently on an iphone, this will be incorrect
-    gcc=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++
+    gcc=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/g++${gvr}
     archs+=(armv6)
 
     declare -a armv6

@@ -23,7 +23,7 @@ PATH=${0%/*}:${PATH}
 
 set -e
 
-ios=-i3.2
+ios=-i2.0-4.0
 mac=-m10.5
 
 declare -a flags
@@ -71,4 +71,12 @@ for arch in ppc i386 arm; do
 done
 
 echo
-sudo dpkg -i *"_$(grep ^Version: control | cut -d ' ' -f 2)_$(dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null).deb"
+
+cpu=$(uname -p)
+if [[ ${cpu} == arm ]]; then
+    os=iphoneos
+else
+    os=macos
+fi
+
+PATH=/Library/Cydia/bin:/usr/sbin:/usr/bin:/sbin:/bin sudo dpkg -i *"_$(grep ^Version: control | cut -d ' ' -f 2)_${os}-${cpu}.deb"

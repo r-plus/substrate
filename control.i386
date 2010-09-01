@@ -1,2 +1,2 @@
-Package: cydiasubstrate
-Architecture: darwin-i386
+Package: com.cydia.substrate
+Architecture: macosx-i386
