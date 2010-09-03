@@ -49,6 +49,11 @@ static void MSAction(int sig, siginfo_t *info, void *uap) {
 extern "C" char ***_NSGetArgv(void);
 
 MSInitialize {
+#ifndef __arm__
+    if (dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY | RTLD_NOLOAD) == NULL)
+        return;
+#endif
+
 #if 1
     CFBundleRef bundle(CFBundleGetMainBundle());
     CFStringRef identifier(bundle == NULL ? NULL : CFBundleGetIdentifier(bundle));

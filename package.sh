@@ -73,7 +73,11 @@ if [[ ${arch} == arm ]]; then
     cp -a MobileSafety.dylib "${pkg}/${fwk}"
     cp -a MobileSafety.png "${pkg}/${fwk}"
 
-    ln -s "${fwk}"/Libraries/SubstrateBootstrap.dylib "${pkg}/${lib}/MobileSubstrate.dylib"
+    ln -s "${fwk}"/Libraries/SubstrateInjection.dylib "${pkg}/${lib}/MobileSubstrate.dylib"
+
+    ln -s SubstrateBootstrap.dylib "${pkg}/${fwk}/Libraries/SubstrateInjection.dylib"
+else
+    ln -s SubstrateLoader.dylib "${pkg}/${fwk}/Libraries/SubstrateInjection.dylib"
 fi
 
 function field() {
