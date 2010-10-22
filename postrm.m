@@ -104,6 +104,9 @@ int main(int argc, char *argv[]) {
 
     HookEnvironment("com.apple.locationd");
 
+    HookEnvironment("com.apple.mediaremoted");
+    HookEnvironment("com.apple.frontrow");
+
     const char *finish = "restart";
     if (HookEnvironment("com.apple.SpringBoard"))
         finish = "reload";

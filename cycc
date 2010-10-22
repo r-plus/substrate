@@ -130,7 +130,7 @@ if [[ -n ${ios} ]]; then
     archs+=(armv6)
 
     declare -a armv6
-    armv6+=(-mcpu=arm1176jzf-s)
+    armv6+=(-mcpu=arm1176jzf-s -mthumb)
     armv6+=(-miphoneos-version-min="${ios}")
     armv6+=(-isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS"${ios}".sdk)
     armv6+=(-idirafter /usr/include)

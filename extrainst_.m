@@ -114,6 +114,9 @@ int main(int argc, char *argv[]) {
 
     HookEnvironment("com.apple.locationd");
 
+    HookEnvironment("com.apple.mediaremoted");
+    HookEnvironment("com.apple.frontrow");
+
     if (reboot)
         finish = "reboot";
 
