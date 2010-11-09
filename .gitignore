@@ -1,0 +1,7 @@
+*.o
+*.dylib
+*.deb
+Struct.*.hpp
+package.*
+extrainst_
+postrm
