@@ -27,7 +27,7 @@
 
 // XXX: this is required by some code below
 #ifdef __arm__
-#include "Struct.hpp"
+#include STRUCT_HPP
 #include "ARM.hpp"
 #endif
 

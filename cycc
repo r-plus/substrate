@@ -54,8 +54,9 @@ function usage() {
     echo "    -i#.#: build for iOS version #.#"
     echo "    -m#.#: build for Mac OS X version #.#"
     echo "    -oXXX: use output filename XXX"
-    echo "    -i#.#: build with gcc version #.#"
+    echo "    -r#.#: build with gcc version #.#"
     echo "    -s   : compile substrate extension"
+    echo "    -q   : don't print extra garbage"
     echo "    -v   : also dump pre-processed code"
     echo "  code <- set of source files to preprocess"
     echo "  flag <- pass-through to gcc execution"
@@ -85,9 +86,11 @@ while [[ $# != 0 ]]; do
         (o) output=${1:2};;
         (p) modes+=(package);;
         (P) modes+=(package install);;
+        (q) modes+=(quiet);;
         (r) gcc=${gcc}-${1:2};;
         (s) modes+=(substrate);;
         (v) modes+=(verbose);;
+        (V) modes+=(silly);;
         (\?) usage; exit 0;;
         (*) usage 1>&2; exit 1;;
     esac fi
@@ -322,34 +325,58 @@ function try_() {
 function try() {
     local first=$1
     shift 1
-    echo "${first##*/} ${c[2]}$@${c[0]}"
+    if ! has quiet "${modes[@]}"; then
+        echo "${first##*/} ${c[2]}$@${c[0]}"
+    fi
     try_ "${first}" "$@"
 }
 
-if [[ -n ${output} && ${#archs[@]} > 1 ]]; then
-    echo "${gcc##*/}" "${c[2]}${flags[@]}${c[0]}"
+function tool() {
+    thin=$1
+    type=$("${otool}" -vh "${thin}" | sed -e 's/  */ /g; s/^ *//; /^MH_/ p; d;' | cut -d ' ' -f 5)
+    if [[ ${type} == @(EXECUTE|DYLIB|BUNDLE) ]]; then
+        try "${ldid}" -S "${thin}"
+    fi
+}
+
+if [[ -n ${output} ]] || has silly "${modes[@]}"; then
+    if ! has quiet "${modes[@]}"; then
+        echo "${gcc##*/}" "${c[2]}${flags[@]}${c[0]}"
+    fi
 
     declare -a thins
     for arch in "${archs[@]}"; do
-        thin="${temp}.${arch}"
-        thins+=("${thin}")
+        unset extra
+        declare -a extra
 
-        echo "    ${c[16]}${arch}${c[0]}: ${c[2]}-arch ${arch} -o ${thin}${c[0]}"
-        try_ "${gcc}" -arch "${arch}" "${flags[@]}" "${posts[@]}" -o "${thin}"
-        temps+=("${thin}")
+        if [[ -n ${output} ]]; then
+            thin="${temp}.${arch}"
+            thins+=("${thin}")
+            extra+=(-o "${thin}")
+        fi
 
-        if [[ ${arch} == arm* ]]; then
-            type=$("${otool}" -vh "${output}" | sed -e 's/  */ /g; /^MH_/ p; d;' | cut -d ' ' -f 5)
-            if [[ ${type} == @(EXECUTE|DYLIB|BUNDLE) ]]; then
-                try "${ldid}" -S "${thin}"
-            fi
+        if ! has quiet "${modes[@]}"; then
+            echo "    ${c[16]}${arch}${c[0]}: ${c[2]}-arch ${arch} ${extra[@]}${c[0]}"
+        fi
+
+        if has silly "${modes[@]}"; then
+            echo -n "${arch} "
+        fi
+
+        try_ "${gcc}" -arch "${arch}" "${flags[@]}" "${posts[@]}" "${extra[@]}"
+
+        if [[ -n ${output} ]]; then
+            temps+=("${thin}")
+            tool "${thin}"
         fi
     done
 
-    if [[ ${#thins[@]} == 1 ]]; then
-        cp -a "${thins[0]}" "${output}"
-    else
-        try "${lipo}" -create "${thins[@]}" -output "${output}"
+    if [[ -n ${output} ]]; then
+        if [[ ${#thins[@]} == 1 ]]; then
+            cp -a "${thins[0]}" "${output}"
+        else
+            try "${lipo}" -create "${thins[@]}" -output "${output}"
+        fi
     fi
 else
     declare -a extra
@@ -357,10 +384,6 @@ else
     for arch in "${archs[@]}"; do
         extra+=(-arch "${arch}")
     done
-
-    if [[ -n ${output} ]]; then
-        extra+=(-o "${output}")
-    fi
 
     try "${gcc}" "${extra[@]}" "${flags[@]}" "${posts[@]}"
 fi

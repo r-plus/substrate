@@ -37,12 +37,19 @@ declare -a mflags
 mflags+=(-Xarch_i386 -fobjc-gc)
 mflags+=(-Xarch_x86_64 -fobjc-gc)
 
-cycc=$(which cycc)
-
 function cycc() {
-    "${cycc}" -r4.0 "$@"
+    ./cycc -r4.0 "$@"
     echo
 }
+
+flags+=($(cycc "${ios}" "${mac}" -q -V -- -print-prog-name=cc1obj | while read -r arch cc1obj; do
+    # XXX: cycc has this crazy newline
+    if [[ -n "${arch}" ]]; then
+        struct=Struct.${arch}.hpp
+        "${cc1obj}" -print-objc-runtime-info </dev/null >"${struct}"
+        echo "-Xarch_${arch} -DSTRUCT_HPP=\"${struct}\""
+    fi
+done))
 
 cycc "${ios}" "${mac}" -oObjectiveC.o -- -c "${flags[@]}" "${mflags[@]}" ObjectiveC.mm
 
