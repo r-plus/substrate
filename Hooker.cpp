@@ -45,12 +45,12 @@ static _finline void MSClearCache(void *data, size_t size) {
 }
 
 template <typename Type_>
-_disused static void MSWrite(uint8_t *&buffer, Type_ value) {
+_disused static _finline void MSWrite(uint8_t *&buffer, Type_ value) {
     *reinterpret_cast<Type_ *>(buffer) = value;
     buffer += sizeof(Type_);
 }
 
-_disused static void MSWrite(uint8_t *&buffer, uint8_t *data, size_t size) {
+_disused static _finline void MSWrite(uint8_t *&buffer, uint8_t *data, size_t size) {
     memcpy(buffer, data, size);
     buffer += size;
 }
