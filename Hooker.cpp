@@ -170,7 +170,7 @@ extern "C" size_t MSGetInstructionWidth(void *start) {
         return MSGetInstructionWidthThumb(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(start) & ~0x1));
 }
 
-static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
+static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol, void *replace, void **result) {
     if (symbol == NULL)
         return;
 
@@ -193,7 +193,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
     uint16_t backup[used / sizeof(uint16_t)];
 
-    SubstrateHookMemory code(NULL, area, used);
+    SubstrateHookMemory code(process, area, used);
 
     if (
         (align == 0 || area[0] == T$nop) &&
@@ -565,7 +565,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
     }
 }
 
-static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
+static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, void *replace, void **result) {
     if (symbol == NULL)
         return;
 
@@ -576,7 +576,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
 
     uint32_t backup[used] = {arm[0], arm[1]};
 
-    SubstrateHookMemory code(NULL, symbol, 8);
+    SubstrateHookMemory code(process, symbol, 8);
 
     arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
     arm[1] = reinterpret_cast<uint32_t>(replace);
@@ -669,13 +669,13 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
     *result = buffer;
 }
 
-_extern void MSHookFunction(void *symbol, void *replace, void **result) {
+static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, void *replace, void **result) {
     if (MSDebug)
-        fprintf(stderr, "MSHookFunction(%p, %p, %p)\n", symbol, replace, result);
+        fprintf(stderr, "SubstrateHookFunction(%p, %p, %p, %p)\n", process, symbol, replace, result);
     if ((reinterpret_cast<uintptr_t>(symbol) & 0x1) == 0)
-        return MSHookFunctionARM(symbol, replace, result);
+        return SubstrateHookFunctionARM(process, symbol, replace, result);
     else
-        return MSHookFunctionThumb(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(symbol) & ~0x1), replace, result);
+        return SubstrateHookFunctionThumb(process, reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(symbol) & ~0x1), replace, result);
 }
 #endif
 
@@ -795,7 +795,7 @@ enum I$r {
     I$r12, I$r13, I$r14, I$r15,
 };
 
-_extern void MSHookFunction(void *symbol, void *replace, void **result) {
+static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, void *replace, void **result) {
     if (MSDebug)
         fprintf(stderr, "MSHookFunction(%p, %p, %p)\n", symbol, replace, result);
     if (symbol == NULL)
@@ -836,7 +836,7 @@ _extern void MSHookFunction(void *symbol, void *replace, void **result) {
     uint8_t backup[used];
     memcpy(backup, area, used);
 
-    SubstrateHookMemory code(NULL, area, used); {
+    SubstrateHookMemory code(process, area, used); {
         uint8_t *current(area);
         MSWriteJump(current, target);
         for (unsigned offset(0); offset != blank; ++offset)
@@ -1005,6 +1005,10 @@ _extern void MSHookFunction(void *symbol, void *replace, void **result) {
     }
 }
 #endif
+
+_extern void MSHookFunction(void *symbol, void *replace, void **result) {
+    return SubstrateHookFunction(NULL, symbol, replace, result);
+}
 
 #if defined(__APPLE__) && defined(__arm__)
 _extern void _Z14MSHookFunctionPvS_PS_(void *symbol, void *replace, void **result) {
