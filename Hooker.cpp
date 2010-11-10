@@ -33,6 +33,17 @@
 
 #include "Debug.hpp"
 
+extern "C" void __clear_cache (char *beg, char *end);
+
+static _finline void MSClearCache(void *data, size_t size) {
+#ifdef __arm__
+    // removed in iOS 4.1, it turns out __clear_cache had always been a nop
+    // XXX: we should probably do something here... right?... right?!
+#else
+    __clear_cache(reinterpret_cast<char *>(data), reinterpret_cast<char *>(data) + size);
+#endif
+}
+
 template <typename Type_>
 _disused static void MSWrite(uint8_t *&buffer, Type_ value) {
     *reinterpret_cast<Type_ *>(buffer) = value;
