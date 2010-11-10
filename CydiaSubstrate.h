@@ -59,8 +59,10 @@ extern "C" {
 extern "C" {
 #endif
 
-const void *MSGetImageByName(const char *file);
-void *MSFindSymbol(const void *image, const char *name);
+typedef const void *MSImageRef;
+
+MSImageRef MSGetImageByName(const char *file);
+void *MSFindSymbol(MSImageRef image, const char *name);
 
 void MSHookFunction(void *symbol, void *replace, void **result);
 

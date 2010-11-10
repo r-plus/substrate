@@ -216,14 +216,14 @@ static ssize_t MSMachONameList_(const void *stuff, struct MSSymbolData *list, si
     return result;
 }
 
-_extern const void *MSGetImageByName(const char *file) {
+_extern MSImageRef MSGetImageByName(const char *file) {
     for (uint32_t image(0), images(_dyld_image_count()); image != images; ++image)
         if (strcmp(_dyld_get_image_name(image), file) == 0)
             return _dyld_get_image_header(image);
     return NULL;
 }
 
-static void MSFindSymbols(const void *image, size_t count, const char *names[], void *values[]) {
+static void MSFindSymbols(MSImageRef image, size_t count, const char *names[], void *values[]) {
     MSSymbolData items[count];
 
     for (size_t index(0); index != count; ++index) {
@@ -272,7 +272,7 @@ static void MSFindSymbols(const void *image, size_t count, const char *names[], 
     }
 }
 
-_extern void *MSFindSymbol(const void *image, const char *name) {
+_extern void *MSFindSymbol(MSImageRef image, const char *name) {
     void *value;
     MSFindSymbols(image, 1, &name, &value);
     return value;
