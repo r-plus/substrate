@@ -28,12 +28,12 @@
 #include <unistd.h>
 
 #ifdef __APPLE__
-struct MSMemoryHook {
+struct __SubstrateMemory {
     mach_port_t self_;
     uintptr_t base_;
     size_t width_;
 
-    MSMemoryHook(mach_port_t self, uintptr_t base, size_t width) :
+    __SubstrateMemory(mach_port_t self, uintptr_t base, size_t width) :
         self_(self),
         base_(base),
         width_(width)
@@ -41,7 +41,7 @@ struct MSMemoryHook {
     }
 };
 
-_extern void *MSOpenMemory(void *data, size_t size) {
+_extern SubstrateMemoryRef SubstrateMemoryCreate(SubstrateProcessRef process, void *data, size_t size) {
     if (size == 0)
         return NULL;
 
@@ -56,11 +56,10 @@ _extern void *MSOpenMemory(void *data, size_t size) {
         return NULL;
     }
 
-    return new MSMemoryHook(self, base, width);
+    return new __SubstrateMemory(self, base, width);
 }
 
-_extern void MSCloseMemory(void *handle) {
-    MSMemoryHook *memory(reinterpret_cast<MSMemoryHook *>(handle));
+_extern void SubstrateMemoryRelease(SubstrateMemoryRef memory) {
     if (kern_return_t error = vm_protect(memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
         fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
     delete memory;

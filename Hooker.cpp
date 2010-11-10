@@ -182,7 +182,7 @@ static void MSHookFunctionThumb(void *symbol, void *replace, void **result) {
 
     uint16_t backup[used / sizeof(uint16_t)];
 
-    MSHookMemory code(area, used);
+    SubstrateHookMemory code(NULL, area, used);
 
     if (
         (align == 0 || area[0] == T$nop) &&
@@ -565,7 +565,7 @@ static void MSHookFunctionARM(void *symbol, void *replace, void **result) {
 
     uint32_t backup[used] = {arm[0], arm[1]};
 
-    MSHookMemory code(symbol, 8);
+    SubstrateHookMemory code(NULL, symbol, 8);
 
     arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
     arm[1] = reinterpret_cast<uint32_t>(replace);
@@ -825,7 +825,7 @@ _extern void MSHookFunction(void *symbol, void *replace, void **result) {
     uint8_t backup[used];
     memcpy(backup, area, used);
 
-    MSHookMemory code(area, used); {
+    SubstrateHookMemory code(NULL, area, used); {
         uint8_t *current(area);
         MSWriteJump(current, target);
         for (unsigned offset(0); offset != blank; ++offset)

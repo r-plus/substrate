@@ -72,9 +72,11 @@ IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix _default(NU
 void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result);
 #endif
 
-void *MSOpenMemory(void *data, size_t size);
-void MSCloseMemory(void *handle);
-void MSClearCache(void *data, size_t size);
+typedef struct __SubstrateProcess *SubstrateProcessRef;
+typedef struct __SubstrateMemory *SubstrateMemoryRef;
+
+SubstrateMemoryRef SubstrateMemoryCreate(SubstrateProcessRef process, void *data, size_t size);
+void SubstrateMemoryRelease(SubstrateMemoryRef memory);
 
 #ifdef __cplusplus
 }
@@ -82,22 +84,22 @@ void MSClearCache(void *data, size_t size);
 
 #ifdef __cplusplus
 
-struct MSHookMemory {
-    void *handle_;
+struct SubstrateHookMemory {
+    SubstrateMemoryRef handle_;
 
-    MSHookMemory(void *data, size_t size) :
-        handle_(MSOpenMemory(data, size))
+    SubstrateHookMemory(SubstrateProcessRef process, void *data, size_t size) :
+        handle_(SubstrateMemoryCreate(NULL, data, size))
     {
     }
 
     void Close() {
         if (handle_ != NULL) {
-            MSCloseMemory(handle_);
+            SubstrateMemoryRelease(handle_);
             handle_ = NULL;
         }
     }
 
-    ~MSHookMemory() {
+    ~SubstrateHookMemory() {
         Close();
     }
 };
