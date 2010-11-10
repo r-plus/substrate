@@ -41,7 +41,12 @@ struct __SubstrateMemory {
     }
 };
 
-_extern SubstrateMemoryRef SubstrateMemoryCreate(SubstrateProcessRef process, void *data, size_t size) {
+_extern SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef allocator, SubstrateProcessRef process, void *data, size_t size) {
+    if (allocator != NULL) {
+        fprintf(stderr, "MS:Error:allocator != NULL\n");
+        return NULL;
+    }
+
     if (size == 0)
         return NULL;
 

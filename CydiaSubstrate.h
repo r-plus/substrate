@@ -72,10 +72,14 @@ IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix _default(NU
 void MSHookMessageEx(Class _class, SEL sel, IMP imp, IMP *result);
 #endif
 
+typedef void *SubstrateAllocatorRef;
 typedef struct __SubstrateProcess *SubstrateProcessRef;
 typedef struct __SubstrateMemory *SubstrateMemoryRef;
 
-SubstrateMemoryRef SubstrateMemoryCreate(SubstrateProcessRef process, void *data, size_t size);
+SubstrateProcessRef SubstrateProcessCreate(SubstrateAllocatorRef allocator, pid_t pid);
+void SubstrateProcessRelease(SubstrateProcessRef process);
+
+SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef allocator, SubstrateProcessRef process, void *data, size_t size);
 void SubstrateMemoryRelease(SubstrateMemoryRef memory);
 
 #ifdef __cplusplus
@@ -88,7 +92,7 @@ struct SubstrateHookMemory {
     SubstrateMemoryRef handle_;
 
     SubstrateHookMemory(SubstrateProcessRef process, void *data, size_t size) :
-        handle_(SubstrateMemoryCreate(NULL, data, size))
+        handle_(SubstrateMemoryCreate(NULL, NULL, data, size))
     {
     }
 
