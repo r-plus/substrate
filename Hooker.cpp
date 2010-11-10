@@ -19,9 +19,10 @@
 **/
 /* }}} */
 
-#include <sys/mman.h>
-
+#define SubstrateInternal
 #include "CydiaSubstrate.h"
+
+#include <sys/mman.h>
 
 #define _trace() do { \
     fprintf(stderr, "_trace(%u)\n", __LINE__); \

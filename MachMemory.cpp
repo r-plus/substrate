@@ -19,6 +19,7 @@
 **/
 /* }}} */
 
+#define SubstrateInternal
 #include "CydiaSubstrate.h"
 
 #include <mach/mach_init.h>
@@ -41,7 +42,7 @@ struct __SubstrateMemory {
     }
 };
 
-_extern SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef allocator, SubstrateProcessRef process, void *data, size_t size) {
+extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef allocator, SubstrateProcessRef process, void *data, size_t size) {
     if (allocator != NULL) {
         fprintf(stderr, "MS:Error:allocator != NULL\n");
         return NULL;
@@ -64,7 +65,7 @@ _extern SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef allocator
     return new __SubstrateMemory(self, base, width);
 }
 
-_extern void SubstrateMemoryRelease(SubstrateMemoryRef memory) {
+extern "C" void SubstrateMemoryRelease(SubstrateMemoryRef memory) {
     if (kern_return_t error = vm_protect(memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
         fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
     delete memory;
