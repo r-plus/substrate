@@ -175,6 +175,7 @@ sigaction(signum, NULL, &old); { \
         if (data != NULL) {
             CFStringRef error;
             meta = reinterpret_cast<CFDictionaryRef>(CFPropertyListCreateFromXMLData(kCFAllocatorDefault, data, kCFPropertyListImmutable, &error));
+            CFRelease(data);
         }
 
         bool load = true;
