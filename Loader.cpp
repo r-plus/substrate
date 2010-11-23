@@ -173,9 +173,14 @@ sigaction(signum, NULL, &old); { \
 
         CFDictionaryRef meta(NULL);
         if (data != NULL) {
-            CFStringRef error;
+            CFStringRef error(NULL);
             meta = reinterpret_cast<CFDictionaryRef>(CFPropertyListCreateFromXMLData(kCFAllocatorDefault, data, kCFPropertyListImmutable, &error));
             CFRelease(data);
+
+            if (meta == NULL && error != NULL) {
+                CFLog(kCFLogLevelError, CFSTR("MS:Error: Corrupt PropertyList: %@"), dylib);
+                continue;
+            }
         }
 
         bool load = true;
