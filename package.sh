@@ -29,7 +29,8 @@ sudo rm -rf "${pkg}"
 
 mkdir -p "${pkg}"/DEBIAN
 control=${pkg}/DEBIAN/control
-cat control."${arch}" control >"${control}"
+cat control."${arch}" >"${control}"
+./control.sh >>"${control}"
 
 lib=/Library/MobileSubstrate
 mkdir -p "${pkg}/${lib}/DynamicLibraries"
