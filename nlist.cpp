@@ -202,7 +202,11 @@ static ssize_t MSMachONameList_(const void *stuff, struct MSSymbolData *list, si
                 continue;
 
             p->name_ = NULL;
+
             p->value_ = q->n_value;
+            if (p->value_ != 0)
+                p->value_ += slide;
+
             p->type_ = q->n_type;
             p->desc_ = q->n_desc;
             p->sect_ = q->n_sect;
