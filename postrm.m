@@ -107,6 +107,9 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.mediaremoted");
     HookEnvironment("com.apple.frontrow");
 
+    HookEnvironment("com.apple.voiced");
+    HookEnvironment("com.apple.MobileInternetSharing");
+
     const char *finish = "restart";
     if (HookEnvironment("com.apple.SpringBoard"))
         finish = "reload";

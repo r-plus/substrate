@@ -117,6 +117,9 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.mediaremoted");
     HookEnvironment("com.apple.frontrow");
 
+    HookEnvironment("com.apple.voiced");
+    HookEnvironment("com.apple.MobileInternetSharing");
+
     if (reboot)
         finish = "reboot";
 
