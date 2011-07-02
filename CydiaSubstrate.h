@@ -359,8 +359,13 @@ class _H {
     _disused static type (*_ ## name)(args); \
     static type $ ## name(args)
 
+#ifdef __cplusplus
 #define MSHake(name) \
     &$ ## name, &_ ## name
+#else
+#define MSHake(name) \
+    &$ ## name, (void **) &_ ## name
+#endif
 
 #define MSInitialize \
     __attribute__((__constructor__)) static void _MSInitialize(void)
