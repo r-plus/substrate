@@ -36,8 +36,8 @@ extern "C" {
 #include <machine/types.h>
 #include <machine/exec.h>
 
-#include <cstdio>
-#include <cstdlib>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "CydiaSubstrate.h"
 

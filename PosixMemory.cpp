@@ -1,5 +1,5 @@
 /* Cydia Substrate - Powerful Code Insertion Platform
- * Copyright (C) 2008-2010  Jay Freeman (saurik)
+ * Copyright (C) 2011  Jay Freeman (saurik)
 */
 
 /* GNU Lesser General Public License, Version 3 {{{ */
@@ -22,21 +22,18 @@
 #define SubstrateInternal
 #include "CydiaSubstrate.h"
 
-#include <mach/mach_init.h>
-#include <mach/vm_map.h>
+#include <sys/mman.h>
 
+#include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
 
-#ifdef __APPLE__
 struct __SubstrateMemory {
-    mach_port_t self_;
-    uintptr_t base_;
+    void *address_;
     size_t width_;
 
-    __SubstrateMemory(mach_port_t self, uintptr_t base, size_t width) :
-        self_(self),
-        base_(base),
+    __SubstrateMemory(void *address, size_t width) :
+        address_(address),
         width_(width)
     {
     }
@@ -53,21 +50,20 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
 
     int page(getpagesize());
 
-    mach_port_t self(mach_task_self());
     uintptr_t base(reinterpret_cast<uintptr_t>(data) / page * page);
     size_t width(((reinterpret_cast<uintptr_t>(data) + size - 1) / page + 1) * page - base);
+    void *address(reinterpret_cast<void *>(base));
 
-    if (kern_return_t error = vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
-        fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
+    if (mprotect(address, width, PROT_READ | PROT_WRITE | PROT_EXEC) == -1) {
+        fprintf(stderr, "MS:Error:mprotect() = %d\n", errno);
         return NULL;
     }
 
-    return new __SubstrateMemory(self, base, width);
+    return new __SubstrateMemory(address, width);
 }
 
 extern "C" void SubstrateMemoryRelease(SubstrateMemoryRef memory) {
-    if (kern_return_t error = vm_protect(memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
-        fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
+    if (mprotect(memory->address_, memory->width_, PROT_READ | PROT_WRITE | PROT_EXEC) == -1)
+        fprintf(stderr, "MS:Error:mprotect() = %d\n", errno);
     delete memory;
 }
-#endif

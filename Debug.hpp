@@ -29,7 +29,7 @@
     CFLog(kCFLogLevelNotice, CFSTR(format), ## __VA_ARGS__)
 #else
 #define lprintf(format, ...) do { \
-    fprintf(stderr, format...); \
+    fprintf(stderr, format, ## __VA_ARGS__); \
     fprintf(stderr, "\n"); \
 } while (false)
 #endif

@@ -38,7 +38,7 @@ mflags+=(-Xarch_i386 -fobjc-gc)
 mflags+=(-Xarch_x86_64 -fobjc-gc)
 
 function cycc() {
-    ./cycc -r4.0 "$@"
+    ./cycc "$@"
     echo
 }
 

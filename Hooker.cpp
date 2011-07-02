@@ -34,10 +34,13 @@
 
 #include "Debug.hpp"
 
-extern "C" void __clear_cache (char *beg, char *end);
+#include <errno.h>
+#include <stdio.h>
+
+extern "C" void __clear_cache (void *beg, void *end);
 
 static _finline void MSClearCache(void *data, size_t size) {
-#ifdef __arm__
+#if defined(__APPLE__) && defined(__arm__)
     // removed in iOS 4.1, it turns out __clear_cache had always been a nop
     // XXX: we should probably do something here... right?... right?!
 #else

@@ -132,10 +132,12 @@ if [[ -n ${ios} ]]; then
     gcc=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/${gcc}${gvr}
     archs+=(armv6)
 
+    sdks=(/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS*.sdk)
+
     declare -a armv6
     armv6+=(-mcpu=arm1176jzf-s -mthumb)
     armv6+=(-miphoneos-version-min="${ios}")
-    armv6+=(-isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS"${ios}".sdk)
+    armv6+=(-isysroot "${sdks[${#sdks[@]}-1]}")
     armv6+=(-idirafter /usr/include)
     armv6+=(-F/Library/Frameworks)
 

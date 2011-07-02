@@ -23,8 +23,8 @@
 #include "Debug.hpp"
 
 #include <stdint.h>
-#include <cstdlib>
-#include <cstdio>
+#include <stdlib.h>
+#include <stdio.h>
 
 _extern bool MSDebug;
 bool MSDebug = false;

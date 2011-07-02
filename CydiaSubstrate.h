@@ -36,6 +36,7 @@ extern "C" {
 #endif
 
 #include <dlfcn.h>
+#include <stdlib.h>
 
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
@@ -297,6 +298,7 @@ static inline void MSHookSymbol(Type_ *&value, const char *name, void *handle = 
     value = reinterpret_cast<Type_ *>(dlsym(handle, name));
 }
 
+#ifdef __APPLE__
 /* Objective-C Handle<> {{{ */
 template <typename Type_>
 class _H {
@@ -349,6 +351,7 @@ class _H {
 /* }}} */
 
 #define _pooled _H<NSAutoreleasePool> _pool([[NSAutoreleasePool alloc] init], true);
+#endif
 
 #endif
 
