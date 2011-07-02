@@ -19,8 +19,6 @@
 **/
 /* }}} */
 
-#ifdef __APPLE__
-
 #include <mach/mach.h>
 #include <mach/mach_init.h>
 
@@ -323,6 +321,4 @@ MSHook(int, nlist, const char *file, struct nlist *names) {
 MSInitialize {
     MSHookFunction(&nlist, MSHake(nlist));
 }
-#endif
-
 #endif
