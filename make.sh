@@ -53,7 +53,9 @@ done))
 
 cycc "${ios}" "${mac}" -oObjectiveC.o -- -c "${flags[@]}" "${mflags[@]}" ObjectiveC.mm
 
-cycc "${ios}" "${mac}" -olibsubstrate.dylib -- "${flags[@]}" -dynamiclib MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp hde64c/src/hde64.c Debug.cpp \
+cycc "${ios}" "${mac}" -olibsubstrate.dylib -- "${flags[@]}" -dynamiclib \
+    MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp Debug.cpp \
+    -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c \
     -framework CoreFoundation \
     -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate \
     -undefined dynamic_lookup \
