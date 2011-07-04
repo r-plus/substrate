@@ -19,8 +19,6 @@
 **/
 /* }}} */
 
-#ifdef __APPLE__
-
 #include "CydiaSubstrate.h"
 
 #import <Foundation/Foundation.h>
@@ -184,6 +182,4 @@ _extern IMP MSHookMessage(Class _class, SEL sel, IMP imp, const char *prefix) {
 _extern void _Z13MSHookMessageP10objc_classP13objc_selectorPFP11objc_objectS4_S2_zEPKc(Class _class, SEL sel, IMP imp, const char *prefix) {
     MSHookMessageInternal(_class, sel, imp, NULL, prefix);
 }
-#endif
-
 #endif

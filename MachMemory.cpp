@@ -28,7 +28,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#ifdef __APPLE__
 struct __SubstrateMemory {
     mach_port_t self_;
     uintptr_t base_;
@@ -70,4 +69,3 @@ extern "C" void SubstrateMemoryRelease(SubstrateMemoryRef memory) {
         fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
     delete memory;
 }
-#endif
