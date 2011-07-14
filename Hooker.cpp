@@ -105,9 +105,9 @@ X 4790  ldr r*,[pc,#*]    */
 #define T$b$_$im(cond,im) /* b<cond> #im */ \
     (cond == A$al ? 0xe000 | (((im) >> 1) & 0x7ff) : 0xd000 | ((cond) << 8) | (((im) >> 1) & 0xff))
 
-#define T1$ldr_rt_$pc_im$(rt, im) /* ldr rt, [PC, #im] */ \
-    (0xf85f | (im < 0 ? 0 : 1))
-#define T2$ldr_rt_$pc_im$(rt, im) /* ldr rt, [PC, #im] */ \
+#define T1$ldr_rt_$rn_im$(rt, rn, im) /* ldr rt, [rn, #im] */ \
+    (0xf850 | ((im < 0 ? 0 : 1) << 7) | (rn))
+#define T2$ldr_rt_$rn_im$(rt, rn, im) /* ldr rt, [rn, #im] */ \
     (((rt) << 12) | abs(im))
 
 #define T1$mrs_rd_apsr(rd) /* mrs rd, apsr */ \
@@ -264,7 +264,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
             } else if (T$pcrel$cbz(backup[offset])) {
                 size += 16;
             } else if (T$pcrel$ldrw(backup[offset])) {
-                size += 2;
+                size += 4;
                 ++offset;
             } else if (T$pcrel$add(backup[offset]))
                 size += 6;
@@ -499,16 +499,20 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
 
                     struct {
                         uint16_t immediate : 12;
-                        uint16_t rd : 4;
+                        uint16_t rt : 4;
                     };
                 } exts = {backup[offset+1]};
 
-                buffer[start+0] = T$ldr_rd_$pc_im_4$(exts.rd, ((end-2 - (start+0)) * 2 - 4 + 2) / 4);
-                buffer[start+1] = T$ldr_rd_$rn_im_4$(exts.rd, exts.rd, 0);
+                buffer[start+0] = T1$ldr_rt_$rn_im$(exts.rt, A$pc, ((end-2 - (start+1)) * 2 - 4 + 2));
+                buffer[start+1] = T2$ldr_rt_$rn_im$(exts.rt, A$pc, ((end-2 - (start+1)) * 2 - 4 + 2));
+
+                buffer[start+2] = T1$ldr_rt_$rn_im$(exts.rt, exts.rt, 0);
+                buffer[start+3] = T2$ldr_rt_$rn_im$(exts.rt, exts.rt, 0);
+
                 *--trailer = ((reinterpret_cast<uint32_t>(area + offset) + 4) & ~0x2) + (bits.u == 0 ? -exts.immediate : exts.immediate);
 
                 ++offset;
-                start += 2;
+                start += 4;
                 end -= 2;
             } else if (T$pcrel$add(backup[offset])) {
                 union {
