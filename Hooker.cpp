@@ -217,7 +217,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
         if (MSDebug) {
             char name[16];
             sprintf(name, "%p", area);
-            MSLogHex(area, used + sizeof(uint16_t), name);
+            MSLogHexEx(area, used + sizeof(uint16_t), 2, name);
         }
 
         memcpy(backup, area, used);
@@ -242,7 +242,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
     if (MSDebug) {
         char name[16];
         sprintf(name, "%p", area);
-        MSLogHex(area, used + sizeof(uint16_t), name);
+        MSLogHexEx(area, used + sizeof(uint16_t), 2, name);
     }
 
     // XXX: impedence mismatch
@@ -564,7 +564,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
         if (MSDebug) {
             char name[16];
             sprintf(name, "%p", *result);
-            MSLogHex(buffer, length, name);
+            MSLogHexEx(buffer, length, 2, name);
         }
     }
 }

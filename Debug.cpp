@@ -36,7 +36,7 @@ static char _MSHexChar(uint8_t value) {
 #define HexWidth_ 16
 #define HexDepth_ 4
 
-void MSLogHex(const void *vdata, size_t size, const char *mark) {
+void MSLogHexEx(const void *vdata, size_t size, size_t stride, const char *mark) {
     const uint8_t *data((const uint8_t *) vdata);
 
     size_t i(0), j;
@@ -52,12 +52,20 @@ void MSLogHex(const void *vdata, size_t size, const char *mark) {
             b += sprintf(d + b, "0x%.3zx:", i);
         }
 
-        b += sprintf(d + b, " %.2x", data[i]);
+        b += sprintf(d + b, " ");
 
-        if ((i + 1) % HexDepth_ == 0)
+        for (size_t q(0); q != stride; ++q)
+            b += sprintf(d + b, "%.2x", data[i + stride - q - 1]);
+
+        i += stride;
+
+        for (size_t q(1); q != stride; ++q)
             b += sprintf(d + b, " ");
 
-        if (++i % HexWidth_ == 0) {
+        if (i % HexDepth_ == 0)
+            b += sprintf(d + b, " ");
+
+        if (i % HexWidth_ == 0) {
             b += sprintf(d + b, " ");
             for (j = i - HexWidth_; j != i; ++j)
                 b += sprintf(d + b, "%c", _MSHexChar(data[j]));
@@ -81,4 +89,8 @@ void MSLogHex(const void *vdata, size_t size, const char *mark) {
         b = 0;
         d[0] = '\0';
     }
+}
+
+void MSLogHex(const void *vdata, size_t size, const char *mark) {
+    return MSLogHexEx(vdata, size, 1, mark);
 }
