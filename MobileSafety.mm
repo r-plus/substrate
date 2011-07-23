@@ -134,10 +134,26 @@ MSInstanceMessageHook2(void, UIStatusBar, touchesBegan,withEvent, void *, touche
 }
 
 MSInstanceMessageHook0(void, SBStatusBarDataManager, _updateTimeString) {
-    if (char *_data = &MSHookIvar<char>(self, "_data")) {
-        char *timeString(_data + 20);
-        strcpy(timeString, "Exit Safe Mode");
-    }
+    char *_data(&MSHookIvar<char>(self, "_data"));
+    if (_data == NULL)
+        return;
+
+    Ivar _itemIsEnabled(object_getInstanceVariable(self, "_itemIsEnabled", NULL));
+    if (_itemIsEnabled == NULL)
+        return;
+
+    Ivar _itemIsCloaked(object_getInstanceVariable(self, "_itemIsCloaked", NULL));
+    if (_itemIsCloaked == NULL)
+        return;
+
+    size_t enabledOffset(ivar_getOffset(_itemIsEnabled));
+    size_t cloakedOffset(ivar_getOffset(_itemIsCloaked));
+    if (enabledOffset >= cloakedOffset)
+        return;
+
+    size_t offset(cloakedOffset - enabledOffset);
+    char *timeString(_data + offset);
+    strcpy(timeString, "Exit Safe Mode");
 }
 
 static void SBIconController$showInfoAlertIfNeeded(id self, SEL sel) {
