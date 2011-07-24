@@ -34,6 +34,8 @@
 #include <objc/runtime.h>
 #include "CydiaSubstrate.h"
 
+#include "Log.hpp"
+
 #define ForSaurik 0
 
 static char MSWatch[PATH_MAX];
@@ -83,7 +85,7 @@ MSInitialize {
 
     Class (*NSClassFromString)(CFStringRef) = reinterpret_cast<Class (*)(CFStringRef)>(dlsym(RTLD_DEFAULT, "NSClassFromString"));
 
-    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Installing: %@ [%s] (%.2f)"), identifier, slash, kCFCoreFoundationVersionNumber);
+    MSLog(MSLogLevelNotice, "MS:Notice: Installing: %@ [%s] (%.2f)", identifier, slash, kCFCoreFoundationVersionNumber);
 
     const char *dat(NULL);
     if (identifier != NULL && CFEqual(identifier, CFSTR("com.apple.springboard")))
@@ -100,11 +102,11 @@ MSInitialize {
 
         if (access(MSWatch, R_OK) == 0) {
             if (unlink(MSWatch) == -1)
-                CFLog(kCFLogLevelError, CFSTR("MS:Error: Cannot Clear: %s"), strerror(errno));
+                MSLog(MSLogLevelError, "MS:Error: Cannot Clear: %s", strerror(errno));
 
             void *handle(dlopen(Safety_, RTLD_LAZY | RTLD_GLOBAL));
             if (handle == NULL)
-                CFLog(kCFLogLevelError, CFSTR("MS:Error: Cannot Load: %s"), dlerror());
+                MSLog(MSLogLevelError, "MS:Error: Cannot Load: %s", dlerror());
 
             return;
         }
@@ -119,7 +121,7 @@ MSInitialize {
             if (sigaltstack(&stack, NULL) != -1)
                 stacked = true;
             else
-                CFLog(kCFLogLevelWarning, CFSTR("MS:Error: Cannot Stack: %s"), strerror(errno));
+                MSLog(MSLogLevelWarning, "MS:Error: Cannot Stack: %s", strerror(errno));
         }
 
         struct sigaction action;
@@ -178,7 +180,7 @@ sigaction(signum, NULL, &old); { \
             CFRelease(data);
 
             if (meta == NULL && error != NULL) {
-                CFLog(kCFLogLevelError, CFSTR("MS:Error: Corrupt PropertyList: %@"), dylib);
+                MSLog(MSLogLevelError, "MS:Error: Corrupt PropertyList: %@", dylib);
                 continue;
             }
         }
@@ -191,7 +193,7 @@ sigaction(signum, NULL, &old); { \
 
                     if (CFIndex count = CFArrayGetCount(version)) {
                         if (count > 2) {
-                            CFLog(kCFLogLevelError, CFSTR("MS:Error: Invalid CoreFoundationVersion: %@"), version);
+                            MSLog(MSLogLevelError, "MS:Error: Invalid CoreFoundationVersion: %@", version);
                             goto release;
                         }
 
@@ -233,7 +235,7 @@ sigaction(signum, NULL, &old); { \
                         CFStringRef executable(reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(executables, i)));
                         if (CFEqual(executable, name)) {
                             if (ForSaurik)
-                                CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Found: %@"), name);
+                                MSLog(MSLogLevelNotice, "MS:Notice: Found: %@", name);
                             load = true;
                             break;
                         }
@@ -253,7 +255,7 @@ sigaction(signum, NULL, &old); { \
                         CFStringRef bundle(reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(bundles, i)));
                         if (CFBundleGetBundleWithIdentifier(bundle) != NULL) {
                             if (ForSaurik)
-                                CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Found: %@"), bundle);
+                                MSLog(MSLogLevelNotice, "MS:Notice: Found: %@", bundle);
                             load = true;
                             break;
                         }
@@ -272,7 +274,7 @@ sigaction(signum, NULL, &old); { \
                             CFStringRef _class(reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(classes, i)));
                             if (NSClassFromString(_class) != NULL) {
                                 if (ForSaurik)
-                                    CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Found: %@"), _class);
+                                    MSLog(MSLogLevelNotice, "MS:Notice: Found: %@", _class);
                                 load = true;
                                 break;
                             }
@@ -291,30 +293,30 @@ sigaction(signum, NULL, &old); { \
             continue;
 
         memcpy(path + length - 5, "dylib", 5);
-        CFLog(kCFLogLevelNotice, CFSTR("MS:Notice: Loading: %s"), path);
+        MSLog(MSLogLevelNotice, "MS:Notice: Loading: %s", path);
 
         if (MSWatch[0] != '\0') {
             int fd(open(MSWatch, O_CREAT | O_RDWR, 0644));
             if (fd == -1)
-                CFLog(kCFLogLevelError, CFSTR("MS:Error: Cannot Set: %s"), strerror(errno));
+                MSLog(MSLogLevelError, "MS:Error: Cannot Set: %s", strerror(errno));
             else if (close(fd) == -1)
-                CFLog(kCFLogLevelError, CFSTR("MS:Error: Cannot Close: %s"), strerror(errno));
+                MSLog(MSLogLevelError, "MS:Error: Cannot Close: %s", strerror(errno));
         }
 
         void *handle(dlopen(path, RTLD_LAZY | RTLD_GLOBAL));
 
         if (MSWatch[0] != '\0')
             if (unlink(MSWatch) == -1)
-                CFLog(kCFLogLevelError, CFSTR("MS:Error: Cannot Reset: %s"), strerror(errno));
+                MSLog(MSLogLevelError, "MS:Error: Cannot Reset: %s", strerror(errno));
 
         if (handle == NULL) {
-            CFLog(kCFLogLevelError, CFSTR("MS:Error: %s"), dlerror());
+            MSLog(MSLogLevelError, "MS:Error: %s", dlerror());
             continue;
         }
     }
 
     if (false) {
-        CFLog(kCFLogLevelNotice, CFSTR("MobileSubstrate fell asleep... I'll wake him up in 10 seconds ;P"));
+        MSLog(MSLogLevelNotice, "MobileSubstrate fell asleep... I'll wake him up in 10 seconds ;P");
         sleep(10);
     }
 }
