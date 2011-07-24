@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Cydia Substrate - Powerful Code Insertion Platform
-# Copyright (C) 2008-2010  Jay Freeman (saurik)
+# Copyright (C) 2008-2011  Jay Freeman (saurik)
 
 # GNU Lesser General Public License, Version 3 {{{
 #
