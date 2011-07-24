@@ -22,7 +22,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <CoreFoundation/CFPriv.h>
-#include <CoreFoundation/CFLogUtilities.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
