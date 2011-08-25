@@ -53,8 +53,8 @@ libsubstrate.dylib: MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp 
 SubstrateBootstrap.dylib: Bootstrap.cpp
 	./cycc $(ios) $(mac) -oSubstrateBootstrap.dylib -- $(flags) -dynamiclib Bootstrap.cpp
 
-SubstrateLoader.dylib: Loader.cpp
-	./cycc $(ios) $(mac) -oSubstrateLoader.dylib -- $(flags) -dynamiclib Loader.cpp \
+SubstrateLoader.dylib: DarwinLoader.cpp
+	./cycc $(ios) $(mac) -oSubstrateLoader.dylib -- $(flags) -dynamiclib DarwinLoader.cpp \
 	    -framework CoreFoundation
 
 MobileSafety.dylib: MobileSafety.mm
