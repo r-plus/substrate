@@ -73,7 +73,10 @@ deb: ios extrainst_ postrm
 install: deb
 	PATH=/Library/Cydia/bin:/usr/sbin:/usr/bin:/sbin:/bin sudo dpkg -i com.cydia.substrate_$(shell ./version.sh)_cydia.deb
 
+upgrade: all
+	sudo cp -a libsubstrate.dylib /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
+
 clean:
 	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib MobileSafety.dylib extrainst_ postrm
 
-.PHONY: all clean darwin deb install ios
+.PHONY: all clean darwin deb install ios upgrade
