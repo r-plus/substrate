@@ -86,7 +86,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
 
     if (!direct) {
 #if defined(__arm__)
-        size_t length(13 * sizeof(uint32_t));
+        size_t length(12 * sizeof(uint32_t));
 #elif defined(__i386__)
         size_t length(20);
 #elif defined(__x86_64__)
@@ -123,19 +123,17 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
             A$r re(stret ? A$r0 : A$r2);
 
             buffer[ 0] = A$stmdb_sp$_$rs$((1 << rs) | (1 << re) | (1 << A$r3) | (1 << A$lr));
-            buffer[ 1] = A$ldr_rd_$rn_im$(A$r0, A$pc, (10 - 1 - 2) * 4);
-            buffer[ 2] = A$ldr_rd_$rn_im$(A$r1, A$pc, (11 - 2 - 2) * 4);
-            buffer[ 3] = A$ldr_rd_$rn_im$(A$lr, A$pc, (12 - 3 - 2) * 4);
+            buffer[ 1] = A$ldr_rd_$rn_im$(A$r0, A$pc, ( 9 - 1 - 2) * 4);
+            buffer[ 2] = A$ldr_rd_$rn_im$(A$r1, A$pc, (10 - 2 - 2) * 4);
+            buffer[ 3] = A$ldr_rd_$rn_im$(A$lr, A$pc, (11 - 3 - 2) * 4);
             buffer[ 4] = A$blx_rm(A$lr);
-            // XXX: if you store this value to the stack now you can avoid instruction 7 later
-            buffer[ 5] = A$mov_rd_rm(rc, A$r0);
+            buffer[ 5] = A$str_rd_$rn_im$(A$r0, A$sp, -4);
             buffer[ 6] = A$ldmia_sp$_$rs$((1 << rs) | (1 << re) | (1 << A$r3) | (1 << A$lr));
-            buffer[ 7] = A$str_rd_$rn_im$(rc, A$sp, -4);
-            buffer[ 8] = A$ldr_rd_$rn_im$(rc, A$pc, (11 - 8 - 2) * 4);
-            buffer[ 9] = A$ldr_rd_$rn_im$(A$pc, A$sp, -4);
-            buffer[10] = reinterpret_cast<uint32_t>(class_getSuperclass(_class));
-            buffer[11] = reinterpret_cast<uint32_t>(sel);
-            buffer[12] = reinterpret_cast<uint32_t>(stret ? &class_getMethodImplementation_stret : &class_getMethodImplementation);
+            buffer[ 7] = A$ldr_rd_$rn_im$(rc, A$pc, (10 - 7 - 2) * 4);
+            buffer[ 8] = A$ldr_rd_$rn_im$(A$pc, A$sp, -4 - (4 * 4));
+            buffer[ 9] = reinterpret_cast<uint32_t>(class_getSuperclass(_class));
+            buffer[10] = reinterpret_cast<uint32_t>(sel);
+            buffer[11] = reinterpret_cast<uint32_t>(&class_getMethodImplementation);
 #elif defined(__i386__)
             uint8_t *current(reinterpret_cast<uint8_t *>(buffer));
 
