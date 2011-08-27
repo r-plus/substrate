@@ -35,6 +35,7 @@
 #include <unistd.h>
 
 #include "Debug.hpp"
+#include "Log.hpp"
 
 extern "C" void *NSPushAutoreleasePool(unsigned);
 extern "C" void NSPopAutoreleasePool(void *);
@@ -137,6 +138,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
                 char name[16];
                 sprintf(name, "%p", old);
                 MSLogHex(buffer, length, name);
+                MSLog(MSLogLevelNotice, "jmp %p(%p, %p)\n", &class_getMethodImplementation, super, sel);
             }
         }
     }
