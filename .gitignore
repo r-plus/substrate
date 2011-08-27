@@ -5,3 +5,4 @@ Struct.*.hpp
 package.*
 extrainst_
 postrm
+TestSuperCall

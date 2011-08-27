@@ -79,4 +79,9 @@ upgrade: all
 clean:
 	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib MobileSafety.dylib extrainst_ postrm
 
-.PHONY: all clean darwin deb install ios upgrade
+test:
+	./cycc -i2.0 -m10.5 -oTestSuperCall -- TestSuperCall.mm -framework CoreFoundation -framework Foundation -lobjc libsubstrate.dylib
+	arch -i386 ./TestSuperCall
+	arch -x86_64 ./TestSuperCall
+
+.PHONY: all clean darwin deb install ios test upgrade
