@@ -99,6 +99,39 @@ _disused static void MSPushPointer(uint8_t *&current, void *target) {
     return MSPushPointer(current, reinterpret_cast<uintptr_t>(target));
 }
 
+_disused static void MSWriteCall(uint8_t *&current, I$r target) {
+    if (target >> 3 != 0)
+        MSWrite<uint8_t>(current, 0x40 | (target & 0x08) >> 3);
+    MSWrite<uint8_t>(current, 0xff);
+    MSWrite<uint8_t>(current, 0xd0 | target & 0x07);
+}
+
+_disused static void MSWriteCall(uint8_t *&current, uintptr_t target) {
+    uintptr_t source(reinterpret_cast<uintptr_t>(current));
+
+    if (ia32 || MSIs32BitOffset(target, source + 5)) {
+        MSWrite<uint8_t>(current, 0xe8);
+        MSWrite<uint32_t>(current, target - (source + 5));
+    } else {
+        MSPushPointer(current, target);
+
+        MSWrite<uint8_t>(current, 0x83);
+        MSWrite<uint8_t>(current, 0xc4);
+        MSWrite<uint8_t>(current, 0x08);
+
+        MSWrite<uint8_t>(current, 0x67);
+        MSWrite<uint8_t>(current, 0xff);
+        MSWrite<uint8_t>(current, 0x54);
+        MSWrite<uint8_t>(current, 0x24);
+        MSWrite<uint8_t>(current, 0xf8);
+    }
+}
+
+template <typename Type_>
+_disused static void MSWriteCall(uint8_t *&current, Type_ *target) {
+    return MSWriteCall(current, reinterpret_cast<uintptr_t>(target));
+}
+
 _disused static void MSWriteJump(uint8_t *&current, uintptr_t target) {
     uintptr_t source(reinterpret_cast<uintptr_t>(current));
 
@@ -114,6 +147,13 @@ _disused static void MSWriteJump(uint8_t *&current, void *target) {
     return MSWriteJump(current, reinterpret_cast<uintptr_t>(target));
 }
 
+_disused static void MSWriteJump(uint8_t *&current, I$r target) {
+    if (target >> 3 != 0)
+        MSWrite<uint8_t>(current, 0x40 | (target & 0x08) >> 3);
+    MSWrite<uint8_t>(current, 0xff);
+    MSWrite<uint8_t>(current, 0xe0 | target & 0x07);
+}
+
 _disused static void MSWritePop(uint8_t *&current, uint8_t target) {
     if (target >> 3 != 0)
         MSWrite<uint8_t>(current, 0x40 | (target & 0x08) >> 3);
@@ -122,6 +162,29 @@ _disused static void MSWritePop(uint8_t *&current, uint8_t target) {
 
 _disused static size_t MSSizeOfPop(uint8_t target) {
     return target >> 3 != 0 ? 2 : 1;
+}
+
+_disused static void MSWritePush(uint8_t *&current, I$r target) {
+    if (target >> 3 != 0)
+        MSWrite<uint8_t>(current, 0x40 | (target & 0x08) >> 3);
+    MSWrite<uint8_t>(current, 0x50 | target & 0x07);
+}
+
+_disused static void MSWriteAdd(uint8_t *&current, I$r target, uint8_t source) {
+    MSWrite<uint8_t>(current, 0x83);
+    MSWrite<uint8_t>(current, 0xc4 | target & 0x07);
+    MSWrite<uint8_t>(current, source);
+}
+
+_disused static void MSWriteSet64(uint8_t *&current, I$r target, uintptr_t source) {
+    MSWrite<uint8_t>(current, 0x48 | (target & 0x08) >> 3 << 2);
+    MSWrite<uint8_t>(current, 0xb8 | target & 0x7);
+    MSWrite<uint64_t>(current, source);
+}
+
+template <typename Type_>
+_disused static void MSWriteSet64(uint8_t *&current, I$r target, Type_ *source) {
+    return MSWriteSet64(current, target, reinterpret_cast<uintptr_t>(source));
 }
 
 _disused static void MSWriteMove64(uint8_t *&current, uint8_t source, uint8_t target) {

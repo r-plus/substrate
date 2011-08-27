@@ -23,10 +23,13 @@
 
 #import <Foundation/Foundation.h>
 
+#include STRUCT_HPP
+
 // XXX: this is required by some code below
 #ifdef __arm__
-#include STRUCT_HPP
 #include "ARM.hpp"
+#elif defined(__i386__) || defined(__x86_64__)
+#include "x86.hpp"
 #endif
 
 #include <objc/runtime.h>
@@ -81,10 +84,14 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
 
     IMP old(NULL);
 
-// XXX: port this to x86
-#if defined(__arm__)
     if (!direct) {
+#if defined(__arm__)
         size_t length(13 * sizeof(uint32_t));
+#elif defined(__i386__)
+        size_t length(20);
+#elif defined(__x86_64__)
+        size_t length(40);
+#endif
 
         uint32_t *buffer(reinterpret_cast<uint32_t *>(mmap(
             NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
@@ -108,6 +115,9 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
                 NSPopAutoreleasePool(pool);
             }
 
+            Class super(class_getSuperclass(_class));
+
+#if defined(__arm__)
             A$r rs(stret ? A$r1 : A$r0);
             A$r rc(stret ? A$r2 : A$r1);
             A$r re(stret ? A$r0 : A$r2);
@@ -126,6 +136,33 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
             buffer[10] = reinterpret_cast<uint32_t>(class_getSuperclass(_class));
             buffer[11] = reinterpret_cast<uint32_t>(sel);
             buffer[12] = reinterpret_cast<uint32_t>(stret ? &class_getMethodImplementation_stret : &class_getMethodImplementation);
+#elif defined(__i386__)
+            uint8_t *current(reinterpret_cast<uint8_t *>(buffer));
+
+            MSPushPointer(current, sel);
+            MSPushPointer(current, super);
+            MSWriteCall(current, &class_getMethodImplementation);
+            MSWriteAdd(current, I$rsp, 8);
+            MSWriteJump(current, I$rax);
+#elif defined(__x86_64__)
+            uint8_t *current(reinterpret_cast<uint8_t *>(buffer));
+
+            MSWritePush(current, I$rdi);
+            MSWritePush(current, I$rsi);
+            MSWritePush(current, I$rdx);
+
+            MSWriteSet64(current, I$rdi, super);
+            MSWriteSet64(current, I$rsi, sel);
+
+            MSWriteSet64(current, I$rax, &class_getMethodImplementation);
+            MSWriteCall(current, I$rax);
+
+            MSWritePop(current, I$rdx);
+            MSWritePop(current, I$rsi);
+            MSWritePop(current, I$rdi);
+
+            MSWriteJump(current, I$rax);
+#endif
 
             if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
                 fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
@@ -142,7 +179,6 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
             }
         }
     }
-#endif
 
     if (old == NULL)
         old = method_getImplementation(method);
