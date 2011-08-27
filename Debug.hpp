@@ -22,17 +22,9 @@
 #ifndef SUBSTRATE_DEBUG_HPP
 #define SUBSTRATE_DEBUG_HPP
 
-#ifdef __APPLE__
-#include <CoreFoundation/CFLogUtilities.h>
-/* XXX: proper CFStringRef conversion */
+#include "Log.hpp"
 #define lprintf(format, ...) \
-    CFLog(kCFLogLevelNotice, CFSTR(format), ## __VA_ARGS__)
-#else
-#define lprintf(format, ...) do { \
-    fprintf(stderr, format, ## __VA_ARGS__); \
-    fprintf(stderr, "\n"); \
-} while (false)
-#endif
+    MSLog(MSLogLevelNotice, format, ## __VA_ARGS__)
 
 extern "C" bool MSDebug;
 void MSLogHexEx(const void *vdata, size_t size, size_t stride, const char *mark = 0);
