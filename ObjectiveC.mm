@@ -90,7 +90,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
 #elif defined(__i386__)
         size_t length(20);
 #elif defined(__x86_64__)
-        size_t length(40);
+        size_t length(50);
 #endif
 
         uint32_t *buffer(reinterpret_cast<uint32_t *>(mmap(
@@ -151,11 +151,19 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
             MSWritePush(current, I$rsi);
             MSWritePush(current, I$rdx);
 
+            MSWritePush(current, I$rcx);
+            MSWritePush(current, I$r8);
+            MSWritePush(current, I$r9);
+
             MSWriteSet64(current, I$rdi, super);
             MSWriteSet64(current, I$rsi, sel);
 
             MSWriteSet64(current, I$rax, &class_getMethodImplementation);
             MSWriteCall(current, I$rax);
+
+            MSWritePop(current, I$r9);
+            MSWritePop(current, I$r8);
+            MSWritePop(current, I$rcx);
 
             MSWritePop(current, I$rdx);
             MSWritePop(current, I$rsi);
