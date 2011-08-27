@@ -70,7 +70,7 @@ deb: ios extrainst_ postrm
 	./package.sh i386
 	./package.sh arm
 
-install:
+install: deb
 	PATH=/Library/Cydia/bin:/usr/sbin:/usr/bin:/sbin:/bin sudo dpkg -i com.cydia.substrate_$(shell ./version.sh)_cydia.deb
 
 clean:
