@@ -31,8 +31,12 @@ MSClassHook(UIStatusBar)
 MSClassHook(UIImage)
 MSMetaClassHook(UIImage)
 
+MSClassHook(AAAccountManager)
+MSMetaClassHook(AAAccountManager)
+
 MSClassHook(SBAlertItemsController)
 MSClassHook(SBButtonBar)
+MSClassHook(SBIconController)
 MSClassHook(SBStatusBar)
 MSClassHook(SBStatusBarDataManager)
 MSClassHook(SBStatusBarTimeView)
@@ -156,12 +160,21 @@ MSInstanceMessageHook0(void, SBStatusBarDataManager, _updateTimeString) {
     strcpy(timeString, "Exit Safe Mode");
 }
 
-static void SBIconController$showInfoAlertIfNeeded(id self, SEL sel) {
-    static bool loaded = false;
-    if (loaded)
+static bool alerted_;
+
+static void AlertIfNeeded() {
+    if (alerted_)
         return;
-    loaded = true;
+    alerted_ = true;
     MSAlert();
+}
+
+MSClassMessageHook0(void, AAAccountManager, showMobileMeOfferIfNecessary) {
+    AlertIfNeeded();
+}
+
+MSInstanceMessageHook0(void, SBIconController, showInfoAlertIfNeeded) {
+    AlertIfNeeded();
 }
 
 MSInstanceMessageHook0(int, SBButtonBar, maxIconColumns) {
@@ -242,14 +255,6 @@ MSInitialize {
             [value removeObjectAtIndex:index];
             setenv("DYLD_INSERT_LIBRARIES", [[value componentsJoinedByString:@":"] UTF8String], !0);
         }
-    }
-
-    $SBAlertItemsController = objc_getClass("SBAlertItemsController");
-
-    if (Class _class = objc_getClass("SBIconController")) {
-        SEL sel(@selector(showInfoAlertIfNeeded));
-        if (Method method = class_getInstanceMethod(_class, sel))
-            method_setImplementation(method, (IMP) &SBIconController$showInfoAlertIfNeeded);
     }
 
     [pool release];
