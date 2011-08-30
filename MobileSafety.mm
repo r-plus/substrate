@@ -91,7 +91,7 @@ void SafeModeAlertItem$alertSheet$buttonClicked$(id self, SEL sel, id sheet, int
 void SafeModeAlertItem$configure$requirePasscodeForActions$(id self, SEL sel, BOOL configure, BOOL require) {
     UIAlertView *sheet([self alertSheet]);
     [sheet setDelegate:self];
-    [sheet setBodyText:@"We apologize for the inconvenience, but SpringBoard has just crashed.\n\nMobileSubstrate /did not/ cause this problem: it has protected you from it.\n\nYour device is now running in Safe Mode. All extensions that support this safety system are disabled.\n\nReboot (or restart SpringBoard) to return to the normal mode. To return to this dialog touch the status bar."];
+    [sheet setBodyText:@"We apologize for the inconvenience, but SpringBoard has just crashed.\n\nMobileSubstrate /did not/ cause this problem: it has protected you from it.\n\nYour device is now running in Safe Mode. All extensions that support this safety system are disabled.\n\nReboot (or restart SpringBoard) to return to the normal mode. To return to this dialog touch the status bar.\n\nTap \"Help\" below for more tips."];
     [sheet addButtonWithTitle:@"OK"];
     [sheet addButtonWithTitle:@"Restart"];
     [sheet addButtonWithTitle:@"Help"];
