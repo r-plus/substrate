@@ -75,6 +75,8 @@ install: deb
 
 upgrade: all
 	sudo cp -a libsubstrate.dylib /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
+	sudo cp -a SubstrateBootstrap.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
+	sudo cp -a SubstrateLoader.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
 
 clean:
 	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib MobileSafety.dylib extrainst_ postrm
