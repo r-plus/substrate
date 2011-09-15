@@ -57,7 +57,7 @@ SubstrateLoader.dylib: DarwinLoader.cpp
 	./cycc $(ios) $(mac) -oSubstrateLoader.dylib -- $(flags) -dynamiclib DarwinLoader.cpp \
 	    -framework CoreFoundation
 
-MobileSafety.dylib: MobileSafety.mm
+MobileSafety.dylib: MobileSafety.mm libsubstrate.dylib
 	./cycc $(ios) -oMobileSafety.dylib -- $(flags) -dynamiclib MobileSafety.mm \
 	    -framework CoreFoundation -framework Foundation -framework UIKit \
 	    -L. -lsubstrate -lobjc
