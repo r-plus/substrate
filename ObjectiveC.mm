@@ -43,6 +43,28 @@
 extern "C" void *NSPushAutoreleasePool(unsigned);
 extern "C" void NSPopAutoreleasePool(void *);
 
+static Method MSFindMethod(Class _class, SEL sel) {
+    for (; _class != nil; _class = class_getSuperclass(_class)) {
+        unsigned int size;
+        Method *methods(class_copyMethodList(_class, &size));
+        if (methods == NULL)
+            continue;
+
+        for (unsigned int j(0); j != size; ++j) {
+            Method method(methods[j]);
+            if (!sel_isEqual(method_getName(methods[j]), sel))
+                continue;
+
+            free(methods);
+            return method;
+        }
+
+        free(methods);
+    }
+
+    return nil;
+}
+
 static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, const char *prefix) {
     if (MSDebug)
         fprintf(stderr, "MSHookMessageInternal(%s, %s, %p, %p, \"%s\")\n",
@@ -61,11 +83,9 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
         return;
     }
 
-    const char *name(sel_getName(sel));
-
-    Method method(class_getInstanceMethod(_class, sel));
+    Method method(MSFindMethod(_class, sel));
     if (method == nil) {
-        fprintf(stderr, "MS:Warning: message not found [%s %s]\n", class_getName(_class), name);
+        fprintf(stderr, "MS:Warning: message not found [%s %s]\n", class_getName(_class), sel_getName(sel));
         return;
     }
 
@@ -193,6 +213,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
         *result = old;
 
     if (prefix != NULL) {
+        const char *name(sel_getName(sel));
         size_t namelen(strlen(name));
         size_t fixlen(strlen(prefix));
 
