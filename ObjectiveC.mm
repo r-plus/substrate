@@ -67,25 +67,25 @@ static Method MSFindMethod(Class _class, SEL sel) {
 
 static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, const char *prefix) {
     if (MSDebug)
-        fprintf(stderr, "MSHookMessageInternal(%s, %s, %p, %p, \"%s\")\n",
+        MSLog(MSLogLevelNotice, "MSHookMessageInternal(%s, %s, %p, %p, \"%s\")",
             _class == nil ? "nil" : class_getName(_class),
             sel == NULL ? "NULL" : sel_getName(sel),
             imp, result, prefix
         );
     if (_class == nil) {
-        fprintf(stderr, "MS:Warning: nil class argument\n");
+        MSLog(MSLogLevelWarning, "MS:Warning: nil class argument");
         return;
     } else if (sel == nil) {
-        fprintf(stderr, "MS:Warning: nil sel argument\n");
+        MSLog(MSLogLevelWarning, "MS:Warning: nil sel argument");
         return;
     } else if (imp == nil) {
-        fprintf(stderr, "MS:Warning: nil imp argument\n");
+        MSLog(MSLogLevelWarning, "MS:Warning: nil imp argument");
         return;
     }
 
     Method method(MSFindMethod(_class, sel));
     if (method == nil) {
-        fprintf(stderr, "MS:Warning: message not found [%s %s]\n", class_getName(_class), sel_getName(sel));
+        MSLog(MSLogLevelWarning, "MS:Warning: message not found [%s %s]", class_getName(_class), sel_getName(sel));
         return;
     }
 
@@ -118,7 +118,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
         )));
 
         if (buffer == MAP_FAILED)
-            fprintf(stderr, "MS:Error:mmap() = %d\n", errno);
+            MSLog(MSLogLevelError, "MS:Error:mmap() = %d", errno);
         else if (false) fail:
             munmap(buffer, length);
         else {
@@ -191,7 +191,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
 #endif
 
             if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
-                fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
+                MSLog(MSLogLevelError, "MS:Error:mprotect():%d", errno);
                 goto fail;
             }
 
@@ -201,7 +201,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
                 char name[16];
                 sprintf(name, "%p", old);
                 MSLogHex(buffer, length, name);
-                MSLog(MSLogLevelNotice, "jmp %p(%p, %p)\n", &class_getMethodImplementation, super, sel);
+                MSLog(MSLogLevelNotice, "jmp %p(%p, %p)", &class_getMethodImplementation, super, sel);
             }
         }
     }
@@ -222,7 +222,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
         memcpy(newname + fixlen, name, namelen + 1);
 
         if (!class_addMethod(_class, sel_registerName(newname), old, type))
-            fprintf(stderr, "MS:Error: failed to rename [%s %s]\n", class_getName(_class), name);
+            MSLog(MSLogLevelError, "MS:Error: failed to rename [%s %s]", class_getName(_class), name);
     }
 
     if (direct)

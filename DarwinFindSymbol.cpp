@@ -40,7 +40,7 @@ extern "C" {
 #include "CydiaSubstrate.h"
 
 #define _trace() do { \
-    fprintf(stderr, "_trace(%u)\n", __LINE__); \
+    MSLog(MSLogLevelNotice, "_trace(%u)", __LINE__); \
 } while (false)
 
 struct MSSymbolData {

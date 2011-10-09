@@ -25,7 +25,7 @@
 #include <sys/mman.h>
 
 #define _trace() do { \
-    fprintf(stderr, "_trace(%u)\n", __LINE__); \
+    MSLog(MSLogLevelNotice, "_trace(%u)", __LINE__); \
 } while (false)
 
 #if defined(__i386__) || defined(__x86_64__)
@@ -272,7 +272,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
         )));
 
         if (buffer == MAP_FAILED) {
-            fprintf(stderr, "MS:Error:mmap() = %d\n", errno);
+            MSLog(MSLogLevelError, "MS:Error:mmap() = %d", errno);
             *result = NULL;
             return;
         }
@@ -521,7 +521,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
                 } bits = {backup[offset+0]};
 
                 if (bits.h1) {
-                    fprintf(stderr, "MS:Error:pcrel(%u):add (rd > r7)\n", offset);
+                    MSLog(MSLogLevelError, "MS:Error:pcrel(%u):add (rd > r7)", offset);
                     goto fail;
                 }
 
@@ -552,7 +552,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
         transfer[1] = reinterpret_cast<uint32_t>(area + used) + 1;
 
         if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
-            fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
+            MSLog(MSLogLevelError, "MS:Error:mprotect():%d", errno);
             return;
         }
 
@@ -607,7 +607,7 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
     )));
 
     if (buffer == MAP_FAILED) {
-        fprintf(stderr, "MS:Error:mmap() = %d\n", errno);
+        MSLog(MSLogLevelError, "MS:Error:mmap() = %d", errno);
         *result = NULL;
         return;
     }
@@ -644,7 +644,7 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
             } bits = {backup[offset+0]};
 
             if (bits.mode != 0 && bits.rd == bits.rm) {
-                fprintf(stderr, "MS:Error:pcrel(%u):%s (rd == rm)\n", offset, bits.l == 0 ? "str" : "ldr");
+                MSLog(MSLogLevelError, "MS:Error:pcrel(%u):%s (rd == rm)", offset, bits.l == 0 ? "str" : "ldr");
                 goto fail;
             } else {
                 buffer[start+0] = A$ldr_rd_$rn_im$(bits.rd, A$pc, (end-1 - (start+0)) * 4 - 8);
@@ -663,7 +663,7 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
     buffer[start+1] = reinterpret_cast<uint32_t>(area + used);
 
     if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
-        fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
+        MSLog(MSLogLevelError, "MS:Error:mprotect():%d", errno);
         goto fail;
     }
 
@@ -672,7 +672,7 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
 
 static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, void *replace, void **result) {
     if (MSDebug)
-        fprintf(stderr, "SubstrateHookFunction(%p, %p, %p, %p)\n", process, symbol, replace, result);
+        MSLog(MSLogLevelNotice, "SubstrateHookFunction(%p, %p, %p, %p)", process, symbol, replace, result);
     if ((reinterpret_cast<uintptr_t>(symbol) & 0x1) == 0)
         return SubstrateHookFunctionARM(process, symbol, replace, result);
     else
@@ -691,7 +691,7 @@ static size_t MSGetInstructionWidthIntel(void *start) {
 
 static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, void *replace, void **result) {
     if (MSDebug)
-        fprintf(stderr, "MSHookFunction(%p, %p, %p)\n", symbol, replace, result);
+        MSLog(MSLogLevelNotice, "MSHookFunction(%p, %p, %p)", symbol, replace, result);
     if (symbol == NULL)
         return;
 
@@ -712,7 +712,7 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
     while (used < required) {
         size_t width(MSGetInstructionWidthIntel(area + used));
         if (width == 0) {
-            fprintf(stderr, "MS:Error:MSGetInstructionWidthIntel(%p) == 0", area + used);
+            MSLog(MSLogLevelError, "MS:Error:MSGetInstructionWidthIntel(%p) == 0", area + used);
             return;
         }
 
@@ -775,7 +775,7 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
                 length += MSSizeOfPop(reg);
                 length += MSSizeOfMove64();
             } else {
-                fprintf(stderr, "MS:Error: Unknown RIP-Relative (%.2x %.2x)\n", decode.opcode, decode.opcode2);
+                MSLog(MSLogLevelError, "MS:Error: Unknown RIP-Relative (%.2x %.2x)", decode.opcode, decode.opcode2);
                 continue;
             }
         } else
@@ -813,7 +813,7 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
     )));
 
     if (buffer == MAP_FAILED) {
-        fprintf(stderr, "MS:Error:mmap() = %d\n", errno);
+        MSLog(MSLogLevelError, "MS:Error:mmap() = %d", errno);
         *result = NULL;
         return;
     }
@@ -842,7 +842,7 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
                     MSWritePop(current, reg);
                     MSWriteMove64(current, reg, reg);
                 } else {
-                    fprintf(stderr, "MS:Error: Unknown RIP-Relative (%.2x %.2x)\n", decode.opcode, decode.opcode2);
+                    MSLog(MSLogLevelError, "MS:Error: Unknown RIP-Relative (%.2x %.2x)", decode.opcode, decode.opcode2);
                     goto copy;
                 }
             } else
@@ -886,7 +886,7 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
     }
 
     if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
-        fprintf(stderr, "MS:Error:mprotect():%d\n", errno);
+        MSLog(MSLogLevelError, "MS:Error:mprotect():%d", errno);
         goto fail;
     }
 

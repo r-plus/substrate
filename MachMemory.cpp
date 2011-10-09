@@ -22,6 +22,8 @@
 #define SubstrateInternal
 #include "CydiaSubstrate.h"
 
+#include "Log.hpp"
+
 #include <mach/mach_init.h>
 #include <mach/vm_map.h>
 
@@ -43,7 +45,7 @@ struct __SubstrateMemory {
 
 extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef allocator, SubstrateProcessRef process, void *data, size_t size) {
     if (allocator != NULL) {
-        fprintf(stderr, "MS:Error:allocator != NULL\n");
+        MSLog(MSLogLevelError, "MS:Error:allocator != NULL");
         return NULL;
     }
 
@@ -57,7 +59,7 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
     size_t width(((reinterpret_cast<uintptr_t>(data) + size - 1) / page + 1) * page - base);
 
     if (kern_return_t error = vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
-        fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
+        MSLog(MSLogLevelError, "MS:Error:vm_protect() = %d", error);
         return NULL;
     }
 
@@ -66,6 +68,6 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
 
 extern "C" void SubstrateMemoryRelease(SubstrateMemoryRef memory) {
     if (kern_return_t error = vm_protect(memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
-        fprintf(stderr, "MS:Error:vm_protect() = %d\n", error);
+        MSLog(MSLogLevelError, "MS:Error:vm_protect() = %d", error);
     delete memory;
 }

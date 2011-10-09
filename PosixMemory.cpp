@@ -22,6 +22,8 @@
 #define SubstrateInternal
 #include "CydiaSubstrate.h"
 
+#include "Log.hpp"
+
 #include <sys/mman.h>
 
 #include <errno.h>
@@ -41,7 +43,7 @@ struct __SubstrateMemory {
 
 extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef allocator, SubstrateProcessRef process, void *data, size_t size) {
     if (allocator != NULL) {
-        fprintf(stderr, "MS:Error:allocator != NULL\n");
+        MSLog(MSLogLevelError, "MS:Error:allocator != NULL");
         return NULL;
     }
 
@@ -55,7 +57,7 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
     void *address(reinterpret_cast<void *>(base));
 
     if (mprotect(address, width, PROT_READ | PROT_WRITE | PROT_EXEC) == -1) {
-        fprintf(stderr, "MS:Error:mprotect() = %d\n", errno);
+        MSLog(MSLogLevelError, "MS:Error:mprotect() = %d", errno);
         return NULL;
     }
 
@@ -64,6 +66,6 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
 
 extern "C" void SubstrateMemoryRelease(SubstrateMemoryRef memory) {
     if (mprotect(memory->address_, memory->width_, PROT_READ | PROT_WRITE | PROT_EXEC) == -1)
-        fprintf(stderr, "MS:Error:mprotect() = %d\n", errno);
+        MSLog(MSLogLevelError, "MS:Error:mprotect() = %d", errno);
     delete memory;
 }
