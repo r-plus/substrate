@@ -503,8 +503,8 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
                     };
                 } exts = {backup[offset+1]};
 
-                buffer[start+0] = T1$ldr_rt_$rn_im$(exts.rt, A$pc, ((end-2 - (start+1)) * 2 - 4 + 2));
-                buffer[start+1] = T2$ldr_rt_$rn_im$(exts.rt, A$pc, ((end-2 - (start+1)) * 2 - 4 + 2));
+                buffer[start+0] = T1$ldr_rt_$rn_im$(exts.rt, A$pc, ((end-2 - (start+0)) * 2 - 4 + 2));
+                buffer[start+1] = T2$ldr_rt_$rn_im$(exts.rt, A$pc, ((end-2 - (start+0)) * 2 - 4 + 2));
 
                 buffer[start+2] = T1$ldr_rt_$rn_im$(exts.rt, exts.rt, 0);
                 buffer[start+3] = T2$ldr_rt_$rn_im$(exts.rt, exts.rt, 0);
