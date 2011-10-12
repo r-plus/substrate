@@ -74,6 +74,9 @@ X 4790  ldr r*,[pc,#*]    */
 
 #include "ARM.hpp"
 
+#define T$Label(l, r) \
+    (((r) - (l)) * 2 - 4 + ((l) % 2 == 0 ? 0 : 2))
+
 #define T$pop_$r0$ 0xbc01 // pop {r0}
 #define T$b(im) /* b im */ \
     (0xde00 | (im & 0xff))
@@ -305,8 +308,9 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
                     };
                 } bits = {backup[offset+0]};
 
-                buffer[start+0] = T$ldr_rd_$pc_im_4$(bits.rd, ((end-2 - (start+0)) * 2 - 4 + 2) / 4);
+                buffer[start+0] = T$ldr_rd_$pc_im_4$(bits.rd, T$Label(start+0, end-2) / 4);
                 buffer[start+1] = T$ldr_rd_$rn_im_4$(bits.rd, bits.rd, 0);
+
                 *--trailer = ((reinterpret_cast<uint32_t>(area + offset) + 4) & ~0x2) + bits.immediate * 4;
 
                 start += 2;
@@ -503,8 +507,8 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
                     };
                 } exts = {backup[offset+1]};
 
-                buffer[start+0] = T1$ldr_rt_$rn_im$(exts.rt, A$pc, ((end-2 - (start+0)) * 2 - 4 + 2));
-                buffer[start+1] = T2$ldr_rt_$rn_im$(exts.rt, A$pc, ((end-2 - (start+0)) * 2 - 4 + 2));
+                buffer[start+0] = T1$ldr_rt_$rn_im$(exts.rt, A$pc, T$Label(start+0, end-2));
+                buffer[start+1] = T2$ldr_rt_$rn_im$(exts.rt, A$pc, T$Label(start+0, end-2));
 
                 buffer[start+2] = T1$ldr_rt_$rn_im$(exts.rt, exts.rt, 0);
                 buffer[start+3] = T2$ldr_rt_$rn_im$(exts.rt, exts.rt, 0);
@@ -536,7 +540,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
 
                 buffer[start+0] = T$push_r(1 << rt);
                 buffer[start+1] = T$mov_rd_rm(rt, (bits.h1 << 3) | bits.rd);
-                buffer[start+2] = T$ldr_rd_$pc_im_4$(bits.rd, ((end-2 - (start+2)) * 2 - 4 + 2) / 4);
+                buffer[start+2] = T$ldr_rd_$pc_im_4$(bits.rd, T$Label(start+2, end-2) / 4);
                 buffer[start+3] = T$add_rd_rm((bits.h1 << 3) | bits.rd, rt);
                 buffer[start+4] = T$pop_r(1 << rt);
                 *--trailer = reinterpret_cast<uint32_t>(area + offset) + 4;
