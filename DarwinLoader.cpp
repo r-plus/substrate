@@ -49,6 +49,39 @@ static void MSAction(int sig, siginfo_t *info, void *uap) {
 
 extern "C" char ***_NSGetArgv(void);
 
+#define Dylib_ "/Library/MobileSubstrate/MobileSubstrate.dylib"
+
+static void RemoveKey() {
+    char *dil(getenv("DYLD_INSERT_LIBRARIES"));
+    if (dil == NULL) {
+        MSLog(MSLogLevelError, "MS:Error: DYLD_INSERT_LIBRARIES is unset?");
+        return;
+    }
+
+    size_t length(strlen(dil));
+    char buffer[length + 3];
+
+    buffer[0] = ':';
+    memcpy(buffer + 1, dil, length);
+    buffer[length + 1] = ':';
+    buffer[length + 2] = '\0';
+
+    char *index(strstr(buffer, ":" Dylib_ ":"));
+    if (index == NULL) {
+        MSLog(MSLogLevelError, "MS:Error: dylib not in DYLD_INSERT_LIBRARIES?");
+        return;
+    }
+
+    size_t skip(sizeof(Dylib_));
+    if (length == skip - 1) {
+        unsetenv("DYLD_INSERT_LIBRARIES");
+        return;
+    }
+
+    memmove(index + 1, index + 1 + skip, length - (index - buffer) - skip + 2);
+    setenv("DYLD_INSERT_LIBRARIES", buffer, true);
+}
+
 MSInitialize {
 #ifndef __arm__
     if (dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY | RTLD_NOLOAD) == NULL)
@@ -86,28 +119,54 @@ MSInitialize {
 
     MSLog(MSLogLevelNotice, "MS:Notice: Installing: %@ [%s] (%.2f)", identifier, slash, kCFCoreFoundationVersionNumber);
 
-    const char *dat(NULL);
-    if (identifier != NULL && CFEqual(identifier, CFSTR("com.apple.springboard")))
-        dat = "com.saurik.mobilesubstrate.dat";
-    if (identifier == NULL && strcmp(slash, "CommCenter") == 0)
-        dat = "com.saurik.MobileSubstrate.CommCenter.dat";
+    CFURLRef home(CFCopyHomeDirectoryURLForUser(NULL));
+    if (home == NULL) {
+        MSLog(MSLogLevelError, "MS:Error: Unable to Copy HOME");
+        return;
+    }
 
-    if (dat != NULL) {
-        CFURLRef home(CFCopyHomeDirectoryURLForUser(NULL));
-        CFURLGetFileSystemRepresentation(home, TRUE, reinterpret_cast<UInt8 *>(MSWatch), sizeof(MSWatch));
-        CFRelease(home);
-        strcat(MSWatch, "/Library/Preferences/");
-        strcat(MSWatch, dat);
+    char watch[PATH_MAX];
+    CFURLGetFileSystemRepresentation(home, TRUE, reinterpret_cast<UInt8 *>(watch), sizeof(watch));
+    CFRelease(home);
+
+    const char *dead(NULL);
+    if (identifier != NULL && CFEqual(identifier, CFSTR("com.apple.springboard")))
+        dead = "com.saurik.MobileSubstrate.SpringBoard.Dead.dat";
+
+    if (dead != NULL) {
+        sprintf(MSWatch, "%s/Library/Preferences/%s", watch, dead);
 
         if (access(MSWatch, R_OK) == 0) {
+            RemoveKey();
+            MSLog(MSLogLevelWarning, "MS:Warning: Deactivating Substrate");
+
             if (unlink(MSWatch) == -1)
                 MSLog(MSLogLevelError, "MS:Error: Cannot Clear: %s", strerror(errno));
 
-            void *handle(dlopen(Safety_, RTLD_LAZY | RTLD_GLOBAL));
-            if (handle == NULL)
-                MSLog(MSLogLevelError, "MS:Error: Cannot Load: %s", dlerror());
-
             return;
+        }
+    }
+
+    bool safe(false);
+
+    const char *dat(NULL);
+    if (identifier != NULL && CFEqual(identifier, CFSTR("com.apple.springboard")))
+        dat = "com.saurik.mobilesubstrate.dat";
+    if (identifier == NULL && (strcmp(slash, "CommCenter") == 0 || strcmp(slash, "CommCenterClassic") == 0))
+        dat = "com.saurik.MobileSubstrate.CommCenter.Safe.dat";
+
+    if (dat != NULL) {
+        strcat(watch, "/Library/Preferences/");
+        strcat(watch, dat);
+
+        if (access(watch, R_OK) == 0) {
+            RemoveKey();
+            MSLog(MSLogLevelWarning, "MS:Warning: Entering Safe Mode");
+
+            if (unlink(watch) == -1)
+                MSLog(MSLogLevelError, "MS:Error: Cannot Clear: %s", strerror(errno));
+
+            safe = true;
         }
 
         stack_t stack;
@@ -145,6 +204,11 @@ sigaction(signum, NULL, &old); { \
         HookSignal(SIGSEGV)
         HookSignal(SIGSYS)
     }
+
+    if (dead == NULL && dat == NULL)
+        MSWatch[0] = '\0';
+    else if (dead == NULL || !safe)
+        strcpy(MSWatch, watch);
 
     CFURLRef libraries(CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, reinterpret_cast<const UInt8 *>(Libraries_), sizeof(Libraries_) - 1, TRUE));
 
@@ -187,6 +251,28 @@ sigaction(signum, NULL, &old); { \
         bool load = true;
         if (meta != NULL) {
             if (CFDictionaryRef filter = reinterpret_cast<CFDictionaryRef>(CFDictionaryGetValue(meta, CFSTR("Filter")))) {
+                int value(0);
+                if (CFNumberRef flags = reinterpret_cast<CFNumberRef>(CFDictionaryGetValue(filter, CFSTR("Flags")))) {
+                    if (!CFNumberGetValue(flags, kCFNumberIntType, &value)) {
+                        MSLog(MSLogLevelError, "MS:Error: Unable to Read Flags: %@", flags);
+                        load = false;
+                        goto release;
+                    }
+                }
+
+                #define MSFlagWhenSafe  (1 << 0)
+                #define MSFlagNotNoSafe (1 << 1)
+
+                if ((value & MSFlagWhenSafe) == 0 && safe) {
+                    load = false;
+                    goto release;
+                }
+
+                if ((value & MSFlagNotNoSafe) != 0 && !safe) {
+                    load = false;
+                    goto release;
+                }
+
                 if (CFArrayRef version = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(filter, CFSTR("CoreFoundationVersion")))) {
                     load = false;
 

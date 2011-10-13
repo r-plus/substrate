@@ -19,6 +19,22 @@
 **/
 /* }}} */
 
+%apt Package: com.saurik.substrate.safemode
+%apt Author: Jay Freeman (saurik) <saurik@saurik.com>
+
+%apt Name: Substrate Safe Mode
+%apt Description: safe mode safety extension (safe)
+
+%apt Depends: mobilesubstrate (>= 0.9.3367+38)
+
+%fflag 1
+%fflag 2
+
+%bundle com.apple.springboard
+
+%flag -framework Foundation
+%flag -framework UIKit
+
 #import <CoreFoundation/CoreFoundation.h>
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CGGeometry.h>
@@ -230,32 +246,4 @@ MSInstanceMessageHook0(void, SBStatusBarTimeView, tile) {
     _textRect.size = size;
     _textRect.origin.x = (frame.size.width - size.width) / 2;
     _textRect.origin.y = (frame.size.height - size.height) / 2;
-}
-
-#define Dylib_ "/Library/MobileSubstrate/MobileSubstrate.dylib"
-
-MSInitialize {
-    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
-
-    NSLog(@"MS:Warning: Entering Safe Mode");
-
-    char *dil(getenv("DYLD_INSERT_LIBRARIES"));
-    if (dil == NULL)
-        NSLog(@"MS:Error: DYLD_INSERT_LIBRARIES is unset?");
-    else {
-        NSArray *dylibs([[NSString stringWithUTF8String:dil] componentsSeparatedByString:@":"]);
-        NSUInteger index([dylibs indexOfObject:@ Dylib_]);
-        if (index == NSNotFound)
-            NSLog(@"MS:Error: dylib not in DYLD_INSERT_LIBRARIES?");
-        else if ([dylibs count] == 1)
-            unsetenv("DYLD_INSERT_LIBRARIES");
-        else {
-            NSMutableArray *value([[[NSMutableArray alloc] init] autorelease]);
-            [value setArray:dylibs];
-            [value removeObjectAtIndex:index];
-            setenv("DYLD_INSERT_LIBRARIES", [[value componentsJoinedByString:@":"] UTF8String], !0);
-        }
-    }
-
-    [pool release];
 }

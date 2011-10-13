@@ -261,7 +261,7 @@ function control() {
     fi
 
     if [[ -z ${apt_version} ]]; then
-        echo "version: 0.9-1"
+        echo "version: ${CYCC_APT_VERSION:-0.9-1}"
     fi
 }
 
@@ -422,15 +422,43 @@ if has package "${modes[@]}"; then
         mkdir -p "${target}"
         cp -a "${output}" "${target}"
 
+        plist=${target}/${name}.plist
+
         {
-            echo -n "Filter = {Bundles = ("
-            comma=
-            for bundle in $(filter %filter); do
-                echo -n "${comma}\"${bundle}\""
-                comma=", "
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+            echo '<plist version="1.0">'
+            echo '<dict>'
+
+	    echo '    <key>Filter</key>'
+	    echo '    <dict>'
+
+            fflags=0
+            for fflag in $(filter %fflag); do
+                fflags=$((${fflags} | ${fflag}))
             done
-            echo ");};"
-        } >"${target}/${name}.plist"
+            if [[ -n ${fflags} ]]; then
+                echo '        <key>Flags</key>'
+                echo '        <integer>'"${fflags}"'</integer>'
+                echo
+            fi
+
+	    echo '        <key>Bundles</key>'
+	    echo '        <array>'
+            for bundle in $(filter %bundle); do
+                echo '            <string>'"${bundle}"'</string>'
+            done
+	    echo '        </array>'
+
+	    echo '    </dict>'
+
+            echo '</dict>'
+            echo '</plist>'
+        } >"${plist}"
+
+        echo
+        cat "${plist}"
+        plutil -convert binary1 "${plist}"
 
         package=$(field package)
         version=$(field version)

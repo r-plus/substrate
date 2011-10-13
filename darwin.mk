@@ -36,7 +36,7 @@ flags += $(shell cycc $(ios) $(mac) -q -V -- -print-prog-name=cc1obj | ./struct.
 all: darwin
 
 darwin: libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib
-ios: darwin MobileSafety.dylib
+ios: darwin
 
 ObjectiveC.o: ObjectiveC.mm
 	./cycc $(ios) $(mac) -oObjectiveC.o -- -c $(flags) $(mflags) ObjectiveC.mm
@@ -57,11 +57,6 @@ SubstrateLoader.dylib: DarwinLoader.cpp
 	./cycc $(ios) $(mac) -oSubstrateLoader.dylib -- $(flags) -dynamiclib DarwinLoader.cpp \
 	    -framework CoreFoundation
 
-MobileSafety.dylib: MobileSafety.mm libsubstrate.dylib
-	./cycc $(ios) -oMobileSafety.dylib -- $(flags) -dynamiclib MobileSafety.mm \
-	    -framework CoreFoundation -framework Foundation -framework UIKit \
-	    -L. -lsubstrate -lobjc
-
 %: %.m
 	./cycc $(ios) -o$@ -- $< $(flags) \
 	    -framework CoreFoundation -framework Foundation
@@ -79,7 +74,7 @@ upgrade: all
 	sudo cp -a SubstrateLoader.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
 
 clean:
-	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib MobileSafety.dylib extrainst_ postrm
+	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib extrainst_ postrm
 
 test:
 	./cycc -i2.0 -m10.5 -oTestSuperCall -- TestSuperCall.mm -framework CoreFoundation -framework Foundation -lobjc libsubstrate.dylib
