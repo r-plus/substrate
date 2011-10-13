@@ -120,6 +120,8 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.voiced");
     HookEnvironment("com.apple.MobileInternetSharing");
 
+    HookEnvironment("com.apple.CommCenterClassic");
+
     if (reboot)
         finish = "reboot";
 
