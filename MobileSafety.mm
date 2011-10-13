@@ -50,6 +50,8 @@ MSMetaClassHook(UIImage)
 MSClassHook(AAAccountManager)
 MSMetaClassHook(AAAccountManager)
 
+MSClassHook(BBSectionInfo)
+
 MSClassHook(SBAlertItemsController)
 MSClassHook(SBButtonBar)
 MSClassHook(SBIconController)
@@ -246,4 +248,8 @@ MSInstanceMessageHook0(void, SBStatusBarTimeView, tile) {
     _textRect.size = size;
     _textRect.origin.x = (frame.size.width - size.width) / 2;
     _textRect.origin.y = (frame.size.height - size.height) / 2;
+}
+
+MSInstanceMessageHook0(BOOL, BBSectionInfo, showsInNotificationCenter) {
+    return NO;
 }
