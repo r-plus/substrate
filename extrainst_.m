@@ -121,6 +121,7 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.MobileInternetSharing");
 
     HookEnvironment("com.apple.CommCenterClassic");
+    HookEnvironment("com.apple.gamed");
 
     if (reboot)
         finish = "reboot";
