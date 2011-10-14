@@ -113,6 +113,11 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.CommCenterClassic");
     HookEnvironment("com.apple.gamed");
 
+    HookEnvironment("com.apple.mobile.softwareupdated");
+    HookEnvironment("com.apple.softwareupdateservicesd");
+    HookEnvironment("com.apple.twitterd");
+    HookEnvironment("com.apple.mediaremoted");
+
     const char *finish = "restart";
     if (HookEnvironment("com.apple.SpringBoard"))
         finish = "reload";
