@@ -253,7 +253,7 @@ sigaction(signum, NULL, &old); { \
             if (CFDictionaryRef filter = reinterpret_cast<CFDictionaryRef>(CFDictionaryGetValue(meta, CFSTR("Filter")))) {
                 int value(0);
                 if (CFNumberRef flags = reinterpret_cast<CFNumberRef>(CFDictionaryGetValue(filter, CFSTR("Flags")))) {
-                    if (!CFNumberGetValue(flags, kCFNumberIntType, &value)) {
+                    if (CFGetTypeID(flags) != CFNumberGetTypeID() || !CFNumberGetValue(flags, kCFNumberIntType, &value)) {
                         MSLog(MSLogLevelError, "MS:Error: Unable to Read Flags: %@", flags);
                         load = false;
                         goto release;
