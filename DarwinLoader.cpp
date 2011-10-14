@@ -78,8 +78,9 @@ static void RemoveKey() {
         return;
     }
 
+    buffer[length + 1] = '\0';
     memmove(index + 1, index + 1 + skip, length - (index - buffer) - skip + 2);
-    setenv("DYLD_INSERT_LIBRARIES", buffer, true);
+    setenv("DYLD_INSERT_LIBRARIES", buffer + 1, true);
 }
 
 MSInitialize {
