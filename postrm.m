@@ -118,6 +118,9 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.twitterd");
     HookEnvironment("com.apple.mediaremoted");
 
+    HookEnvironment("com.apple.assistivetouchd");
+    HookEnvironment("com.apple.accountsd");
+
     const char *finish = "restart";
     if (HookEnvironment("com.apple.SpringBoard"))
         finish = "reload";

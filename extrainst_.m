@@ -128,6 +128,9 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.twitterd");
     HookEnvironment("com.apple.mediaremoted");
 
+    HookEnvironment("com.apple.assistivetouchd");
+    HookEnvironment("com.apple.accountsd");
+
     if (reboot)
         finish = "reboot";
 
