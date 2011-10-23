@@ -21,10 +21,6 @@
 
 #include "CydiaSubstrate.h"
 
-#import <Foundation/Foundation.h>
-
-#include STRUCT_HPP
-
 // XXX: this is required by some code below
 #ifdef __arm__
 #include "ARM.hpp"
@@ -36,6 +32,10 @@
 
 #include <sys/mman.h>
 #include <unistd.h>
+#include <errno.h>
+
+#include <stdio.h>
+#include <string.h>
 
 #include "Debug.hpp"
 #include "Log.hpp"
@@ -106,7 +106,7 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
 
     if (!direct) {
 #if defined(__arm__)
-        size_t length(12 * sizeof(uint32_t));
+        size_t length(11 * sizeof(uint32_t));
 #elif defined(__i386__)
         size_t length(20);
 #elif defined(__x86_64__)
@@ -122,38 +122,20 @@ static void MSHookMessageInternal(Class _class, SEL sel, IMP imp, IMP *result, c
         else if (false) fail:
             munmap(buffer, length);
         else {
-            bool stret;
-            // XXX: you can't return an array in C, but really... check for '['?!
-            // http://www.opensource.apple.com/source/gcc3/gcc3-1175/libobjc/sendmsg.c
-            if (*type != '[' && *type != '(' && *type != '{')
-                stret = false;
-            else {
-                void *pool(NSPushAutoreleasePool(0));
-                NSMethodSignature *signature([NSMethodSignature signatureWithObjCTypes:type]);
-                NSUInteger rlength([signature methodReturnLength]);
-                stret = rlength > OBJC_MAX_STRUCT_BY_VALUE || struct_forward_array[rlength];
-                NSPopAutoreleasePool(pool);
-            }
-
             Class super(class_getSuperclass(_class));
 
 #if defined(__arm__)
-            A$r rs(stret ? A$r1 : A$r0);
-            A$r rc(stret ? A$r2 : A$r1);
-            A$r re(stret ? A$r0 : A$r2);
-
-            buffer[ 0] = A$stmdb_sp$_$rs$((1 << rs) | (1 << re) | (1 << A$r3) | (1 << A$lr));
-            buffer[ 1] = A$ldr_rd_$rn_im$(A$r0, A$pc, ( 9 - 1 - 2) * 4);
-            buffer[ 2] = A$ldr_rd_$rn_im$(A$r1, A$pc, (10 - 2 - 2) * 4);
-            buffer[ 3] = A$ldr_rd_$rn_im$(A$lr, A$pc, (11 - 3 - 2) * 4);
+            buffer[ 0] = A$stmdb_sp$_$rs$((1 << A$r0) | (1 << A$r1) | (1 << A$r2) | (1 << A$r3) | (1 << A$lr));
+            buffer[ 1] = A$ldr_rd_$rn_im$(A$r0, A$pc, ( 8 - 1 - 2) * 4);
+            buffer[ 2] = A$ldr_rd_$rn_im$(A$r1, A$pc, ( 9 - 2 - 2) * 4);
+            buffer[ 3] = A$ldr_rd_$rn_im$(A$lr, A$pc, (10 - 3 - 2) * 4);
             buffer[ 4] = A$blx_rm(A$lr);
             buffer[ 5] = A$str_rd_$rn_im$(A$r0, A$sp, -4);
-            buffer[ 6] = A$ldmia_sp$_$rs$((1 << rs) | (1 << re) | (1 << A$r3) | (1 << A$lr));
-            buffer[ 7] = A$ldr_rd_$rn_im$(rc, A$pc, (10 - 7 - 2) * 4);
-            buffer[ 8] = A$ldr_rd_$rn_im$(A$pc, A$sp, -4 - (4 * 4));
-            buffer[ 9] = reinterpret_cast<uint32_t>(class_getSuperclass(_class));
-            buffer[10] = reinterpret_cast<uint32_t>(sel);
-            buffer[11] = reinterpret_cast<uint32_t>(&class_getMethodImplementation);
+            buffer[ 6] = A$ldmia_sp$_$rs$((1 << A$r0) | (1 << A$r1) | (1 << A$r2) | (1 << A$r3) | (1 << A$lr));
+            buffer[ 7] = A$ldr_rd_$rn_im$(A$pc, A$sp, -4 - (5 * 4));
+            buffer[ 8] = reinterpret_cast<uint32_t>(super);
+            buffer[ 9] = reinterpret_cast<uint32_t>(sel);
+            buffer[10] = reinterpret_cast<uint32_t>(&class_getMethodImplementation);
 #elif defined(__i386__)
             uint8_t *current(reinterpret_cast<uint8_t *>(buffer));
 

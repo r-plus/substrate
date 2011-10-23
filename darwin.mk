@@ -31,8 +31,6 @@ mflags :=
 mflags += -Xarch_i386 -fobjc-gc
 mflags += -Xarch_x86_64 -fobjc-gc
 
-flags += $(shell cycc $(ios) $(mac) -q -V -- -print-prog-name=cc1obj | ./struct.sh)
-
 all: darwin
 
 darwin: libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib cynject
@@ -48,7 +46,6 @@ libsubstrate.dylib: MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp 
 	./cycc $(ios) $(mac) -olibsubstrate.dylib -- $(flags) -dynamiclib \
 	    MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp \
 	    -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c \
-	    -framework CoreFoundation \
 	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate \
 	    -undefined dynamic_lookup \
 	    -Ihde64c/include
