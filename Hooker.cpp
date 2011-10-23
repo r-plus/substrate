@@ -300,6 +300,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
                 buffer[start+0] = T$ldr_rd_$pc_im_4$(bits.rd, T$Label(start+0, end-2) / 4);
                 buffer[start+1] = T$ldr_rd_$rn_im_4$(bits.rd, bits.rd, 0);
 
+                // XXX: this code "works", but is "wrong": the mechanism is more complex than this
                 *--trailer = ((reinterpret_cast<uint32_t>(area + offset) + 4) & ~0x2) + bits.immediate * 4;
 
                 start += 2;
@@ -502,6 +503,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
                 buffer[start+2] = T1$ldr_rt_$rn_im$(exts.rt, exts.rt, 0);
                 buffer[start+3] = T2$ldr_rt_$rn_im$(exts.rt, exts.rt, 0);
 
+                // XXX: this code "works", but is "wrong": the mechanism is more complex than this
                 *--trailer = ((reinterpret_cast<uint32_t>(area + offset) + 4) & ~0x2) + (bits.u == 0 ? -exts.immediate : exts.immediate);
 
                 ++offset;
