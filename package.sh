@@ -65,8 +65,11 @@ mkdir -p "${pkg}/usr/include"
 ln -s "${fwk}/Headers/CydiaSubstrate.h" "${pkg}/usr/include/substrate.h"
 
 mkdir -p "${pkg}/usr/bin"
-ln -s "${fwk}/Commands/cycc" "${pkg}/usr/bin"
-cp -a cycc "${pkg}/${fwk}/Commands"
+
+for cmd in cycc cynject; do
+    ln -s "${fwk}/Commands/${cmd}" "${pkg}/usr/bin"
+    cp -a "${cmd}" "${pkg}/${fwk}/Commands"
+done
 
 if [[ ${arch} == arm ]]; then
     cp -a extrainst_ postrm "${pkg}/DEBIAN"

@@ -1,8 +1,10 @@
 *.o
 *.dylib
 *.deb
+*.t.hpp
 Struct.*.hpp
 package.*
 extrainst_
 postrm
+cynject
 TestSuperCall

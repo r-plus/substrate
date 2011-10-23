@@ -35,15 +35,18 @@ flags += $(shell cycc $(ios) $(mac) -q -V -- -print-prog-name=cc1obj | ./struct.
 
 all: darwin
 
-darwin: libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib
+darwin: libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib cynject
 ios: darwin
 
 ObjectiveC.o: ObjectiveC.mm
 	./cycc $(ios) $(mac) -oObjectiveC.o -- -c $(flags) $(mflags) ObjectiveC.mm
 
-libsubstrate.dylib: MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp Debug.cpp hde64c/src/hde64.c
+%.t.hpp: %.t.cpp trampoline.sh
+	./trampoline.sh $@ $*.dylib $* sed otool lipo nm ./cycc $(ios) $(mac) -o$*.dylib -- -dynamiclib $< -Iinclude -Xarch_armv6 -marm
+
+libsubstrate.dylib: MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp hde64c/src/hde64.c Trampoline.t.hpp
 	./cycc $(ios) $(mac) -olibsubstrate.dylib -- $(flags) -dynamiclib \
-	    MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp Debug.cpp \
+	    MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp \
 	    -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c \
 	    -framework CoreFoundation \
 	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate \
@@ -56,6 +59,10 @@ SubstrateBootstrap.dylib: Bootstrap.cpp
 SubstrateLoader.dylib: DarwinLoader.cpp
 	./cycc $(ios) $(mac) -oSubstrateLoader.dylib -- $(flags) -dynamiclib DarwinLoader.cpp \
 	    -framework CoreFoundation
+
+%: %.cpp libsubstrate.dylib
+	./cycc $(ios) $(mac) -o$@ -- $(flags) $^ -framework Foundation
+	ldid -Stask_for_pid.xml $@
 
 %: %.m
 	./cycc $(ios) -o$@ -- $< $(flags) \
@@ -74,7 +81,7 @@ upgrade: all
 	sudo cp -a SubstrateLoader.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
 
 clean:
-	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib extrainst_ postrm
+	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib extrainst_ postrm cynject
 
 test:
 	./cycc -i2.0 -m10.5 -oTestSuperCall -- TestSuperCall.mm -framework CoreFoundation -framework Foundation -lobjc libsubstrate.dylib
