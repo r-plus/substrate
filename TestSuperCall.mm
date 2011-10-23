@@ -22,14 +22,34 @@
 #include <Foundation/Foundation.h>
 #include "CydiaSubstrate.h"
 
+struct dat {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+    uint32_t e;
+    uint32_t f;
+    uint32_t g;
+    uint32_t h;
+};
+
 @interface A : NSObject
-- (int) test;
+- (int) testI;
+- (dat) testS;
 @end
 
 @implementation A
-- (int) test {
+
+- (int) testI {
     return 0x31337;
-} @end
+}
+
+- (dat) testS {
+    dat value = { 0x31337 };
+    return value;
+}
+
+@end
 
 @interface B : A
 @end
@@ -46,12 +66,18 @@ Debug() {
 
 MSClassHook(B)
 
-MSInstanceMessageHook0(int, B, test) {
+MSInstanceMessageHook0(int, B, testI) {
     return MSOldCall() - 0x31337 + 0xae5bda7a;
+}
+
+MSInstanceMessageHook0(dat, B, testS) {
+    dat value = { MSOldCall().a - 0x31337 + 0xae5bda7a };
+    return value;
 }
 
 int main() {
     B *b([[B alloc] init]);
-    printf("0x%x\n", [b test]);
+    printf("0x%x\n", [b testI]);
+    printf("0x%x\n", [b testS].a);
     return 0;
 }
