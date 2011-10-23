@@ -300,61 +300,6 @@ static inline void MSHookSymbol(Type_ *&value, const char *name, void *handle = 
     value = reinterpret_cast<Type_ *>(dlsym(handle, name));
 }
 
-#ifdef __APPLE__
-/* Objective-C Handle<> {{{ */
-template <typename Type_>
-class _H {
-    typedef _H<Type_> This_;
-
-  private:
-    Type_ *value_;
-
-    _finline void Retain_() {
-        if (value_ != nil)
-            CFRetain((CFTypeRef) value_);
-    }
-
-    _finline void Clear_() {
-        if (value_ != nil)
-            CFRelease((CFTypeRef) value_);
-    }
-
-  public:
-    _finline _H(const This_ &rhs) :
-        value_(rhs.value_ == nil ? nil : (Type_ *) CFRetain((CFTypeRef) rhs.value_))
-    {
-    }
-
-    _finline _H(Type_ *value = NULL, bool mended = false) :
-        value_(value)
-    {
-        if (!mended)
-            Retain_();
-    }
-
-    _finline ~_H() {
-        Clear_();
-    }
-
-    _finline operator Type_ *() const {
-        return value_;
-    }
-
-    _finline This_ &operator =(Type_ *value) {
-        if (value_ != value) {
-            Type_ *old(value_);
-            value_ = value;
-            Retain_();
-            if (old != nil)
-                CFRelease((CFTypeRef) old);
-        } return *this;
-    }
-};
-/* }}} */
-
-#define _pooled _H<NSAutoreleasePool> _pool([[NSAutoreleasePool alloc] init], true);
-#endif
-
 #endif
 
 #define MSHook(type, name, args...) \
