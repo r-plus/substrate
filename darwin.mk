@@ -27,24 +27,17 @@ flags += -isystem extra
 flags += -fno-exceptions
 flags += -fvisibility=hidden
 
-mflags :=
-mflags += -Xarch_i386 -fobjc-gc
-mflags += -Xarch_x86_64 -fobjc-gc
-
 all: darwin
 
 darwin: libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib cynject
 ios: darwin
 
-ObjectiveC.o: ObjectiveC.mm
-	./cycc $(ios) $(mac) -oObjectiveC.o -- -c $(flags) $(mflags) ObjectiveC.mm
-
 %.t.hpp: %.t.cpp trampoline.sh
 	./trampoline.sh $@ $*.dylib $* sed otool lipo nm ./cycc $(ios) $(mac) -o$*.dylib -- -dynamiclib $< -Iinclude -Xarch_armv6 -marm
 
-libsubstrate.dylib: MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp hde64c/src/hde64.c Trampoline.t.hpp
+libsubstrate.dylib: MachMemory.cpp Hooker.cpp ObjectiveC.cpp DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp hde64c/src/hde64.c Trampoline.t.hpp
 	./cycc $(ios) $(mac) -olibsubstrate.dylib -- $(flags) -dynamiclib \
-	    MachMemory.cpp Hooker.cpp ObjectiveC.o DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp \
+	    MachMemory.cpp Hooker.cpp ObjectiveC.cpp DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp \
 	    -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c \
 	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate \
 	    -undefined dynamic_lookup \
