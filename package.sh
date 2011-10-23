@@ -74,9 +74,6 @@ done
 if [[ ${arch} == arm ]]; then
     cp -a extrainst_ postrm "${pkg}/DEBIAN"
 
-    cp -a MobileSafety.dylib "${pkg}/${fwk}"
-    cp -a MobileSafety.png "${pkg}/${fwk}"
-
     ln -s "${fwk}"/Libraries/SubstrateInjection.dylib "${pkg}/${lib}/MobileSubstrate.dylib"
 
     ln -s SubstrateBootstrap.dylib "${pkg}/${fwk}/Libraries/SubstrateInjection.dylib"
