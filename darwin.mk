@@ -29,7 +29,7 @@ flags += -fvisibility=hidden
 
 all: darwin
 
-darwin: libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib cynject
+darwin: libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLauncher.dylib SubstrateLoader.dylib cynject
 ios: darwin
 
 %.t.hpp: %.t.cpp trampoline.sh
@@ -40,11 +40,14 @@ libsubstrate.dylib: MachMemory.cpp Hooker.cpp ObjectiveC.cpp DarwinFindSymbol.cp
 	    MachMemory.cpp Hooker.cpp ObjectiveC.cpp DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp \
 	    -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c \
 	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate \
-	    -undefined dynamic_lookup \
+	    -lobjc \
 	    -Ihde64c/include
 
 SubstrateBootstrap.dylib: Bootstrap.cpp
 	./cycc $(ios) $(mac) -oSubstrateBootstrap.dylib -- $(flags) -dynamiclib Bootstrap.cpp
+
+SubstrateLauncher.dylib: DarwinLauncher.cpp libsubstrate.dylib
+	./cycc $(ios) $(mac) -oSubstrateLauncher.dylib -- $(flags) -dynamiclib $^
 
 SubstrateLoader.dylib: DarwinLoader.cpp
 	./cycc $(ios) $(mac) -oSubstrateLoader.dylib -- $(flags) -dynamiclib DarwinLoader.cpp \
@@ -58,7 +61,7 @@ SubstrateLoader.dylib: DarwinLoader.cpp
 	./cycc $(ios) -o$@ -- $< $(flags) \
 	    -framework CoreFoundation -framework Foundation
 
-deb: ios extrainst_ postrm
+deb: ios preinst postrm
 	./package.sh i386
 	./package.sh arm
 
@@ -68,10 +71,11 @@ install: deb
 upgrade: all
 	sudo cp -a libsubstrate.dylib /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
 	sudo cp -a SubstrateBootstrap.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
+	sudo cp -a SubstrateLauncher.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
 	sudo cp -a SubstrateLoader.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
 
 clean:
-	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLoader.dylib extrainst_ postrm cynject
+	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLauncher.dylib SubstrateLoader.dylib preinst postrm cynject
 
 test:
 	./cycc -i2.0 -m10.5 -oTestSuperCall -- TestSuperCall.mm -framework CoreFoundation -framework Foundation -lobjc libsubstrate.dylib

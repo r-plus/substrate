@@ -53,6 +53,7 @@ cp -a Info.plist "${pkg}/${rsc}/Info.plist"
 cp -a CydiaSubstrate.h "${pkg}/${fwk}/Headers"
 
 cp -a SubstrateBootstrap.dylib "${pkg}/${fwk}/Libraries"
+cp -a SubstrateLauncher.dylib "${pkg}/${fwk}/Libraries"
 cp -a SubstrateLoader.dylib "${pkg}/${fwk}/Libraries"
 
 cp -a libsubstrate.dylib "${pkg}/${fwk}/CydiaSubstrate"
@@ -72,7 +73,7 @@ for cmd in cycc cynject; do
 done
 
 if [[ ${arch} == arm ]]; then
-    cp -a extrainst_ postrm "${pkg}/DEBIAN"
+    cp -a preinst postrm "${pkg}/DEBIAN"
 
     ln -s "${fwk}"/Libraries/SubstrateInjection.dylib "${pkg}/${lib}/MobileSubstrate.dylib"
 

@@ -35,7 +35,7 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
 #define dylib_ @"/Library/MobileSubstrate/MobileSubstrate.dylib"
 
-bool HookEnvironment_(const char *path) {
+bool HookEnvironment(const char *path) {
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
     CFPropertyListRef plist; {
@@ -49,54 +49,41 @@ bool HookEnvironment_(const char *path) {
     if (root == nil)
         return false;
     NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
-    if (ev == nil) {
-        ev = [NSMutableDictionary dictionaryWithCapacity:16];
-        [root setObject:ev forKey:@"EnvironmentVariables"];
-    }
+    if (ev == nil)
+        return false;
     NSString *il = [ev objectForKey:@"DYLD_INSERT_LIBRARIES"];
-    if (il == nil || [il length] == 0)
-        [ev setObject:dylib_ forKey:@"DYLD_INSERT_LIBRARIES"];
-    else {
-        NSArray *cm = [il componentsSeparatedByString:@":"];
-        unsigned index = [cm indexOfObject:dylib_];
-        if (index != INT_MAX)
-            return false;
-        [ev setObject:[NSString stringWithFormat:@"%@:%@", il, dylib_] forKey:@"DYLD_INSERT_LIBRARIES"];
-    }
+    if (il == nil)
+        return false;
+    NSArray *cm = [il componentsSeparatedByString:@":"];
+    unsigned index = [cm indexOfObject:dylib_];
+    if (index == INT_MAX)
+        return false;
+    NSMutableArray *cmm = [NSMutableArray arrayWithCapacity:16];
+    [cmm addObjectsFromArray:cm];
+    [cmm removeObject:dylib_];
+    if ([cmm count] != 0)
+        [ev setObject:[cmm componentsJoinedByString:@":"] forKey:@"DYLD_INSERT_LIBRARIES"];
+    else if ([ev count] == 1)
+        [root removeObjectForKey:@"EnvironmentVariables"];
+    else
+        [ev removeObjectForKey:@"DYLD_INSERT_LIBRARIES"];
 
     SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
     return true;
 }
 
+#define HookEnvironment(name) \
+    HookEnvironment("/System/Library/LaunchDaemons/" name ".plist")
+
 int main(int argc, char *argv[]) {
     if (argc < 2 || (
+        strcmp(argv[1], "install") != 0 &&
         strcmp(argv[1], "upgrade") != 0 &&
-        strcmp(argv[1], "install") != 0
-    ))
-        return 0;
+    true)) return 0;
 
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-    bool reboot = kCFCoreFoundationVersionNumber < 478.47 || kCFCoreFoundationVersionNumber >= 550.32;
-
-    #define HookEnvironment(name) do { \
-        bool hook = HookEnvironment_("/System/Library/LaunchDaemons/"name".plist"); \
-        if (reboot) \
-            break; \
-        if (hook) \
-            system( \
-                "launchctl unload /System/Library/LaunchDaemons/"name".plist;" \
-                "launchctl load /System/Library/LaunchDaemons/"name".plist;" \
-            ); \
-        else \
-            system( \
-                "launchctl stop "name";" \
-            ); \
-    } while (false)
-
-    const char *finish = "reload";
-
-    HookEnvironment_("/System/Library/LaunchDaemons/com.apple.SpringBoard.plist");
+    const char *finish = "restart";
 
     HookEnvironment("com.apple.mediaserverd");
     HookEnvironment("com.apple.itunesstored");
@@ -131,8 +118,15 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.assistivetouchd");
     HookEnvironment("com.apple.accountsd");
 
-    if (reboot)
-        finish = "reboot";
+    if (HookEnvironment("com.apple.SpringBoard"))
+        finish = "reload";
+
+    FILE *file = fopen("/etc/launchd.conf", "w+");
+    fprintf(file, "bsexec 0 /usr/bin/cynject 1 /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib\n");
+    fclose(file);
+
+    // XXX: damn you khan!
+    finish = "reboot";
 
     const char *cydia = getenv("CYDIA");
     if (cydia != NULL) {
@@ -141,8 +135,6 @@ int main(int argc, char *argv[]) {
         fprintf(fout, "finish:%s\n", finish);
         fclose(fout);
     }
-
-    //system("/usr/libexec/cydia/move.sh /Library/MobileSubstrate/DynamicLibraries");
 
     [pool release];
     return 0;
