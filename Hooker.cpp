@@ -36,6 +36,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 extern "C" void __clear_cache (void *beg, void *end);
 

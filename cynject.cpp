@@ -20,6 +20,7 @@
 /* }}} */
 
 #include <CydiaSubstrate/CydiaSubstrate.h>
+#include <stdio.h>
 
 int main(int argc, const char *argv[]) {
     if (argc != 3) {

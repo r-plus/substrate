@@ -22,6 +22,8 @@
 #ifndef SUBSTRATE_BUFFER_HPP
 #define SUBSTRATE_BUFFER_HPP
 
+#include <string.h>
+
 template <typename Type_>
 _disused static _finline void MSWrite(uint8_t *&buffer, Type_ value) {
     *reinterpret_cast<Type_ *>(buffer) = value;

@@ -38,10 +38,6 @@ extern "C" {
 #include <dlfcn.h>
 #include <stdlib.h>
 
-#ifdef __APPLE__
-#include <CoreFoundation/CoreFoundation.h>
-#endif
-
 #define _finline \
     inline __attribute__((__always_inline__))
 #define _disused \

@@ -61,7 +61,7 @@ SubstrateLoader.dylib: DarwinLoader.cpp
 	    -framework CoreFoundation
 
 %: %.cpp libsubstrate.dylib
-	./cycc $(ios) $(mac) -o$@ -- $(flags) $^ -framework Foundation
+	./cycc $(ios) $(mac) -o$@ -- $(flags) $^
 	ldid -Stask_for_pid.xml $@
 
 %: %.m
