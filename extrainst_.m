@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-    const char *finish = "restart";
+    const char *finish = NULL;
 
     HookEnvironment("com.apple.mediaserverd");
     HookEnvironment("com.apple.itunesstored");
@@ -118,8 +118,7 @@ int main(int argc, char *argv[]) {
     HookEnvironment("com.apple.assistivetouchd");
     HookEnvironment("com.apple.accountsd");
 
-    if (HookEnvironment("com.apple.SpringBoard"))
-        finish = "reload";
+    HookEnvironment("com.apple.SpringBoard");
 
     #define SubstrateCynject_ "/usr/bin/cynject 1 /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib"
 
@@ -129,11 +128,8 @@ int main(int argc, char *argv[]) {
 
     system(SubstrateCynject_);
 
-    // XXX: damn you khan!
-    finish = "reboot";
-
     const char *cydia = getenv("CYDIA");
-    if (cydia != NULL) {
+    if (finish != NULL && cydia != NULL) {
         int fd = [[[[NSString stringWithUTF8String:cydia] componentsSeparatedByString:@" "] objectAtIndex:0] intValue];
         FILE *fout = fdopen(fd, "w");
         fprintf(fout, "finish:%s\n", finish);
