@@ -61,7 +61,7 @@ SubstrateLoader.dylib: DarwinLoader.cpp Environment.cpp
 	./cycc $(ios) -o$@ -- $< $(flags) \
 	    -framework CoreFoundation -framework Foundation
 
-deb: ios preinst postrm
+deb: ios extrainst_ postrm
 	./package.sh i386
 	./package.sh arm
 
@@ -75,7 +75,7 @@ upgrade: all
 	sudo cp -a SubstrateLoader.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
 
 clean:
-	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLauncher.dylib SubstrateLoader.dylib preinst postrm cynject
+	rm -f ObjectiveC.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLauncher.dylib SubstrateLoader.dylib extrainst_ postrm cynject
 
 test:
 	./cycc -i2.0 -m10.5 -oTestSuperCall -- TestSuperCall.mm -framework CoreFoundation -framework Foundation -lobjc libsubstrate.dylib

@@ -3,7 +3,7 @@
 *.deb
 *.t.hpp
 package.*
-preinst
+extrainst_
 postrm
 cynject
 TestSuperCall

@@ -121,9 +121,13 @@ int main(int argc, char *argv[]) {
     if (HookEnvironment("com.apple.SpringBoard"))
         finish = "reload";
 
+    #define SubstrateCynject_ "/usr/bin/cynject 1 /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib"
+
     FILE *file = fopen("/etc/launchd.conf", "w+");
-    fprintf(file, "bsexec .. /usr/bin/cynject 1 /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib\n");
+    fprintf(file, "bsexec .. " SubstrateCynject_);
     fclose(file);
+
+    system(SubstrateCynject_);
 
     // XXX: damn you khan!
     finish = "reboot";
