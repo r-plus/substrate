@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
         finish = "reload";
 
     FILE *file = fopen("/etc/launchd.conf", "w+");
-    fprintf(file, "bsexec 0 /usr/bin/cynject 1 /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib\n");
+    fprintf(file, "bsexec .. /usr/bin/cynject 1 /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib\n");
     fclose(file);
 
     // XXX: damn you khan!
