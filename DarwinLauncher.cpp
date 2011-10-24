@@ -36,12 +36,16 @@
 
 #include "Environment.hpp"
 
+#define _syscall(expr) ({ \
+    __typeof__(expr) _value; \
+    for(;;) if ((long) (_value = (expr)) != -1 || errno != EINTR) \
+        break; \
+    _value; \
+})
+
 static int PosixSpawn(int (*spawn)(pid_t *, const char *, const posix_spawn_file_actions_t *, const posix_spawnattr_t *, char * const [], char * const []), pid_t *pid, const char *file2exec, const posix_spawn_file_actions_t *file_actions, const posix_spawnattr_t *attrp, char * const argv[], char * const envp[]) {
-    do access: if (access(SubstrateLibrary_, R_OK | X_OK) == -1) {
-        if (errno == EINTR)
-            goto access;
+    if (_syscall(access(SubstrateLibrary_, R_OK | X_OK)) == -1)
         return (*spawn)(pid, file2exec, file_actions, attrp, argv, envp);
-    } while (false);
 
     size_t size(0);
     for (char * const *env(envp); *env != NULL; ++env)
