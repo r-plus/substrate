@@ -35,14 +35,6 @@ static _finline void dlset(Baton *baton, Type_ &function, const char *name, void
 void *Routine(void *arg) {
     Baton *baton(reinterpret_cast<Baton *>(arg));
 
-    int (*pthread_detach)(pthread_t);
-    dlset(baton, pthread_detach, "pthread_detach");
-
-    pthread_t (*pthread_self)();
-    dlset(baton, pthread_self, "pthread_self");
-
-    pthread_detach(pthread_self());
-
     void *(*dlopen)(const char *, int);
     dlset(baton, dlopen, "dlopen");
 
@@ -76,6 +68,9 @@ extern "C" void Start(Baton *baton) {
 
     pthread_t thread;
     baton->pthread_create(&thread, NULL, &Routine, baton);
+
+    void *status;
+    baton->pthread_join(thread, &status);
 
     baton->thread_terminate(baton->mach_thread_self());
 }

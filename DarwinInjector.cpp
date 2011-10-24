@@ -59,7 +59,9 @@ _extern bool MSHookProcess(pid_t pid, const char *library) {
     Baton *baton(reinterpret_cast<Baton *>(local));
 
     baton->__pthread_set_self = &__pthread_set_self;
+
     baton->pthread_create = &pthread_create;
+    baton->pthread_join = &pthread_join;
 
     baton->mach_thread_self = &mach_thread_self;
     baton->thread_terminate = &thread_terminate;
@@ -164,6 +166,21 @@ _extern bool MSHookProcess(pid_t pid, const char *library) {
     _krncall(thread_set_state(thread, flavor, reinterpret_cast<thread_state_t>(&state), count));
     _krncall(thread_resume(thread));
 
+    do loop: switch (kern_return_t status = thread_get_state(thread, flavor, reinterpret_cast<thread_state_t>(&state), &(read = count))) {
+        case KERN_SUCCESS:
+            usleep(10000);
+            goto loop;
+
+        case KERN_TERMINATED:
+        case MACH_SEND_INVALID_DEST:
+            break;
+
+        default:
+            MSLog(MSLogLevelError, "MSError: thread_get_state() == %d", status);
+            return false;
+    } while (false);
+
+    _krncall(mach_port_deallocate(self, thread));
     _krncall(mach_port_deallocate(self, task));
 
     return true;
