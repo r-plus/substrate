@@ -24,6 +24,8 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "Environment.hpp"
+
 void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPropertyListFormat format) {
     if (path[0] != '\0')
         url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
@@ -32,8 +34,6 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     CFPropertyListWriteToStream(plist, stream, format, NULL);
     CFWriteStreamClose(stream);
 }
-
-#define dylib_ @"/Library/MobileSubstrate/MobileSubstrate.dylib"
 
 bool HookEnvironment(const char *path) {
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
@@ -51,22 +51,22 @@ bool HookEnvironment(const char *path) {
     NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
     if (ev == nil)
         return false;
-    NSString *il = [ev objectForKey:@"DYLD_INSERT_LIBRARIES"];
+    NSString *il = [ev objectForKey:@ SubstrateVariable_];
     if (il == nil)
         return false;
     NSArray *cm = [il componentsSeparatedByString:@":"];
-    unsigned index = [cm indexOfObject:dylib_];
+    unsigned index = [cm indexOfObject:@ SubstrateLibrary_];
     if (index == INT_MAX)
         return false;
     NSMutableArray *cmm = [NSMutableArray arrayWithCapacity:16];
     [cmm addObjectsFromArray:cm];
-    [cmm removeObject:dylib_];
+    [cmm removeObject:@ SubstrateLibrary_];
     if ([cmm count] != 0)
-        [ev setObject:[cmm componentsJoinedByString:@":"] forKey:@"DYLD_INSERT_LIBRARIES"];
+        [ev setObject:[cmm componentsJoinedByString:@":"] forKey:@ SubstrateVariable_];
     else if ([ev count] == 1)
         [root removeObjectForKey:@"EnvironmentVariables"];
     else
-        [ev removeObjectForKey:@"DYLD_INSERT_LIBRARIES"];
+        [ev removeObjectForKey:@ SubstrateVariable_];
 
     SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
     return true;

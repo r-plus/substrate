@@ -49,8 +49,8 @@ SubstrateBootstrap.dylib: Bootstrap.cpp
 SubstrateLauncher.dylib: DarwinLauncher.cpp libsubstrate.dylib
 	./cycc $(ios) $(mac) -oSubstrateLauncher.dylib -- $(flags) -dynamiclib $^
 
-SubstrateLoader.dylib: DarwinLoader.cpp
-	./cycc $(ios) $(mac) -oSubstrateLoader.dylib -- $(flags) -dynamiclib DarwinLoader.cpp \
+SubstrateLoader.dylib: DarwinLoader.cpp Environment.cpp
+	./cycc $(ios) $(mac) -oSubstrateLoader.dylib -- $(flags) -dynamiclib DarwinLoader.cpp Environment.cpp \
 	    -framework CoreFoundation
 
 %: %.cpp libsubstrate.dylib

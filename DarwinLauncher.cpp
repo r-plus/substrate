@@ -25,9 +25,6 @@
 
 #include <launch.h>
 
-#define dyld_ "DYLD_INSERT_LIBRARIES"
-#define dylib_ "/Library/MobileSubstrate/MobileSubstrate.dylib"
-
 #include <unistd.h>
 #include <syslog.h>
 #include <fcntl.h>
@@ -35,6 +32,8 @@
 #include <string.h>
 
 #include <spawn.h>
+
+#include "Environment.hpp"
 
 static int PosixSpawn(int (*spawn)(pid_t *, const char *, const posix_spawn_file_actions_t *, const posix_spawnattr_t *, char * const [], char * const []), pid_t *pid, const char *file2exec, const posix_spawn_file_actions_t *file_actions, const posix_spawnattr_t *attrp, char * const argv[], char * const envp[]) {
     size_t size(0);
@@ -47,19 +46,19 @@ static int PosixSpawn(int (*spawn)(pid_t *, const char *, const posix_spawn_file
     bool found(false);
 
     for (char * const *env(envp); *env != NULL; ++env)
-        if (strncmp(*env, dyld_ "=", sizeof(dyld_)) != 0)
+        if (strncmp(*env, SubstrateVariable_ "=", sizeof(SubstrateVariable_)) != 0)
             envs[last++] = *env;
         else {
             found = true;
 
-            if (strlen(*env) == sizeof(dyld_))
-                envs[last++] = strdup(dyld_ "=" dylib_);
+            if (strlen(*env) == sizeof(SubstrateVariable_))
+                envs[last++] = strdup(SubstrateVariable_ "=" SubstrateLibrary_);
             else
-                asprintf(&envs[last++], "%s:%s", *env, dylib_);
+                asprintf(&envs[last++], "%s:%s", *env, SubstrateLibrary_);
         }
 
     if (!found)
-        envs[last++] = strdup(dyld_ "=" dylib_);
+        envs[last++] = strdup(SubstrateVariable_ "=" SubstrateLibrary_);
 
     envs[last++] = NULL;
 

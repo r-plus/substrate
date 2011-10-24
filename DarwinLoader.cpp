@@ -34,6 +34,7 @@
 #include "CydiaSubstrate.h"
 
 #include "Log.hpp"
+#include "Environment.hpp"
 
 #define ForSaurik 0
 
@@ -48,40 +49,6 @@ static void MSAction(int sig, siginfo_t *info, void *uap) {
 #define Safety_ "/Library/Frameworks/CydiaSubstrate.framework/MobileSafety.dylib"
 
 extern "C" char ***_NSGetArgv(void);
-
-#define Dylib_ "/Library/MobileSubstrate/MobileSubstrate.dylib"
-
-static void RemoveKey() {
-    char *dil(getenv("DYLD_INSERT_LIBRARIES"));
-    if (dil == NULL) {
-        MSLog(MSLogLevelError, "MS:Error: DYLD_INSERT_LIBRARIES is unset?");
-        return;
-    }
-
-    size_t length(strlen(dil));
-    char buffer[length + 3];
-
-    buffer[0] = ':';
-    memcpy(buffer + 1, dil, length);
-    buffer[length + 1] = ':';
-    buffer[length + 2] = '\0';
-
-    char *index(strstr(buffer, ":" Dylib_ ":"));
-    if (index == NULL) {
-        MSLog(MSLogLevelError, "MS:Error: dylib not in DYLD_INSERT_LIBRARIES?");
-        return;
-    }
-
-    size_t skip(sizeof(Dylib_));
-    if (length == skip - 1) {
-        unsetenv("DYLD_INSERT_LIBRARIES");
-        return;
-    }
-
-    buffer[length + 1] = '\0';
-    memmove(index + 1, index + 1 + skip, length - (index - buffer) - skip + 2);
-    setenv("DYLD_INSERT_LIBRARIES", buffer + 1, true);
-}
 
 MSInitialize {
 #ifndef __arm__
@@ -138,7 +105,7 @@ MSInitialize {
         sprintf(MSWatch, "%s/Library/Preferences/%s", watch, dead);
 
         if (access(MSWatch, R_OK) == 0) {
-            RemoveKey();
+            MSClearEnvironment();
             MSLog(MSLogLevelWarning, "MS:Warning: Deactivating Substrate");
 
             if (unlink(MSWatch) == -1)
@@ -161,7 +128,7 @@ MSInitialize {
         strcat(watch, dat);
 
         if (access(watch, R_OK) == 0) {
-            RemoveKey();
+            MSClearEnvironment();
             MSLog(MSLogLevelWarning, "MS:Warning: Entering Safe Mode");
 
             if (unlink(watch) == -1)
