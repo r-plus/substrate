@@ -52,6 +52,11 @@ void *Routine(void *arg) {
         return NULL;
     }
 
+    int (*dlclose)(void *);
+    dlset(baton, dlclose, "dlclose");
+
+    dlclose(handle);
+
     return NULL;
 }
 

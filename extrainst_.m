@@ -120,13 +120,29 @@ int main(int argc, char *argv[]) {
 
     HookEnvironment("com.apple.SpringBoard");
 
-    #define SubstrateCynject_ "/usr/bin/cynject 1 /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib"
+    #define SubstrateLauncher_ "/Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib"
+
+    NSFileManager *manager = [NSFileManager defaultManager];
+    NSError *error;
+
+    NSString *temp = [NSString stringWithFormat:@"/tmp/ms-%f.dylib", [[NSDate date] timeIntervalSinceReferenceDate]];
+
+    if (![manager copyItemAtPath:@ SubstrateLauncher_ toPath:temp error:&error]) {
+        fprintf(stderr, "unable to copy: %s\n", [[error description] UTF8String]);
+        return 1;
+    }
+
+    system([[@"/usr/bin/cynject 1 " stringByAppendingString:temp] UTF8String]);
+
+    if (![manager removeItemAtPath:temp error:&error]) {
+        unlink([temp UTF8String]); // just in case
+        fprintf(stderr, "unable to remove: %s\n", [[error description] UTF8String]);
+        return 1;
+    }
 
     FILE *file = fopen("/etc/launchd.conf", "w+");
-    fprintf(file, "bsexec .. " SubstrateCynject_);
+    fprintf(file, "bsexec .. /usr/bin/cynject 1 " SubstrateLauncher_);
     fclose(file);
-
-    system(SubstrateCynject_);
 
     const char *cydia = getenv("CYDIA");
     if (finish != NULL && cydia != NULL) {

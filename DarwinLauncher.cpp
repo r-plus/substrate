@@ -44,6 +44,9 @@
 })
 
 MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_actions_t *file_actions, const posix_spawnattr_t *attrp, char * const argv[], char * const envp[]) {
+    unsetenv("_MSPosixSpawn");
+    unsetenv("_MSLaunchHandle");
+
     if (false) quit:
         return _posix_spawn(pid, path, file_actions, attrp, argv, envp);
 
@@ -101,6 +104,35 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
     return _posix_spawn(pid, path, file_actions, attrp, argv, envs);
 }
 
+template <typename Left_, typename Right_>
+static void MSReinterpretAssign(Left_ &left, const Right_ &right) {
+    left = reinterpret_cast<Left_>(right);
+}
+
 MSInitialize {
-    MSHookFunction(&posix_spawn, MSHake(posix_spawn));
+    Dl_info info;
+    if (dladdr(reinterpret_cast<void *>(&$posix_spawn), &info) == 0)
+        return;
+    void *handle(dlopen(info.dli_fname, RTLD_NOLOAD));
+
+    if (const char *cache = getenv("_MSPosixSpawn")) {
+        MSReinterpretAssign(_posix_spawn, strtoull(cache, NULL, 0));
+        MSHookFunction(&posix_spawn, &$posix_spawn);
+    } else {
+        MSHookFunction(&posix_spawn, MSHake(posix_spawn));
+
+        char cache[32];
+        sprintf(cache, "%p", _posix_spawn);
+        setenv("_MSPosixSpawn", cache, false);
+    }
+
+    if (const char *cache = getenv("_MSLaunchHandle")) {
+        void *obsolete;
+        MSReinterpretAssign(obsolete, strtoull(cache, NULL, 0));
+        dlclose(obsolete);
+    }
+
+    char cache[32];
+    sprintf(cache, "%p", handle);
+    setenv("_MSLaunchHandle", cache, true);
 }
