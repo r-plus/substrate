@@ -43,9 +43,12 @@
     _value; \
 })
 
-static int PosixSpawn(int (*spawn)(pid_t *, const char *, const posix_spawn_file_actions_t *, const posix_spawnattr_t *, char * const [], char * const []), pid_t *pid, const char *file2exec, const posix_spawn_file_actions_t *file_actions, const posix_spawnattr_t *attrp, char * const argv[], char * const envp[]) {
+MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_actions_t *file_actions, const posix_spawnattr_t *attrp, char * const argv[], char * const envp[]) {
+    if (false) quit:
+        return _posix_spawn(pid, path, file_actions, attrp, argv, envp);
+
     if (_syscall(access(SubstrateLibrary_, R_OK | X_OK)) == -1)
-        return (*spawn)(pid, file2exec, file_actions, attrp, argv, envp);
+        goto quit;
 
     size_t size(0);
     for (char * const *env(envp); *env != NULL; ++env)
@@ -73,18 +76,9 @@ static int PosixSpawn(int (*spawn)(pid_t *, const char *, const posix_spawn_file
 
     envs[last++] = NULL;
 
-    return (*spawn)(pid, file2exec, file_actions, attrp, argv, envs);
-}
-
-MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_actions_t *file_actions, const posix_spawnattr_t *attrp, char * const argv[], char * const envp[]) {
-    return PosixSpawn(_posix_spawn, pid, path, file_actions, attrp, argv, envp);
-}
-
-MSHook(int, posix_spawnp, pid_t *pid, const char *file, const posix_spawn_file_actions_t *file_actions, const posix_spawnattr_t *attrp, char * const argv[], char * const envp[]) {
-    return PosixSpawn(_posix_spawnp, pid, file, file_actions, attrp, argv, envp);
+    return _posix_spawn(pid, path, file_actions, attrp, argv, envs);
 }
 
 MSInitialize {
     MSHookFunction(&posix_spawn, MSHake(posix_spawn));
-    MSHookFunction(&posix_spawnp, MSHake(posix_spawnp));
 }
