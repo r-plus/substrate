@@ -26,6 +26,7 @@
 #include <launch.h>
 
 #include <unistd.h>
+#include <errno.h>
 #include <syslog.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -36,6 +37,12 @@
 #include "Environment.hpp"
 
 static int PosixSpawn(int (*spawn)(pid_t *, const char *, const posix_spawn_file_actions_t *, const posix_spawnattr_t *, char * const [], char * const []), pid_t *pid, const char *file2exec, const posix_spawn_file_actions_t *file_actions, const posix_spawnattr_t *attrp, char * const argv[], char * const envp[]) {
+    do access: if (access(SubstrateLibrary_, R_OK | X_OK) == -1) {
+        if (errno == EINTR)
+            goto access;
+        return (*spawn)(pid, file2exec, file_actions, attrp, argv, envp);
+    } while (false);
+
     size_t size(0);
     for (char * const *env(envp); *env != NULL; ++env)
         ++size;
