@@ -21,7 +21,12 @@
 
 #include "CydiaSubstrate.h"
 
+#include <unistd.h>
+
 MSInitialize {
+    if (getenv("MSExitZero") != NULL)
+        _exit(EXIT_SUCCESS);
+
     // Skype
     if (dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY | RTLD_NOLOAD) == NULL)
         return;

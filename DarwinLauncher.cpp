@@ -50,6 +50,28 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
     if (_syscall(access(SubstrateLibrary_, R_OK | X_OK)) == -1)
         goto quit;
 
+    switch (pid_t child = _syscall(fork())) {
+        case -1: {
+            goto quit;
+        }
+
+        case 0: {
+            setenv(SubstrateVariable_, SubstrateLibrary_, true);
+            setenv("MSExitZero", "", true);
+            char *args[] = { strdup(path), NULL };
+            _syscall(execv(path, args));
+            _exit(EXIT_FAILURE);
+        }
+
+        default: {
+            int status;
+            if (_syscall(waitpid(child, &status, 0)) == -1)
+                goto quit;
+            if (!WIFEXITED(status) || WEXITSTATUS(status) != EXIT_SUCCESS)
+                goto quit;
+        }
+    }
+
     size_t size(0);
     for (char * const *env(envp); *env != NULL; ++env)
         ++size;
