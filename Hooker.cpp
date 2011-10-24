@@ -405,7 +405,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
                     };
                 } exts = {backup[offset+1]};
 
-                intptr_t jump(0);
+                int32_t jump(0);
                 jump |= bits.s << 24;
                 jump |= (~(bits.s ^ exts.j1) & 0x1) << 23;
                 jump |= (~(bits.s ^ exts.j2) & 0x1) << 22;
