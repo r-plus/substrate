@@ -26,6 +26,8 @@
 #include "Environment.hpp"
 
 void MSClearEnvironment() {
+    setenv("_MSSafeMode", "", false);
+
     char *dil(getenv(SubstrateVariable_));
     if (dil == NULL) {
         MSLog(MSLogLevelError, "MS:Error: %s is unset?", SubstrateVariable_);
