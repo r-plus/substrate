@@ -181,6 +181,10 @@ _extern bool MSHookProcess(pid_t pid, const char *library) {
     } while (false);
 
     _krncall(mach_port_deallocate(self, thread));
+
+    _krncall(vm_deallocate(task, code, trampoline->size_));
+    _krncall(vm_deallocate(task, stack, size));
+
     _krncall(mach_port_deallocate(self, task));
 
     return true;
