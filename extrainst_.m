@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     }
 
     FILE *file = fopen("/etc/launchd.conf", "w+");
-    fprintf(file, "bsexec .. /usr/bin/cynject 1 " SubstrateLauncher_);
+    fprintf(file, "bsexec .. /usr/bin/cynject 1 " SubstrateLauncher_ "\n");
     fclose(file);
 
     const char *cydia = getenv("CYDIA");
