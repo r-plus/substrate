@@ -19,6 +19,9 @@
 **/
 /* }}} */
 
+// forces _pthread_setspecific_direct() to not call pthread_setspecific()
+#define __OPTIMIZE__
+
 #define _PTHREAD_ATTR_T
 #include <pthread_internals.h>
 
@@ -65,6 +68,9 @@ extern "C" void Start(Baton *baton) {
     // this code comes from _pthread_set_self
     self.tsd[0] = &self;
     baton->__pthread_set_self(&self);
+
+    // makes optimized pthread_self() work
+    _pthread_setspecific_direct(0, &self);
 
     pthread_t thread;
     baton->pthread_create(&thread, NULL, &Routine, baton);
