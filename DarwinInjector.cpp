@@ -87,7 +87,7 @@ _extern bool MSHookProcess(pid_t pid, const char *library) {
     _krncall(vm_allocate(task, &stack, size, true));
     vm_address_t data(stack + Stack_);
 
-    vm_write(task, data, reinterpret_cast<vm_address_t>(baton), depth);
+    _krncall(vm_write(task, data, reinterpret_cast<vm_address_t>(baton), depth));
 
     thread_act_t thread;
     _krncall(thread_create(task, &thread));
@@ -126,7 +126,7 @@ _extern bool MSHookProcess(pid_t pid, const char *library) {
 
     vm_address_t code;
     _krncall(vm_allocate(task, &code, trampoline->size_, true));
-    vm_write(task, code, reinterpret_cast<vm_address_t>(trampoline->data_), trampoline->size_);
+    _krncall(vm_write(task, code, reinterpret_cast<vm_address_t>(trampoline->data_), trampoline->size_));
     _krncall(vm_protect(task, code, trampoline->size_, false, VM_PROT_READ | VM_PROT_EXECUTE));
 
     uint32_t frame[push];
@@ -177,7 +177,7 @@ _extern bool MSHookProcess(pid_t pid, const char *library) {
 
 
     if (sizeof(frame) != 0)
-        vm_write(task, stack + Stack_ - sizeof(frame), reinterpret_cast<vm_address_t>(frame), sizeof(frame));
+        _krncall(vm_write(task, stack + Stack_ - sizeof(frame), reinterpret_cast<vm_address_t>(frame), sizeof(frame)));
 
     _krncall(thread_set_state(thread, flavor, reinterpret_cast<thread_state_t>(&state), count));
     _krncall(thread_resume(thread));
