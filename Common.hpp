@@ -23,6 +23,7 @@
 #define SUBSTRATE_COMMON_HPP
 
 #include <errno.h>
+#include "Log.hpp"
 
 #define _syscall(expr) ({ \
     __typeof__(expr) _value; \
@@ -30,5 +31,9 @@
         break; \
     _value; \
 })
+
+#define _trace() do { \
+    MSLog(MSLogLevelError, "%s(%d): _trace()", __FILE__, __LINE__); \
+} while (false)
 
 #endif//SUBSTRATE_COMMON_HPP
