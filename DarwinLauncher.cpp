@@ -39,6 +39,9 @@
 #include "Common.hpp"
 #include "Environment.hpp"
 
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
+
 MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_actions_t *file_actions, const posix_spawnattr_t *attrp, char * const argv[], char * const envp[]) {
     // quit is a goto target that is used below to exit this function without manipulating envp
 
@@ -53,6 +56,14 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
         safe = true;
         goto scan;
     }
+
+
+    // we use these arguments below, so we need to fix them or fail early
+
+    if (path == NULL)
+        goto quit;
+    if (envp == NULL)
+        envp = environ;
 
 
     // if a process wants to turn off Substrate for its children, it needs to communicate this to us

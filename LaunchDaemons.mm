@@ -40,6 +40,8 @@ static bool MSClearLaunchDaemon(NSString *file) {
         return false;
 
     NSMutableArray *dylibs([[variable componentsSeparatedByString:@":"] mutableCopy]);
+    if (dylibs == nil)
+        return NO;
 
     NSUInteger index([dylibs indexOfObject:@ SubstrateLibrary_]);
     if (index == NSNotFound)

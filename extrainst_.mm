@@ -32,6 +32,8 @@
 
 static bool HookEnvironment(const char *name) {
     NSString *file([NSString stringWithFormat:@"%@/%s.plist", @ SubstrateLaunchDaemons_, name]);
+    if (file == nil)
+        return NO;
 
     NSMutableDictionary *root([NSMutableDictionary dictionaryWithContentsOfFile:file]);
     if (root == nil)
@@ -40,6 +42,9 @@ static bool HookEnvironment(const char *name) {
     NSMutableDictionary *environment([root objectForKey:@"EnvironmentVariables"]);
     if (environment == nil) {
         environment = [NSMutableDictionary dictionaryWithCapacity:1];
+        if (environment == nil)
+            return NO;
+
         [root setObject:environment forKey:@"EnvironmentVariables"];
     }
 
@@ -48,6 +53,8 @@ static bool HookEnvironment(const char *name) {
         [environment setObject:@ SubstrateLibrary_ forKey:@ SubstrateVariable_];
     else {
         NSArray *dylibs([variable componentsSeparatedByString:@":"]);
+        if (dylibs == nil)
+            return NO;
 
         NSUInteger index([dylibs indexOfObject:@ SubstrateLibrary_]);
         if (index != NSNotFound)
