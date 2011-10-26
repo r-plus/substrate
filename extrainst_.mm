@@ -28,48 +28,44 @@
 #include "Environment.hpp"
 #include "LaunchDaemons.hpp"
 
-void SavePropertyList(CFPropertyListRef plist, CFURLRef url, CFPropertyListFormat format) {
-    CFWriteStreamRef stream = CFWriteStreamCreateWithFile(kCFAllocatorDefault, url);
-    CFWriteStreamOpen(stream);
-    CFPropertyListWriteToStream(plist, stream, format, NULL);
-    CFWriteStreamClose(stream);
-}
+// XXX: NO means "failed", false means "unneeded"
 
-bool HookEnvironment(const char *path) {
-    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
+static bool HookEnvironment(const char *name) {
+    NSString *file([NSString stringWithFormat:@"%@/%s.plist", @ SubstrateLaunchDaemons_, name]);
 
-    CFPropertyListRef plist; {
-        CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
-        CFReadStreamOpen(stream);
-        plist = CFPropertyListCreateFromStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);
-        CFReadStreamClose(stream);
-    }
-
-    NSMutableDictionary *root = (NSMutableDictionary *) plist;
+    NSMutableDictionary *root([NSMutableDictionary dictionaryWithContentsOfFile:file]);
     if (root == nil)
-        return false;
-    NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
-    if (ev == nil) {
-        ev = [NSMutableDictionary dictionaryWithCapacity:16];
-        [root setObject:ev forKey:@"EnvironmentVariables"];
-    }
-    NSString *il = [ev objectForKey:@ SubstrateVariable_];
-    if (il == nil || [il length] == 0)
-        [ev setObject:@ SubstrateLibrary_ forKey:@ SubstrateVariable_];
-    else {
-        NSArray *cm = [il componentsSeparatedByString:@":"];
-        unsigned index = [cm indexOfObject:@ SubstrateLibrary_];
-        if (index != INT_MAX)
-            return false;
-        [ev setObject:[NSString stringWithFormat:@"%@:%@", il, @ SubstrateLibrary_] forKey:@ SubstrateVariable_];
+        return NO;
+
+    NSMutableDictionary *environment([root objectForKey:@"EnvironmentVariables"]);
+    if (environment == nil) {
+        environment = [NSMutableDictionary dictionaryWithCapacity:1];
+        [root setObject:environment forKey:@"EnvironmentVariables"];
     }
 
-    SavePropertyList(plist, url, kCFPropertyListBinaryFormat_v1_0);
+    NSString *variable([environment objectForKey:@ SubstrateVariable_]);
+    if (variable == nil || [variable length] == 0)
+        [environment setObject:@ SubstrateLibrary_ forKey:@ SubstrateVariable_];
+    else {
+        NSArray *dylibs([variable componentsSeparatedByString:@":"]);
+
+        NSUInteger index([dylibs indexOfObject:@ SubstrateLibrary_]);
+        if (index != NSNotFound)
+            return false;
+
+        [environment setObject:[NSString stringWithFormat:@"%@:%@", variable, @ SubstrateLibrary_] forKey:@ SubstrateVariable_];
+    }
+
+    NSString *error;
+    NSData *data([NSPropertyListSerialization dataFromPropertyList:root format:NSPropertyListBinaryFormat_v1_0 errorDescription:&error]);
+    if (data == nil)
+        return NO;
+
+    if (![data writeToFile:file atomically:YES])
+        return NO;
+
     return true;
 }
-
-#define HookEnvironment(name) \
-    HookEnvironment(SubstrateLaunchDaemons_ "/" name ".plist")
 
 static void InstallTether() {
     HookEnvironment("com.apple.mediaserverd");
