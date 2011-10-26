@@ -155,8 +155,13 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
                     end -= sizeof(SubstrateLibrary_);
                 }
 
-                memcpy(colon, colon + 1, end - colon - 1);
-                end[-2] = '\0';
+                if (end - value == sizeof(SubstrateVariable_) + 1) {
+                    free(value);
+                    --last;
+                } else {
+                    memcpy(colon, colon + 1, end - colon - 1);
+                    end[-2] = '\0';
+                }
             }
 
             continue;
