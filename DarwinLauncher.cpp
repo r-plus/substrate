@@ -102,7 +102,7 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
 
         case 0:
             // XXX: figure out a way to turn off CrashReporter for this process
-            _syscall(execle(path, path, NULL, (const char *[]) { SubstrateVariable_ "=" SubstrateLibrary_, "MSExitZero" "=" }));
+            _syscall(execle(path, path, NULL, (const char *[]) { SubstrateVariable_ "=" SubstrateLibrary_, "MSExitZero" "=", NULL }));
             _exit(EXIT_FAILURE);
 
         default:
