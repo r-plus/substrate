@@ -38,7 +38,28 @@ int main(int argc, char *argv[]) {
 
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
-    unlink("/etc/launchd.conf");
+    NSFileManager *manager([NSFileManager defaultManager]);
+    NSError *error;
+
+    if (NSString *config = [NSString stringWithContentsOfFile:@ SubstrateLaunchConfig_ encoding:NSNonLossyASCIIStringEncoding error:&error]) {
+        NSArray *lines([config componentsSeparatedByString:@"\n"]);
+
+        NSString *replace;
+        if (lines == nil || [lines indexOfObject:@ SubstrateBootstrapExecute_] == NSNotFound)
+            replace = nil;
+        else {
+            NSMutableArray *copy([lines mutableCopy]);
+            [copy removeObject:@ SubstrateBootstrapExecute_];
+            replace = [copy componentsJoinedByString:@"\n"];
+        }
+
+        if (replace != nil) {
+            if ([replace length] != 0)
+                [replace writeToFile:@ SubstrateLaunchConfig_ atomically:YES encoding:NSNonLossyASCIIStringEncoding error:&error];
+            else
+                [manager removeItemAtPath:@ SubstrateLaunchConfig_ error:&error];
+        }
+    }
 
     if (MSClearLaunchDaemons())
         FinishCydia("reboot");

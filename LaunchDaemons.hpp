@@ -23,6 +23,10 @@
 #define SUBSTRATE_LAUNCHDAEMONS_HPP
 
 #define SubstrateLaunchDaemons_ "/System/Library/LaunchDaemons"
+#define SubstrateLaunchConfig_ "/etc/launchd.conf"
+
+#define SubstrateLauncher_ "/Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib"
+#define SubstrateBootstrapExecute_ "bsexec .. /usr/bin/cynject 1 " SubstrateLauncher_
 
 bool MSClearLaunchDaemons();
 

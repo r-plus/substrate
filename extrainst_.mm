@@ -109,8 +109,6 @@ static void InstallTether() {
 static void InstallSemiTether() {
     MSClearLaunchDaemons();
 
-    #define SubstrateLauncher_ "/Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib"
-
     NSFileManager *manager([NSFileManager defaultManager]);
     NSError *error;
 
@@ -127,9 +125,25 @@ static void InstallSemiTether() {
         if (unlink([temp UTF8String]) == -1)
             fprintf(stderr, "unable to remove: (%s):%d\n", [[error description] UTF8String], errno);
 
-    FILE *file(fopen("/etc/launchd.conf", "w+"));
-    fprintf(file, "bsexec .. /usr/bin/cynject 1 " SubstrateLauncher_ "\n");
-    fclose(file);
+    NSString *config([NSString stringWithContentsOfFile:@ SubstrateLaunchConfig_ encoding:NSNonLossyASCIIStringEncoding error:&error]);
+    NSArray *lines(config == nil ? nil : [config componentsSeparatedByString:@"\n"]);
+
+    NSString *replace;
+    if (lines == nil)
+        replace = @ SubstrateBootstrapExecute_ "\n";
+    else if ([lines indexOfObject:@ SubstrateBootstrapExecute_] != NSNotFound)
+        replace = nil;
+    else {
+        NSMutableArray *copy([lines mutableCopy]);
+        if ([[copy lastObject] length] == 0)
+            [copy removeLastObject];
+        [copy addObject:@ SubstrateBootstrapExecute_];
+        [copy addObject:@""];
+        replace = [copy componentsJoinedByString:@"\n"];
+    }
+
+    if (replace != nil)
+        [replace writeToFile:@ SubstrateLaunchConfig_ atomically:YES encoding:NSNonLossyASCIIStringEncoding error:&error];
 }
 
 int main(int argc, char *argv[]) {
