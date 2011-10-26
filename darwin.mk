@@ -36,21 +36,19 @@ ios: darwin
 	./trampoline.sh $@ $*.dylib $* sed otool lipo nm ./cycc $(ios) $(mac) -o$*.dylib -- -dynamiclib $< -Iinclude -Xarch_armv6 -marm
 
 libsubstrate.dylib: MachMemory.cpp Hooker.cpp ObjectiveC.cpp DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp hde64c/src/hde64.c Trampoline.t.hpp
-	./cycc $(ios) $(mac) -olibsubstrate.dylib -- $(flags) -dynamiclib \
+	./cycc $(ios) $(mac) -olibsubstrate.dylib -- $(flags) -dynamiclib -lobjc \
 	    MachMemory.cpp Hooker.cpp ObjectiveC.cpp DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp \
-	    -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c \
-	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate \
-	    -lobjc \
-	    -Ihde64c/include
+	    -Ihde64c/include -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c \
+	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
 
 SubstrateBootstrap.dylib: Bootstrap.cpp
-	./cycc $(ios) $(mac) -oSubstrateBootstrap.dylib -- $(flags) -dynamiclib Bootstrap.cpp
+	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $^
 
 SubstrateLauncher.dylib: DarwinLauncher.cpp libsubstrate.dylib
-	./cycc $(ios) $(mac) -oSubstrateLauncher.dylib -- $(flags) -dynamiclib $^
+	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $^
 
 SubstrateLoader.dylib: DarwinLoader.cpp Environment.cpp
-	./cycc $(ios) $(mac) -oSubstrateLoader.dylib -- $(flags) -dynamiclib DarwinLoader.cpp Environment.cpp \
+	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $^ \
 	    -framework CoreFoundation
 
 %: %.cpp libsubstrate.dylib
