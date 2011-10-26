@@ -57,8 +57,8 @@ SubstrateLoader.dylib: DarwinLoader.cpp Environment.cpp
 	./cycc $(ios) $(mac) -o$@ -- $(flags) $^
 	ldid -Stask_for_pid.xml $@
 
-%: %.m
-	./cycc $(ios) -o$@ -- $< $(flags) \
+%: %.mm LaunchDaemons.mm Cydia.mm
+	./cycc $(ios) -o$@ -- $(flags) $^ \
 	    -framework CoreFoundation -framework Foundation
 
 deb: ios extrainst_ postrm

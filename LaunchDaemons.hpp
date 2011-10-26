@@ -19,31 +19,11 @@
 **/
 /* }}} */
 
-#include <string.h>
-#include <stdbool.h>
-#include <unistd.h>
+#ifndef SUBSTRATE_LAUNCHDAEMONS_HPP
+#define SUBSTRATE_LAUNCHDAEMONS_HPP
 
-#include <Foundation/Foundation.h>
+#define SubstrateLaunchDaemons_ "/System/Library/LaunchDaemons"
 
-#include <stdlib.h>
+bool MSClearLaunchDaemons();
 
-int main(int argc, char *argv[]) {
-    if (argc < 2 || (
-        strcmp(argv[1], "abort-install") != 0 &&
-        strcmp(argv[1], "remove") != 0 &&
-    true)) return 0;
-
-    unlink("/etc/launchd.conf");
-
-    const char *finish = "reboot";
-
-    const char *cydia = getenv("CYDIA");
-    if (finish != NULL && cydia != NULL) {
-        int fd = [[[[NSString stringWithUTF8String:cydia] componentsSeparatedByString:@" "] objectAtIndex:0] intValue];
-        FILE *fout = fdopen(fd, "w");
-        fprintf(fout, "finish:%s\n", finish);
-        fclose(fout);
-    }
-
-    return 0;
-}
+#endif//SUBSTRATE_LAUNCHDAEMONS_HPP

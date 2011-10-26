@@ -34,14 +34,8 @@
 
 #include <spawn.h>
 
+#include "Common.hpp"
 #include "Environment.hpp"
-
-#define _syscall(expr) ({ \
-    __typeof__(expr) _value; \
-    for(;;) if ((long) (_value = (expr)) != -1 || errno != EINTR) \
-        break; \
-    _value; \
-})
 
 MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_actions_t *file_actions, const posix_spawnattr_t *attrp, char * const argv[], char * const envp[]) {
     if (false) quit:

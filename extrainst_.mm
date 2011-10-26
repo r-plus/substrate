@@ -24,11 +24,11 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "Cydia.hpp"
 #include "Environment.hpp"
+#include "LaunchDaemons.hpp"
 
-void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPropertyListFormat format) {
-    if (path[0] != '\0')
-        url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
+void SavePropertyList(CFPropertyListRef plist, CFURLRef url, CFPropertyListFormat format) {
     CFWriteStreamRef stream = CFWriteStreamCreateWithFile(kCFAllocatorDefault, url);
     CFWriteStreamOpen(stream);
     CFPropertyListWriteToStream(plist, stream, format, NULL);
@@ -49,42 +49,29 @@ bool HookEnvironment(const char *path) {
     if (root == nil)
         return false;
     NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
-    if (ev == nil)
-        return false;
+    if (ev == nil) {
+        ev = [NSMutableDictionary dictionaryWithCapacity:16];
+        [root setObject:ev forKey:@"EnvironmentVariables"];
+    }
     NSString *il = [ev objectForKey:@ SubstrateVariable_];
-    if (il == nil)
-        return false;
-    NSArray *cm = [il componentsSeparatedByString:@":"];
-    unsigned index = [cm indexOfObject:@ SubstrateLibrary_];
-    if (index == INT_MAX)
-        return false;
-    NSMutableArray *cmm = [NSMutableArray arrayWithCapacity:16];
-    [cmm addObjectsFromArray:cm];
-    [cmm removeObject:@ SubstrateLibrary_];
-    if ([cmm count] != 0)
-        [ev setObject:[cmm componentsJoinedByString:@":"] forKey:@ SubstrateVariable_];
-    else if ([ev count] == 1)
-        [root removeObjectForKey:@"EnvironmentVariables"];
-    else
-        [ev removeObjectForKey:@ SubstrateVariable_];
+    if (il == nil || [il length] == 0)
+        [ev setObject:@ SubstrateLibrary_ forKey:@ SubstrateVariable_];
+    else {
+        NSArray *cm = [il componentsSeparatedByString:@":"];
+        unsigned index = [cm indexOfObject:@ SubstrateLibrary_];
+        if (index != INT_MAX)
+            return false;
+        [ev setObject:[NSString stringWithFormat:@"%@:%@", il, @ SubstrateLibrary_] forKey:@ SubstrateVariable_];
+    }
 
-    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
+    SavePropertyList(plist, url, kCFPropertyListBinaryFormat_v1_0);
     return true;
 }
 
 #define HookEnvironment(name) \
-    HookEnvironment("/System/Library/LaunchDaemons/" name ".plist")
+    HookEnvironment(SubstrateLaunchDaemons_ "/" name ".plist")
 
-int main(int argc, char *argv[]) {
-    if (argc < 2 || (
-        strcmp(argv[1], "install") != 0 &&
-        strcmp(argv[1], "upgrade") != 0 &&
-    true)) return 0;
-
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-
-    const char *finish = NULL;
-
+static void InstallTether() {
     HookEnvironment("com.apple.mediaserverd");
     HookEnvironment("com.apple.itunesstored");
     HookEnvironment("com.apple.CommCenter");
@@ -120,36 +107,54 @@ int main(int argc, char *argv[]) {
 
     HookEnvironment("com.apple.SpringBoard");
 
+    FinishCydia("reboot");
+}
+
+static void InstallSemiTether() {
+    MSClearLaunchDaemons();
+
     #define SubstrateLauncher_ "/Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLauncher.dylib"
 
-    NSFileManager *manager = [NSFileManager defaultManager];
+    NSFileManager *manager([NSFileManager defaultManager]);
     NSError *error;
 
-    NSString *temp = [NSString stringWithFormat:@"/tmp/ms-%f.dylib", [[NSDate date] timeIntervalSinceReferenceDate]];
+    NSString *temp([NSString stringWithFormat:@"/tmp/ms-%f.dylib", [[NSDate date] timeIntervalSinceReferenceDate]]);
 
     if (![manager copyItemAtPath:@ SubstrateLauncher_ toPath:temp error:&error]) {
         fprintf(stderr, "unable to copy: %s\n", [[error description] UTF8String]);
-        return 1;
+        temp = @ SubstrateLauncher_;
     }
 
     system([[@"/usr/bin/cynject 1 " stringByAppendingString:temp] UTF8String]);
 
-    if (![manager removeItemAtPath:temp error:&error]) {
-        unlink([temp UTF8String]); // just in case
-        fprintf(stderr, "unable to remove: %s\n", [[error description] UTF8String]);
-        return 1;
-    }
+    if (![manager removeItemAtPath:temp error:&error])
+        if (unlink([temp UTF8String]) == -1)
+            fprintf(stderr, "unable to remove: (%s):%d\n", [[error description] UTF8String], errno);
 
-    FILE *file = fopen("/etc/launchd.conf", "w+");
+    FILE *file(fopen("/etc/launchd.conf", "w+"));
     fprintf(file, "bsexec .. /usr/bin/cynject 1 " SubstrateLauncher_ "\n");
     fclose(file);
+}
 
-    const char *cydia = getenv("CYDIA");
-    if (finish != NULL && cydia != NULL) {
-        int fd = [[[[NSString stringWithUTF8String:cydia] componentsSeparatedByString:@" "] objectAtIndex:0] intValue];
-        FILE *fout = fdopen(fd, "w");
-        fprintf(fout, "finish:%s\n", finish);
-        fclose(fout);
+int main(int argc, char *argv[]) {
+    if (argc < 2 || (
+        strcmp(argv[1], "install") != 0 &&
+        strcmp(argv[1], "upgrade") != 0 &&
+    true)) return 0;
+
+    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+
+    switch (DetectForkBug()) {
+        case ForkBugUnknown:
+            return 1;
+
+        case ForkBugPresent:
+            InstallTether();
+            break;
+
+        case ForkBugMissing:
+            InstallSemiTether();
+            break;
     }
 
     [pool release];
