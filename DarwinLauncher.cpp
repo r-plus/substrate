@@ -32,6 +32,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <sys/stat.h>
+
 #include <spawn.h>
 
 #include "Common.hpp"
@@ -51,6 +53,17 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
         goto safe;
 
     if (_syscall(access(SubstrateLibrary_, R_OK | X_OK)) == -1)
+        goto safe;
+
+    struct stat info;
+    if (_syscall(stat(path, &info)) == -1)
+        goto safe;
+
+    if ((info.st_mode & S_ISUID) != 0 && getuid() != info.st_uid)
+        goto safe;
+
+    // XXX: technically, if this user is not a member of the group
+    if ((info.st_mode & S_ISGID) != 0 && getgid() != info.st_gid)
         goto safe;
 
     switch (pid_t child = _syscall(fork())) {
