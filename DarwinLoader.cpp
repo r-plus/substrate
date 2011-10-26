@@ -216,9 +216,13 @@ sigaction(signum, NULL, &old); { \
             }
         }
 
-        bool load = true;
+        // XXX: eventually this should become false: dylibs must have a filter
+        bool load(!safe);
+
         if (meta != NULL) {
             if (CFDictionaryRef filter = reinterpret_cast<CFDictionaryRef>(CFDictionaryGetValue(meta, CFSTR("Filter")))) {
+                load = true;
+
                 int value(0);
                 if (CFNumberRef flags = reinterpret_cast<CFNumberRef>(CFDictionaryGetValue(filter, CFSTR("Flags")))) {
                     if (CFGetTypeID(flags) != CFNumberGetTypeID() || !CFNumberGetValue(flags, kCFNumberIntType, &value)) {
