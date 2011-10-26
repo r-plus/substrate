@@ -67,6 +67,7 @@ static bool MSClearLaunchDaemon(NSString *file) {
 
 bool MSClearLaunchDaemons() {
     NSError *error;
+
     NSArray *contents([[NSFileManager defaultManager] contentsOfDirectoryAtPath:@ SubstrateLaunchDaemons_ error:&error]);
     if (contents == nil)
         return NO;

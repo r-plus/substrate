@@ -54,9 +54,12 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
 
     int page(getpagesize());
 
+    // XXX: I am not certain if I should deallocate this port
     mach_port_t self(mach_task_self());
     uintptr_t base(reinterpret_cast<uintptr_t>(data) / page * page);
     size_t width(((reinterpret_cast<uintptr_t>(data) + size - 1) / page + 1) * page - base);
+
+    // XXX: this code should detect if RWX is available, and use it while editing for thread-safety
 
     if (kern_return_t error = vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
         MSLog(MSLogLevelError, "MS:Error:vm_protect() = %d", error);

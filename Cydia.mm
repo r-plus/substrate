@@ -37,6 +37,8 @@ void FinishCydia(const char *finish) {
     if (cydia == NULL)
         return;
 
+
+    // XXX: I think I'd like to rewrite this code using C++
     int fd([[[[NSString stringWithUTF8String:cydia] componentsSeparatedByString:@" "] objectAtIndex:0] intValue]);
 
     FILE *fout(fdopen(fd, "w"));
@@ -45,6 +47,7 @@ void FinishCydia(const char *finish) {
 }
 
 ForkBugStatus DetectForkBug() {
+    // XXX: I am not certain if I should deallocate this port
     mach_port_t self(mach_task_self());
     int page(getpagesize());
 
@@ -70,5 +73,6 @@ ForkBugStatus DetectForkBug() {
     if (WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS)
         return ForkBugMissing;
     else
+        // XXX: consider checking for a killed status, and returning ForBugUnknown if not
         return ForkBugPresent;
 }

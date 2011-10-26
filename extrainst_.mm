@@ -112,18 +112,29 @@ static void InstallSemiTether() {
     NSFileManager *manager([NSFileManager defaultManager]);
     NSError *error;
 
+
+    // we must copy the dylib to a new filename in order to guarantee that dlopen() considers it to be different
+    // if we fail to do this, it is quite unfortunate, but often it will work to use the original name
+
     NSString *temp([NSString stringWithFormat:@"/tmp/ms-%f.dylib", [[NSDate date] timeIntervalSinceReferenceDate]]);
 
     if (![manager copyItemAtPath:@ SubstrateLauncher_ toPath:temp error:&error]) {
         fprintf(stderr, "unable to copy: %s\n", [[error description] UTF8String]);
+        // XXX: this is not actually reasonable
         temp = @ SubstrateLauncher_;
     }
 
+
+    // XXX: check the result code and do something about failures
     system([[@"/usr/bin/cynject 1 " stringByAppendingString:temp] UTF8String]);
+
+
+    // if we are unable to remove the file copied into /tmp, it is interesting, but harmless
 
     if (![manager removeItemAtPath:temp error:&error])
         if (unlink([temp UTF8String]) == -1)
             fprintf(stderr, "unable to remove: (%s):%d\n", [[error description] UTF8String], errno);
+
 
     NSString *config([NSString stringWithContentsOfFile:@ SubstrateLaunchConfig_ encoding:NSNonLossyASCIIStringEncoding error:&error]);
     NSArray *lines(config == nil ? nil : [config componentsSeparatedByString:@"\n"]);
@@ -154,6 +165,10 @@ int main(int argc, char *argv[]) {
 
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
+
+    // there is a horrible bug in some jailbreaks where fork() causes dirty pages to become codesign invalid
+    // as our posix_spawn hook in launchd occurs after a call to fork(), we cannot use that injection mechanism
+
     switch (DetectForkBug()) {
         case ForkBugUnknown:
             return 1;
@@ -167,6 +182,9 @@ int main(int argc, char *argv[]) {
             break;
     }
 
+
     [pool release];
+
+    // XXX: in general, this return 0 happens way too often
     return 0;
 }
