@@ -25,6 +25,8 @@
 #define SubstrateVariable_ "DYLD_INSERT_LIBRARIES"
 #define SubstrateLibrary_ "/Library/MobileSubstrate/MobileSubstrate.dylib"
 
+#define SubstrateSafeMode_ "_MSSafeMode"
+
 void MSClearEnvironment();
 
 #endif//SUBSTRATE_ENVIRONMENT_HPP

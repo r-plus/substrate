@@ -26,7 +26,7 @@
 #include "Environment.hpp"
 
 void MSClearEnvironment() {
-    setenv("_MSSafeMode", "", false);
+    setenv(SubstrateSafeMode_, "1", false);
 
     char *dil(getenv(SubstrateVariable_));
     if (dil == NULL) {

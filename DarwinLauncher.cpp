@@ -67,10 +67,20 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
 
 
     // if a process wants to turn off Substrate for its children, it needs to communicate this to us
+    // a process can also indicate "I'm good, just do it", bypassing the later (expensive) safety checks
 
-    // XXX: maybe this variable should be found in envp
-    if (getenv("_MSSafeMode") != NULL)
-        goto safe;
+    for (char * const *env(envp); *env != NULL; ++env)
+        if (false);
+        else if (strncmp(SubstrateSafeMode_ "=", *env, sizeof(SubstrateSafeMode_))) {
+            const char *value(*env + sizeof(SubstrateSafeMode_));
+
+            if (false);
+            else if (strcmp(value, "0") == 0 || strcmp(value, "NO") == 0)
+                goto scan;
+            else if (strcmp(value, "1") == 0 || strcmp(value, "YES") == 0 || strcmp(value, "") == 0)
+                goto safe;
+            else goto quit;
+        }
 
 
     // it is possible we are still installed in the kernel, even though substrate was removed

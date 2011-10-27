@@ -372,6 +372,8 @@ sigaction(signum, NULL, &old); { \
         }
     }
 
+    setenv(SubstrateSafeMode_, "0", true);
+
     if (false) {
         MSLog(MSLogLevelNotice, "MobileSubstrate fell asleep... I'll wake him up in 10 seconds ;P");
         sleep(10);
