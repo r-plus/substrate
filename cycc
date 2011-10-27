@@ -450,6 +450,10 @@ if has package "${modes[@]}"; then
             done
 	    echo '        </array>'
 
+            echo
+	    echo '        <key>Mode</key>'
+	    echo '        <string>Any</string>'
+
 	    echo '    </dict>'
 
             echo '</dict>'
