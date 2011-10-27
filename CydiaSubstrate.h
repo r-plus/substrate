@@ -296,6 +296,13 @@ static inline void MSHookSymbol(Type_ *&value, const char *name, void *handle = 
     value = reinterpret_cast<Type_ *>(dlsym(handle, name));
 }
 
+template <typename Type_>
+static inline void MSHookFunction(const char *name, Type_ *replace, Type_ **result = NULL) {
+    Type_ *symbol;
+    MSHookSymbol(symbol, name);
+    return MSHookFunction(symbol, replace, result);
+}
+
 #endif
 
 #define MSHook(type, name, args...) \
