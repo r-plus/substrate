@@ -4,3 +4,4 @@ Name: Mobile Substrate
 Author: Jay Freeman (saurik) <saurik@saurik.com>
 Depiction: http://cydia.saurik.com/info/mobilesubstrate/
 Depends: com.saurik.substrate.safemode
+Breaks: uikittools (<< 1.1.1)
