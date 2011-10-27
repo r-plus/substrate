@@ -71,7 +71,7 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
 
     for (char * const *env(envp); *env != NULL; ++env)
         if (false);
-        else if (strncmp(SubstrateSafeMode_ "=", *env, sizeof(SubstrateSafeMode_))) {
+        else if (strncmp(SubstrateSafeMode_ "=", *env, sizeof(SubstrateSafeMode_)) == 0) {
             const char *value(*env + sizeof(SubstrateSafeMode_));
 
             if (false);
@@ -134,6 +134,18 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
         goto quit;
 
     size_t last(0);
+
+
+    // fail is a goto target that can be used to deallocate our new environment and quit
+
+    if (false) fail: {
+        for (size_t i(0); i != last; ++i)
+            free(envs[i]);
+        free(envs);
+        goto quit;
+    }
+
+
     bool found(false);
 
     for (char * const *env(envp); *env != NULL; ++env) {
@@ -141,39 +153,77 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
         if (equal == NULL)
             goto copy;
 
+        #define envcmp(value) ( \
+            (equal - *env == sizeof(value) - 1) && \
+            strncmp(value, *env, sizeof(value) - 1) == 0 \
+        )
+
         if (false);
-        else if (strncmp("_MSLaunchHandle", *env, equal - *env) == 0)
+        else if (envcmp("_MSLaunchHandle"))
             continue;
-        else if (strncmp("_MSPosixSpawn", *env, equal - *env) == 0)
+        else if (envcmp("_MSPosixSpawn"))
             continue;
-        else if (strncmp(SubstrateVariable_, *env, equal - *env) == 0) {
-            char *&value(envs[last++]);
+        else if (envcmp(SubstrateVariable_)) {
+            // if the variable is empty, let's just pretend we didn't find it (you with me? ;P)...
+            // the problem is that the insanely hilarious code below doesn't work in this case
 
-            if (!safe) {
-                // XXX: this might add it to the list twice (harmless)
-                if (asprintf(&value, "%s:%s", *env, SubstrateLibrary_) == -1)
-                    goto quit;
-            } else {
-                if (asprintf(&value, "%s=:%s:", SubstrateVariable_, *env + sizeof(SubstrateVariable_)) == -1)
-                    goto quit;
+            if (equal[1] == '\0')
+                continue;
+            found = true;
 
-                char *end(value + strlen(value));
-                char *colon(value + sizeof(SubstrateVariable_));
 
-                for (char *scan(colon); (scan = strstr(scan, ":" SubstrateLibrary_ ":")) != NULL; ) {
-                    memcpy(scan, scan + sizeof(SubstrateLibrary_), end - scan - sizeof(SubstrateLibrary_) + 1);
-                    end -= sizeof(SubstrateLibrary_);
-                }
+            // our initial goal is to get a string :1:2:3: <- with leading and trailing colons
+            // if we are adding the environment variable, then 1 will be the dylib being added
 
-                if (end - value == sizeof(SubstrateVariable_) + 1) {
-                    free(value);
-                    --last;
-                } else {
-                    memcpy(colon, colon + 1, end - colon - 1);
-                    end[-2] = '\0';
-                }
+            const char *extra(safe ? "" : ":" SubstrateLibrary_);
+
+            char *value;
+            int count(asprintf(&value, "%s=%s:%s:", SubstrateVariable_, extra, equal + 1));
+            if (count == -1)
+                goto fail;
+
+
+            // once that is complete, we will find the colon preceding the old content
+            // this allows us to scan the string, removing any excess copies of :dylib
+
+            // - strlen(equal + 1) <- subtract the bounded %s (orginal value)
+            // - 1 - 1 <- subtract the leading and trailing colons around %s
+
+            char *end(value + count);
+            char *colon(end - 1 - strlen(equal + 1) - 1);
+
+            for (char *scan(colon); (scan = strstr(scan, ":" SubstrateLibrary_ ":")) != NULL; ) {
+                // end - scan <- all remaining characters
+                // - sizeof(SubstrateLibrary_) <- subtract :dylib
+                // + 1 <- add the null terminator
+
+                memmove(scan, scan + sizeof(SubstrateLibrary_), end - scan - sizeof(SubstrateLibrary_) + 1);
+
+                // move end of string back by :dylib length
+
+                end -= sizeof(SubstrateLibrary_);
             }
 
+
+            // if the variable is empty ("=:"), we just remove it entirely
+            // end - value <- the total length of the string
+
+            // sizeof(SubstrateVariable_) <- includes the =
+            // + 1 <- we still need to compensate for the :
+
+            if (end - value == sizeof(SubstrateVariable_) + 1) {
+                free(value);
+                continue;
+            }
+
+
+            // otherwise, we need to delete the leading and trailing colons
+            // we reposition colon to the first colon (before our injection)
+
+            colon = value + sizeof(SubstrateVariable_);
+            memmove(colon, colon + 1, end - colon - 1);
+            end[-2] = '\0';
+            envs[last++] = value;
             continue;
         }
 
