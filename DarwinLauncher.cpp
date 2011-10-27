@@ -66,6 +66,13 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
         envp = environ;
 
 
+    // it is possible we are still installed in the kernel, even though substrate was removed
+    // in this situation, it is safest if we goto safe, not quit, to remove DYLD_INSERT_LIBRARIES
+
+    if (_syscall(access(SubstrateLibrary_, R_OK | X_OK)) == -1)
+        goto safe;
+
+
     // if a process wants to turn off Substrate for its children, it needs to communicate this to us
     // a process can also indicate "I'm good, just do it", bypassing the later (expensive) safety checks
 
@@ -81,13 +88,6 @@ MSHook(int, posix_spawn, pid_t *pid, const char *path, const posix_spawn_file_ac
                 goto safe;
             else goto quit;
         }
-
-
-    // it is possible we are still installed in the kernel, even though substrate was removed
-    // in this situation, it is safest if we goto safe, not quit, to remove DYLD_INSERT_LIBRARIES
-
-    if (_syscall(access(SubstrateLibrary_, R_OK | X_OK)) == -1)
-        goto safe;
 
 
     // DYLD_INSERT_LIBRARIES does not work in processes that are setugid
