@@ -602,8 +602,12 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
 
     size_t size(used);
     for (unsigned offset(0); offset != used; ++offset)
-        if (A$pcrel$r(backup[offset]))
-            size += 2;
+        if (A$pcrel$r(backup[offset])) {
+            if ((backup[offset] & 0x02000000) == 0 || (backup[offset] & 0x0000f000 >> 12) != (backup[offset] & 0x0000000f))
+                size += 2;
+            else
+                size += 4;
+        }
 
     size += 2;
     size_t length(sizeof(uint32_t) * size);
@@ -651,21 +655,35 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
                     uint32_t type : 2;
                     uint32_t cond : 4;
                 };
-            } bits = {backup[offset+0]};
+            } bits = {backup[offset+0]}, copy(bits);
 
-            if (bits.mode != 0 && bits.rd == bits.rm) {
-                MSLog(MSLogLevelError, "MS:Error:pcrel(%u):%s (rd == rm)", offset, bits.l == 0 ? "str" : "ldr");
+            if (bits.rd == A$pc) {
+                MSLog(MSLogLevelError, "MS:Error:pcrel(%u):%s (rd == pc)", offset, bits.l == 0 ? "str" : "ldr");
                 goto fail;
-            } else {
-                buffer[start+0] = A$ldr_rd_$rn_im$(bits.rd, A$pc, (end-1 - (start+0)) * 4 - 8);
-                *--trailer = reinterpret_cast<uint32_t>(area + offset) + 8;
-
-                start += 1;
-                end -= 1;
             }
 
-            bits.rn = bits.rd;
-            buffer[start++] = bits.value;
+            bool guard;
+            if (bits.mode == 0 || bits.rd != bits.rm) {
+                copy.rn = bits.rd;
+                guard = false;
+            } else {
+                copy.rn = bits.rm != A$r0 ? A$r0 : A$r1;
+                guard = true;
+            }
+
+            if (guard)
+                buffer[start++] = A$stmdb_sp$_$rs$((1 << copy.rn));
+
+            buffer[start+0] = A$ldr_rd_$rn_im$(copy.rn, A$pc, (end-1 - (start+0)) * 4 - 8);
+            buffer[start+1] = copy.value;
+
+            start += 2;
+
+            if (guard)
+                buffer[start++] = A$ldmia_sp$_$rs$((1 << copy.rn));
+
+            *--trailer = reinterpret_cast<uint32_t>(area + offset) + 8;
+            end -= 1;
         } else
             buffer[start++] = backup[offset];
 
