@@ -281,6 +281,10 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
         if (false) fail: {
             munmap(buffer, length);
             *result = NULL;
+
+            SubstrateHookMemory code(process, area, used);
+            memcpy(area, backup, sizeof(backup));
+
             return;
         }
 
@@ -618,6 +622,10 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
     if (false) fail: {
         munmap(buffer, length);
         *result = NULL;
+
+        SubstrateHookMemory code(process, area, used);
+        memcpy(area, backup, sizeof(backup));
+
         return;
     }
 
@@ -824,6 +832,10 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
     if (false) fail: {
         munmap(buffer, length);
         *result = NULL;
+
+        SubstrateHookMemory code(process, area, used);
+        memcpy(area, backup, sizeof(backup));
+
         return;
     }
 
