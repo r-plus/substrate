@@ -190,23 +190,24 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
 
     uint16_t backup[used / sizeof(uint16_t)];
 
-    SubstrateHookMemory code(process, area, used);
+    {
+        SubstrateHookMemory code(process, area, used);
 
-    if (
-        (align == 0 || area[0] == T$nop) &&
-        thumb[0] == T$bx(A$pc) &&
-        thumb[1] == T$nop &&
-        arm[0] == A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8)
-    ) {
-        if (result != NULL) {
-            *result = reinterpret_cast<void *>(arm[1]);
-            result = NULL;
+        if (
+            (align == 0 || area[0] == T$nop) &&
+            thumb[0] == T$bx(A$pc) &&
+            thumb[1] == T$nop &&
+            arm[0] == A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8)
+        ) {
+            if (result != NULL)
+                *result = reinterpret_cast<void *>(arm[1]);
+
+            arm[1] = reinterpret_cast<uint32_t>(replace);
+
+            MSClearCache(arm + 1, sizeof(uint32_t) * 1);
+            return;
         }
 
-        arm[1] = reinterpret_cast<uint32_t>(replace);
-
-        MSClearCache(arm + 1, sizeof(uint32_t) * 1);
-    } else {
         if (MSDebug) {
             char name[16];
             sprintf(name, "%p", area);
@@ -229,8 +230,6 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
 
         MSClearCache(area, used);
     }
-
-    code.Close();
 
     if (MSDebug) {
         char name[16];
@@ -584,14 +583,14 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
 
     uint32_t backup[used] = {arm[0], arm[1]};
 
-    SubstrateHookMemory code(process, symbol, 8);
+    {
+        SubstrateHookMemory code(process, symbol, 8);
 
-    arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
-    arm[1] = reinterpret_cast<uint32_t>(replace);
+        arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
+        arm[1] = reinterpret_cast<uint32_t>(replace);
 
-    MSClearCache(area, sizeof(uint32_t) * used);
-
-    code.Close();
+        MSClearCache(area, sizeof(uint32_t) * used);
+    }
 
     if (result == NULL)
         return;
@@ -741,13 +740,16 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
     uint8_t backup[used];
     memcpy(backup, area, used);
 
-    SubstrateHookMemory code(process, area, used); {
+    {
+        SubstrateHookMemory code(process, area, used);
+
         uint8_t *current(area);
         MSWriteJump(current, target);
         for (unsigned offset(0); offset != blank; ++offset)
             MSWrite<uint8_t>(current, 0x90);
+
         MSClearCache(area, used);
-    } code.Close();
+    }
 
     if (MSDebug) {
         char name[16];

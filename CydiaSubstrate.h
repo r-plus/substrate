@@ -100,15 +100,8 @@ struct SubstrateHookMemory {
     {
     }
 
-    void Close() {
-        if (handle_ != NULL) {
-            SubstrateMemoryRelease(handle_);
-            handle_ = NULL;
-        }
-    }
-
     ~SubstrateHookMemory() {
-        Close();
+        SubstrateMemoryRelease(handle_);
     }
 };
 #endif
