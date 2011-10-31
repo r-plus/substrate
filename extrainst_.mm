@@ -108,6 +108,10 @@ static void InstallTether() {
     HookEnvironment("com.apple.assistivetouchd");
     HookEnvironment("com.apple.accountsd");
 
+    HookEnvironment("com.apple.configd");
+    HookEnvironment("com.apple.wifid");
+    HookEnvironment("com.apple.mobile.installd");
+
     HookEnvironment("com.apple.SpringBoard");
 
     FinishCydia("reboot");
