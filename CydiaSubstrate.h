@@ -101,7 +101,8 @@ struct SubstrateHookMemory {
     }
 
     ~SubstrateHookMemory() {
-        SubstrateMemoryRelease(handle_);
+        if (handle_ != NULL)
+            SubstrateMemoryRelease(handle_);
     }
 };
 #endif
