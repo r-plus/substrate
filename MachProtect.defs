@@ -1,0 +1,11 @@
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem MS_vm_map 3803;
+
+routine MS_vm_protect(
+    target_task : vm_task_entry_t;
+    address : vm_address_t;
+    size : vm_size_t;
+    set_maximum : boolean_t;
+    new_protection : vm_prot_t);

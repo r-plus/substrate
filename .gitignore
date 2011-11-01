@@ -2,6 +2,8 @@
 *.dylib
 *.deb
 *.t.hpp
+MachProtect.h
+MachProtect.c
 package.*
 extrainst_
 postrm

@@ -30,6 +30,40 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#ifdef __arm__
+#include "ThreadSpecific.hpp"
+#include "MachMessage.hpp"
+
+static mach_msg_return_t MS_mach_msg(mach_msg_header_t *msg, mach_msg_option_t option, mach_msg_size_t send_size, mach_msg_size_t rcv_size, mach_port_name_t rcv_name, mach_msg_timeout_t timeout, mach_port_name_t notify) {
+    for (;;) switch (mach_msg_return_t error = MS_mach_msg_trap(msg, option, send_size, rcv_size, rcv_name, timeout, notify)) {
+        case MACH_SEND_INTERRUPT:
+            break;
+
+        case MACH_RCV_INTERRUPT:
+            option &= ~MACH_SEND_MSG;
+            break;
+
+        default:
+            return error;
+    }
+}
+
+ThreadSpecific<mach_port_t> reply_;
+
+static mach_port_t MS_mig_get_reply_port() {
+    return reply_;
+}
+
+#define mach_msg MS_mach_msg
+#define mig_get_reply_port MS_mig_get_reply_port
+#include "MachProtect.h"
+#include "MachProtect.c"
+#undef mig_get_reply_port
+#undef mach_msg
+#else
+#define MS_vm_protect vm_protect
+#endif
+
 struct __SubstrateMemory {
     mach_port_t self_;
     uintptr_t base_;
@@ -52,6 +86,10 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
     if (size == 0)
         return NULL;
 
+#ifdef __arm__
+    reply_ = mig_get_reply_port();
+#endif
+
     int page(getpagesize());
 
     // XXX: I am not certain if I should deallocate this port
@@ -61,7 +99,7 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
 
     // XXX: this code should detect if RWX is available, and use it while editing for thread-safety
 
-    if (kern_return_t error = vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
+    if (kern_return_t error = MS_vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
         MSLog(MSLogLevelError, "MS:Error:vm_protect() = %d", error);
         return NULL;
     }
@@ -70,7 +108,7 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
 }
 
 extern "C" void SubstrateMemoryRelease(SubstrateMemoryRef memory) {
-    if (kern_return_t error = vm_protect(memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
+    if (kern_return_t error = MS_vm_protect(memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
         MSLog(MSLogLevelError, "MS:Error:vm_protect() = %d", error);
     delete memory;
 }
