@@ -671,11 +671,6 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
                 };
             } bits = {backup[offset+0]}, copy(bits);
 
-            if (bits.rd == A$pc) {
-                MSLog(MSLogLevelError, "MS:Error:pcrel(%u):%s (rd == pc)", offset, bits.l == 0 ? "str" : "ldr");
-                goto fail;
-            }
-
             bool guard;
             if (bits.mode == 0 || bits.rd != bits.rm) {
                 copy.rn = bits.rd;
