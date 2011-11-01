@@ -97,9 +97,7 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
     uintptr_t base(reinterpret_cast<uintptr_t>(data) / page * page);
     size_t width(((reinterpret_cast<uintptr_t>(data) + size - 1) / page + 1) * page - base);
 
-    // XXX: this code should detect if RWX is available, and use it while editing for thread-safety
-
-    if (kern_return_t error = MS_vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
+    if (kern_return_t error = MS_vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE | VM_PROT_COPY)) {
         MSLog(MSLogLevelError, "MS:Error:vm_protect() = %d", error);
         return NULL;
     }
