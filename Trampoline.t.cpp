@@ -19,14 +19,7 @@
 **/
 /* }}} */
 
-// forces _pthread_setspecific_direct() to not call pthread_setspecific()
-// this is important, as it allows us to use this macro later to set tsd[0]
-
-#define __OPTIMIZE__
-
-
-#define _PTHREAD_ATTR_T
-#include <pthread_internals.h>
+#include "DarwinThreadInternal.hpp"
 
 #include "CydiaSubstrate/CydiaSubstrate.h"
 #include "Baton.hpp"
