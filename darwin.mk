@@ -40,12 +40,15 @@ ios: darwin
 MachProtect.c MachProtect.h: MachProtect.defs
 	mig -arch i386 -server /dev/null -user MachProtect.c -header MachProtect.h $<
 
+MachMemory.o: MachProtect.c MachProtect.h
+DarwinInjector.o: Trampoline.t.hpp
+
 %.o: %.cpp
 	./cycc $(ios) $(mac) -o$@ -- $(flags) $(flags_$(patsubst %.o,%,$@)) -c -Iinclude $<
 
-libsubstrate.dylib: MachMemory.cpp Hooker.cpp ObjectiveC.cpp DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp hde64c/src/hde64.c Trampoline.t.hpp MachProtect.c MachProtect.h MachMessage.cpp ThreadSpecific.o
-	./cycc $(ios) $(mac) -olibsubstrate.dylib -- $(flags) -dynamiclib -lobjc -Iinclude \
-	    MachMemory.cpp Hooker.cpp ObjectiveC.cpp DarwinFindSymbol.cpp DarwinInjector.cpp Debug.cpp \
+libsubstrate.dylib: MachMemory.o Hooker.cpp ObjectiveC.o DarwinFindSymbol.o DarwinInjector.o Debug.o hde64c/src/hde64.c MachMessage.cpp ThreadSpecific.o
+	./cycc $(ios) $(mac) -olibsubstrate.dylib -- $(flags) -dynamiclib -lobjc \
+	    MachMemory.o Hooker.cpp ObjectiveC.o DarwinFindSymbol.o DarwinInjector.o Debug.o \
 	    -Xarch_armv6 MachMessage.cpp -Xarch_armv6 ThreadSpecific.o \
 	    -Ihde64c/include -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c \
 	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
@@ -82,7 +85,7 @@ upgrade: all
 	sudo cp -a SubstrateLoader.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
 
 clean:
-	rm -f MachProtect.h MachProtect.c ThreadSpecific.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLauncher.dylib SubstrateLoader.dylib extrainst_ postrm cynject
+	rm -f MachProtect.h MachProtect.c *.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLauncher.dylib SubstrateLoader.dylib extrainst_ postrm cynject
 
 test:
 	./cycc -i2.0 -m10.5 -oTestSuperCall -- TestSuperCall.mm -framework CoreFoundation -framework Foundation -lobjc libsubstrate.dylib
