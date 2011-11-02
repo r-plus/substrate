@@ -29,7 +29,6 @@ flags += -fvisibility=hidden
 
 flags_Hooker := -Ihde64c/include
 flags_MachMessage := -Xarch_armv6 -marm
-flags_ThreadSpecific := -Xarch_armv6 -marm
 
 all: darwin
 
@@ -39,16 +38,16 @@ ios: darwin
 %.t.hpp: %.t.cpp trampoline.sh
 	./trampoline.sh $@ $*.dylib $* sed otool lipo nm ./cycc $(ios) $(mac) -o$*.dylib -- -dynamiclib $< -Iinclude -Xarch_armv6 -marm
 
-MachProtect.c MachProtect.h: MachProtect.defs
-	mig -arch i386 -server /dev/null -user MachProtect.c -header MachProtect.h $<
+MachProtect.c: MachProtect.defs MachInterface.sh
+	./MachInterface.sh $@ MachProtect.h $<
 
-MachMemory.o: MachProtect.c MachProtect.h
+MachMemory.o: MachProtect.c
 DarwinInjector.o: Trampoline.t.hpp
 
 %.o: %.cpp
 	./cycc $(ios) $(mac) -o$@ -- $(flags) $(flags_$(patsubst %.o,%,$@)) -c -Iinclude $<
 
-libsubstrate.dylib: MachMemory.o Hooker.o ObjectiveC.o DarwinFindSymbol.o DarwinInjector.o Debug.o hde64c/src/hde64.c MachMessage.cpp ThreadSpecific.o MachMessage.o
+libsubstrate.dylib: MachMemory.o Hooker.o ObjectiveC.o DarwinFindSymbol.o DarwinInjector.o Debug.o hde64c/src/hde64.c MachMessage.cpp MachMessage.o
 	./cycc $(ios) $(mac) -olibsubstrate.dylib -- $(flags) -dynamiclib $(filter %.o,$^) -lobjc \
 	    -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c \
 	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
