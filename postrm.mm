@@ -43,21 +43,18 @@ int main(int argc, char *argv[]) {
 
     if (NSString *config = [NSString stringWithContentsOfFile:@ SubstrateLaunchConfig_ encoding:NSNonLossyASCIIStringEncoding error:&error]) {
         NSArray *lines([config componentsSeparatedByString:@"\n"]);
+        NSMutableArray *copy([lines mutableCopy]);
 
-        NSString *replace;
-        if (lines == nil || [lines indexOfObject:@ SubstrateBootstrapExecute_] == NSNotFound)
-            replace = nil;
+        [copy removeObject:@""];
+        [copy removeObject:@ SubstrateBootstrapExecute_];
+
+        if ([copy count] == 0)
+            [manager removeItemAtPath:@ SubstrateLaunchConfig_ error:&error];
         else {
-            NSMutableArray *copy([lines mutableCopy]);
-            [copy removeObject:@ SubstrateBootstrapExecute_];
-            replace = [copy componentsJoinedByString:@"\n"];
-        }
+            [copy addObject:@""];
 
-        if (replace != nil) {
-            if ([replace length] != 0)
-                [replace writeToFile:@ SubstrateLaunchConfig_ atomically:YES encoding:NSNonLossyASCIIStringEncoding error:&error];
-            else
-                [manager removeItemAtPath:@ SubstrateLaunchConfig_ error:&error];
+            if (![copy isEqualToArray:lines])
+                [[copy componentsJoinedByString:@"\n"] writeToFile:@ SubstrateLaunchConfig_ atomically:YES encoding:NSNonLossyASCIIStringEncoding error:&error];
         }
     }
 

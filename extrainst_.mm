@@ -152,24 +152,22 @@ static void InstallSemiTether() {
 
 
     NSString *config([NSString stringWithContentsOfFile:@ SubstrateLaunchConfig_ encoding:NSNonLossyASCIIStringEncoding error:&error]);
-    NSArray *lines(config == nil ? nil : [config componentsSeparatedByString:@"\n"]);
+    // XXX: if the file fails to load, it might not be missing: it might be unreadable for some reason
+    if (config == nil)
+        config = @"";
 
-    NSString *replace;
-    if (lines == nil)
-        replace = @ SubstrateBootstrapExecute_ "\n";
-    else if ([lines indexOfObject:@ SubstrateBootstrapExecute_] != NSNotFound)
-        replace = nil;
-    else {
-        NSMutableArray *copy([lines mutableCopy]);
-        if ([[copy lastObject] length] == 0)
-            [copy removeLastObject];
+    NSArray *lines([config componentsSeparatedByString:@"\n"]);
+    NSMutableArray *copy([lines mutableCopy]);
+
+    [copy removeObject:@""];
+
+    if ([lines indexOfObject:@ SubstrateBootstrapExecute_] == NSNotFound)
         [copy addObject:@ SubstrateBootstrapExecute_];
-        [copy addObject:@""];
-        replace = [copy componentsJoinedByString:@"\n"];
-    }
 
-    if (replace != nil)
-        [replace writeToFile:@ SubstrateLaunchConfig_ atomically:YES encoding:NSNonLossyASCIIStringEncoding error:&error];
+    [copy addObject:@""];
+
+    if (![copy isEqualToArray:lines])
+        [[copy componentsJoinedByString:@"\n"] writeToFile:@ SubstrateLaunchConfig_ atomically:YES encoding:NSNonLossyASCIIStringEncoding error:&error];
 }
 
 int main(int argc, char *argv[]) {
