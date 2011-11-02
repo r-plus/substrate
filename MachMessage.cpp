@@ -21,6 +21,8 @@
 
 #include <mach/vm_map.h>
 
+#ifdef __arm__
+
 __attribute__((__naked__))
 __attribute__((__noinline__))
 mach_msg_return_t MS_mach_msg_trap(mach_msg_header_t *, mach_msg_option_t, mach_msg_size_t, mach_msg_size_t, mach_port_name_t, mach_msg_timeout_t, mach_port_name_t) {
@@ -60,3 +62,5 @@ mach_msg_return_t MS_vm_protect_trap(vm_map_t target_task, vm_address_t address,
 
     return error;
 }
+
+#endif
