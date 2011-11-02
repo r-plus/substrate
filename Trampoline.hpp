@@ -19,8 +19,13 @@
 **/
 /* }}} */
 
+#ifndef SUBSTRATE_TRAMPOLINE_HPP
+#define SUBSTRATE_TRAMPOLINE_HPP
+
 struct Trampoline {
     const char *data_;
     size_t size_;
     size_t entry_;
 };
+
+#endif//SUBSTRATE_TRAMPOLINE_HPP

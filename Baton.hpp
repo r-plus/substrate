@@ -19,6 +19,9 @@
 **/
 /* }}} */
 
+#ifndef SUBSTRATE_BATOM_HPP
+#define SUBSTRATE_BATOM_HPP
+
 #include <dlfcn.h>
 #include <mach/mach.h>
 #include <sys/types.h>
@@ -37,3 +40,5 @@ struct Baton {
 
     char library[];
 };
+
+#endif//SUBSTRATE_BATOM_HPP
