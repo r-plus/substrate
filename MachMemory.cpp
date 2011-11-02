@@ -118,10 +118,18 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
     uintptr_t base(reinterpret_cast<uintptr_t>(data) / page * page);
     size_t width(((reinterpret_cast<uintptr_t>(data) + size - 1) / page + 1) * page - base);
 
-    if (kern_return_t error = MS_vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE | VM_PROT_COPY)) {
+
+    // the max_protection of this memory, on ARM, is normally r-x (as it is currently executable and marked clean)
+    // however, we need to write to it; mprotect() can't do it, so we use vm_protect(VM_PROT_COPY), to get a new page
+
+    // XXX: I should try for RWX here, but it seriously never works and you get this irritating log:
+    // kernel[0] <Debug>: EMBEDDED: vm_map_protect can't have both write and exec at the same time
+
+    if (kern_return_t error = MS_vm_protect(self, base, width, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
         MSLog(MSLogLevelError, "MS:Error:vm_protect() = %d", error);
         return NULL;
     }
+
 
     return new __SubstrateMemory(self, base, width);
 }
