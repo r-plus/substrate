@@ -63,9 +63,19 @@ static mach_port_t MS_mig_get_reply_port() {
 #undef mach_msg
 
 static kern_return_t MS_vm_protect(vm_map_t target_task, vm_address_t address, vm_size_t size, boolean_t set_maximum, vm_prot_t new_protection) {
-    kern_return_t error(MS_vm_protect_trap(target_task, address, size, set_maximum, new_protection));
-    if (error == MACH_SEND_INVALID_DEST)
-        error = MS_vm_protect_mach(target_task, address, size, set_maximum, new_protection);
+    kern_return_t error;
+
+
+    // XXX: this code works great on modern devices, but returns 0x807 with signal "?" on iOS 2.2
+
+#if 0
+    error = MS_vm_protect_trap(target_task, address, size, set_maximum, new_protection);
+    if (error != MACH_SEND_INVALID_DEST)
+        return error;
+#endif
+
+
+    error = MS_vm_protect_mach(target_task, address, size, set_maximum, new_protection);
     return error;
 }
 
