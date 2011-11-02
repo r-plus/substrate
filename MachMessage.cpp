@@ -40,3 +40,23 @@ mach_msg_return_t MS_mach_msg_trap(mach_msg_header_t *, mach_msg_option_t, mach_
 
     return error;
 }
+
+__attribute__((__naked__))
+__attribute__((__noinline__))
+mach_msg_return_t MS_vm_protect_trap(vm_map_t target_task, vm_address_t address, vm_size_t size, boolean_t set_maximum, vm_prot_t new_protection) {
+    register mach_msg_return_t error asm("r0");
+
+    asm volatile (
+        "mov r12, sp\n"
+        "push {r4, r5}\n"
+        "ldr.w r4, [r12]\n"
+        "mvn.w r12, #14\n"
+        "svc 0x80\n"
+        "pop {r4, r5}\n"
+    : "=a" (error)
+    :
+    : "r1", "r2", "r3", "r4", "r5", "r12"
+    );
+
+    return error;
+}

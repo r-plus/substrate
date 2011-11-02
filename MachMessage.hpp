@@ -24,9 +24,14 @@
 
 #ifdef __arm__
 extern mach_msg_return_t MS_mach_msg_trap(mach_msg_header_t *, mach_msg_option_t, mach_msg_size_t, mach_msg_size_t, mach_port_name_t, mach_msg_timeout_t, mach_port_name_t);
+extern mach_msg_return_t MS_vm_protect_trap(vm_map_t, vm_address_t, vm_size_t, boolean_t, vm_prot_t);
 #else
 extern "C" mach_msg_return_t mach_msg_trap(mach_msg_header_t *, mach_msg_option_t, mach_msg_size_t, mach_msg_size_t, mach_port_name_t, mach_msg_timeout_t, mach_port_name_t);
 #define MS_mach_msg_trap mach_msg_trap
+
+static _finline MS_vm_protect_trap(vm_map_t, vm_address_t, vm_size_t, boolean_t, vm_prot_t) {
+    return MACH_SEND_INVALID_DEST;
+}
 #endif
 
 #endif//SUBSTRATE_MACHMESSAGE_HPP

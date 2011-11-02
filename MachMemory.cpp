@@ -31,6 +31,7 @@
 #include <unistd.h>
 
 #ifdef __arm__
+
 #include "ThreadSpecific.hpp"
 #include "MachMessage.hpp"
 
@@ -60,8 +61,18 @@ static mach_port_t MS_mig_get_reply_port() {
 #include "MachProtect.c"
 #undef mig_get_reply_port
 #undef mach_msg
+
+static kern_return_t MS_vm_protect(vm_map_t target_task, vm_address_t address, vm_size_t size, boolean_t set_maximum, vm_prot_t new_protection) {
+    kern_return_t error(MS_vm_protect_trap(target_task, address, size, set_maximum, new_protection));
+    if (error == MACH_SEND_INVALID_DEST)
+        error = MS_vm_protect_mach(target_task, address, size, set_maximum, new_protection);
+    return error;
+}
+
 #else
+
 #define MS_vm_protect vm_protect
+
 #endif
 
 struct __SubstrateMemory {
