@@ -53,17 +53,17 @@ libsubstrate.dylib: MachMemory.o Hooker.o ObjectiveC.o DarwinFindSymbol.o Darwin
 	    -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c \
 	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
 
-SubstrateBootstrap.dylib: Bootstrap.cpp
+SubstrateBootstrap.dylib: Bootstrap.o
 	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $^
 
-SubstrateLauncher.dylib: DarwinLauncher.cpp libsubstrate.dylib
+SubstrateLauncher.dylib: DarwinLauncher.o libsubstrate.dylib
 	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $^
 
-SubstrateLoader.dylib: DarwinLoader.cpp Environment.cpp
+SubstrateLoader.dylib: DarwinLoader.o Environment.o
 	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $^ \
 	    -framework CoreFoundation
 
-%: %.cpp libsubstrate.dylib
+cynject: cynject.o libsubstrate.dylib
 	./cycc $(ios) $(mac) -o$@ -- $(flags) $^
 	ldid -Stask_for_pid.xml $@
 
