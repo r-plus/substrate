@@ -92,4 +92,6 @@ sudo chgrp procmod "${fwk}/Commands/cynject"
 sudo chmod g+s "${fwk}/Commands/cynject"
 
 #(cd "${pkg}" && find . -type f -o -type l)
-dpkg-deb -b "${pkg}" "$(field Package)_$(field Version)_$(field Architecture).deb"
+deb=$(field Package)_$(field Version)_$(field Architecture).deb
+dpkg-deb -b "${pkg}" "${deb}"
+ln -sf "${deb}" "$(field Package)_$(field Architecture).deb"
