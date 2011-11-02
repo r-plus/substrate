@@ -105,7 +105,6 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
     int page(getpagesize());
 
     mach_port_t reply(mig_get_reply_port());
-    // XXX: I am not certain if I should deallocate this port
     mach_port_t self(mach_task_self());
 
     uintptr_t base(reinterpret_cast<uintptr_t>(data) / page * page);

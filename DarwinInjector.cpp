@@ -79,7 +79,6 @@ _extern bool MSHookProcess(pid_t pid, const char *library) {
 
     vm_size_t size(depth + Stack_);
 
-    // XXX: I am not certain if I should deallocate this port
     mach_port_t self(mach_task_self()), task;
     _krncall(task_for_pid(self, pid, &task));
 

@@ -47,7 +47,6 @@ void FinishCydia(const char *finish) {
 }
 
 ForkBugStatus DetectForkBug() {
-    // XXX: I am not certain if I should deallocate this port
     mach_port_t self(mach_task_self());
     int page(getpagesize());
 
