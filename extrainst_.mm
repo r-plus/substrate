@@ -28,6 +28,8 @@
 #include "Environment.hpp"
 #include "LaunchDaemons.hpp"
 
+#ifdef __arm__
+
 // XXX: NO means "failed", false means "unneeded"
 
 static bool HookEnvironment(const char *name) {
@@ -117,6 +119,8 @@ static void InstallTether() {
     FinishCydia("reboot");
 }
 
+#endif
+
 static void InstallSemiTether() {
     MSClearLaunchDaemons();
 
@@ -179,6 +183,7 @@ int main(int argc, char *argv[]) {
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
 
+#ifdef __arm__
     // there is a horrible bug in some jailbreaks where fork() causes dirty pages to become codesign invalid
     // as our posix_spawn hook in launchd occurs after a call to fork(), we cannot use that injection mechanism
 
@@ -194,6 +199,9 @@ int main(int argc, char *argv[]) {
             InstallSemiTether();
             break;
     }
+#else
+    InstallSemiTether();
+#endif
 
 
     [pool release];

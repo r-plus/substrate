@@ -72,9 +72,9 @@ for cmd in cycc cynject; do
     cp -a "${cmd}" "${pkg}/${fwk}/Commands"
 done
 
-if [[ ${arch} == arm ]]; then
-    cp -a extrainst_ postrm "${pkg}/DEBIAN"
+cp -a extrainst_ postrm "${pkg}/DEBIAN"
 
+if [[ ${arch} == arm ]]; then
     ln -s "${fwk}"/Libraries/SubstrateInjection.dylib "${pkg}/${lib}/MobileSubstrate.dylib"
 
     ln -s SubstrateBootstrap.dylib "${pkg}/${fwk}/Libraries/SubstrateInjection.dylib"

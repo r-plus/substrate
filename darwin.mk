@@ -66,7 +66,7 @@ cynject: cynject.o libsubstrate.dylib
 	ldid -Stask_for_pid.xml $@
 
 %: %.mm LaunchDaemons.mm Cydia.mm
-	./cycc $(ios) -o$@ -- $(flags) $^ -framework CoreFoundation -framework Foundation
+	./cycc $(ios) $(mac) -o$@ -- $(flags) $^ -framework CoreFoundation -framework Foundation
 
 deb: ios extrainst_ postrm
 	./package.sh i386

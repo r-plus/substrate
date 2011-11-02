@@ -58,8 +58,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
+#ifdef __arm__
     if (MSClearLaunchDaemons())
         FinishCydia("reboot");
+#endif
 
     [pool release];
     return 0;
