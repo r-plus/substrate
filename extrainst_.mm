@@ -129,20 +129,24 @@ static void InstallSemiTether() {
 
     NSString *temp([NSString stringWithFormat:@"/tmp/ms-%f.dylib", [[NSDate date] timeIntervalSinceReferenceDate]]);
 
-    if (![manager copyItemAtPath:@ SubstrateLauncher_ toPath:temp error:&error]) {
+    NSString *dylib;
+    if ([manager copyItemAtPath:@ SubstrateLauncher_ toPath:temp error:&error])
+        dylib = temp;
+    else {
         fprintf(stderr, "unable to copy: %s\n", [[error description] UTF8String]);
         // XXX: this is not actually reasonable
-        temp = @ SubstrateLauncher_;
+        dylib = @ SubstrateLauncher_;
+        temp = nil;
     }
 
 
     // XXX: check the result code and do something about failures
-    system([[@"/usr/bin/cynject 1 " stringByAppendingString:temp] UTF8String]);
+    system([[@"/usr/bin/cynject 1 " stringByAppendingString:dylib] UTF8String]);
 
 
     // if we are unable to remove the file copied into /tmp, it is interesting, but harmless
 
-    if (![manager removeItemAtPath:temp error:&error])
+    if (temp != nil && ![manager removeItemAtPath:temp error:&error])
         if (unlink([temp UTF8String]) == -1)
             fprintf(stderr, "unable to remove: (%s):%d\n", [[error description] UTF8String], errno);
 
