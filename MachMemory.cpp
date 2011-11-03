@@ -49,26 +49,42 @@ static mach_msg_return_t MS_mach_msg(mach_msg_header_t *msg, mach_msg_option_t o
 }
 
 #define mach_msg MS_mach_msg
-#define mig_get_reply_port() reply_port
 #include "MachProtect.h"
 #include "MachProtect.c"
-#undef mig_get_reply_port
 #undef mach_msg
 
 static kern_return_t MS_vm_protect(mach_port_t reply_port, vm_map_t target_task, vm_address_t address, vm_size_t size, boolean_t set_maximum, vm_prot_t new_protection) {
     kern_return_t error;
 
 
-    // XXX: this code works great on modern devices, but returns 0x807 with signal "?" on iOS 2.2
-
 #if 0
+    // on iOS >= 5.0, Apple now provides a number of system call traps for common mach interfaces, like vm_map
+    // XXX: this code, when tested on iOS 2.2 (not tested on >> 2.2 && << 5.0) returns 0x807 with signal "?"
+
     error = MS_vm_protect_trap(target_task, address, size, set_maximum, new_protection);
     if (error != MACH_SEND_INVALID_DEST)
         return error;
 #endif
 
 
-    error = MS_vm_protect_mach(reply_port, target_task, address, size, set_maximum, new_protection);
+    // 3803 is vm_map's vm_protect. it is guaranteed to take 32-bit arguments on all platforms, which is convenient
+    // unfortunately, this kernel-side interface seems to be missing on at least iOS 4.0, so we cannot rely on it
+
+    error = MS_vm_protect_mach(3803, reply_port, target_task, address, size, set_maximum, new_protection);
+    if (error != MIG_BAD_ID)
+        return error;
+
+
+    // 4802 is mach_vm's mach_vm_protect. it is supposed to always take "the largest size type for the platform"
+    // unfortunately, while on iOS << 5.0 ARM was considered 32-bit, with iOS 5.0 Apple decided ARM could be 64-bit
+    // therefore, we cannot know what size arguments to pass to this function, and Apple has nigh unto deprecated it
+    // thankfully, current devices that have a 64-bit mach_vm_protect also support the 32-bit vm_protect interface
+
+    error = MS_vm_protect_mach(4802, reply_port, target_task, address, size, set_maximum, new_protection);
+    if (error != MIG_BAD_ID)
+        return error;
+
+
     return error;
 }
 

@@ -1,7 +1,7 @@
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
 
-subsystem MS_vm_map 3803;
+subsystem MS_vm_map 3133700;
 
 routine MS_vm_protect_mach(
     target_task : vm_task_entry_t;
