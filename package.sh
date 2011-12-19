@@ -88,8 +88,8 @@ function field() {
 
 sudo chown -R root:staff "${pkg}"
 
-sudo chgrp procmod "${fwk}/Commands/cynject"
-sudo chmod g+s "${fwk}/Commands/cynject"
+sudo chgrp procmod "${pkg}/${fwk}/Commands/cynject"
+sudo chmod g+s "${pkg}/${fwk}/Commands/cynject"
 
 #(cd "${pkg}" && find . -type f -o -type l)
 deb=$(field Package)_$(field Version)_$(field Architecture).deb
