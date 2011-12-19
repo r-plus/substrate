@@ -24,6 +24,10 @@
 
 #include <sys/mman.h>
 
+#ifdef __APPLE__
+#include <libkern/OSCacheControl.h>
+#endif
+
 #define _trace() do { \
     MSLog(MSLogLevelNotice, "_trace(%u)", __LINE__); \
 } while (false)
@@ -41,9 +45,12 @@
 extern "C" void __clear_cache (void *beg, void *end);
 
 static _finline void MSClearCache(void *data, size_t size) {
-#if defined(__APPLE__) && defined(__arm__)
-    // removed in iOS 4.1, it turns out __clear_cache had always been a nop
-    // XXX: we should probably do something here... right?... right?!
+#ifdef __APPLE__
+    // Apple removed __clear_cache in iOS 4.1, so we can't rely on it here
+    // however, it also was always a nop, and as no never really worked...
+
+    sys_dcache_flush(data, size);
+    sys_icache_invalidate(data, size);
 #else
     __clear_cache(reinterpret_cast<char *>(data), reinterpret_cast<char *>(data) + size);
 #endif
