@@ -31,6 +31,10 @@ MSInitialize {
     if (dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY | RTLD_NOLOAD) == NULL)
         return;
 
+    // skeels / planetbeing / rpetrich <- reporting SMS crash
+    if (dlopen("/System/Library/PrivateFrameworks/Search.framework/AppIndexer", RTLD_LAZY | RTLD_NOLOAD) != NULL)
+        return;
+
     // Maps
     dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", RTLD_LAZY | RTLD_GLOBAL);
 
