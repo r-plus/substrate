@@ -49,8 +49,8 @@ DarwinInjector.o: Trampoline.t.hpp
 %.o: %.cpp
 	./cycc $(ios) $(mac) -o$@ -- $(flags) $(flags_$(patsubst %.o,%,$@)) -c -Iinclude $<
 
-libsubstrate.dylib: MachMemory.o Hooker.o ObjectiveC.o DarwinFindSymbol.o DarwinInjector.o Debug.o hde64c/src/hde64.c MachMessage.cpp MachMessage.o
-	./cycc $(ios) $(mac) -olibsubstrate.dylib -- $(flags) -dynamiclib $(filter %.o,$^) $(hde64c) -lobjc \
+libsubstrate.dylib: MachMemory.o Hooker.o ObjectiveC.o DarwinFindSymbol.o DarwinInjector.o Debug.o hde64c/src/hde64.c MachMessage.o
+	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $(filter %.o,$^) $(hde64c) -lobjc \
 	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
 
 SubstrateBootstrap.dylib: Bootstrap.o
