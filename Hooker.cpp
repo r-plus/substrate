@@ -49,8 +49,10 @@ static _finline void MSClearCache(void *data, size_t size) {
     // Apple removed __clear_cache in iOS 4.1, so we can't rely on it here
     // however, it also was always a nop, and as no never really worked...
 
-    sys_dcache_flush(data, size);
-    sys_icache_invalidate(data, size);
+    // XXX: these functions, obviously, are in memory. we therefore cannot call them
+
+    //sys_dcache_flush(data, size);
+    //sys_icache_invalidate(data, size);
 #else
     __clear_cache(reinterpret_cast<char *>(data), reinterpret_cast<char *>(data) + size);
 #endif
