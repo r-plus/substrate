@@ -76,7 +76,7 @@ static bool HookEnvironment(const char *name) {
     return true;
 }
 
-static void InstallTether() {
+static int InstallTether() {
     HookEnvironment("com.apple.mediaserverd");
     HookEnvironment("com.apple.itunesstored");
     HookEnvironment("com.apple.CommCenter");
@@ -117,11 +117,13 @@ static void InstallTether() {
     HookEnvironment("com.apple.SpringBoard");
 
     FinishCydia("reboot");
+
+    return 0;
 }
 
 #endif
 
-static void InstallSemiTether() {
+static int InstallSemiTether() {
     MSClearLaunchDaemons();
 
     NSFileManager *manager([NSFileManager defaultManager]);
@@ -172,7 +174,31 @@ static void InstallSemiTether() {
 
     if (![copy isEqualToArray:lines])
         [[copy componentsJoinedByString:@"\n"] writeToFile:@ SubstrateLaunchConfig_ atomically:YES encoding:NSNonLossyASCIIStringEncoding error:&error];
+
+    return 0;
 }
+
+#ifdef __arm__
+
+static int InstallQuasiTether() {
+    // there is a horrible bug in some jailbreaks where fork() causes dirty pages to become codesign invalid
+    // as our posix_spawn hook in launchd occurs after a call to fork(), we cannot use that injection mechanism
+
+    switch (DetectForkBug()) {
+        case ForkBugUnknown:
+            return 1;
+
+        case ForkBugPresent:
+            return InstallTether();
+
+        case ForkBugMissing:
+            break;
+    }
+
+    return InstallSemiTether();
+}
+
+#endif
 
 int main(int argc, char *argv[]) {
     if (argc < 2 || (
@@ -182,30 +208,14 @@ int main(int argc, char *argv[]) {
 
     NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
 
-
 #ifdef __arm__
-    // there is a horrible bug in some jailbreaks where fork() causes dirty pages to become codesign invalid
-    // as our posix_spawn hook in launchd occurs after a call to fork(), we cannot use that injection mechanism
-
-    switch (DetectForkBug()) {
-        case ForkBugUnknown:
-            return 1;
-
-        case ForkBugPresent:
-            InstallTether();
-            break;
-
-        case ForkBugMissing:
-            InstallSemiTether();
-            break;
-    }
+    int result(InstallQuasiTether());
 #else
-    InstallSemiTether();
+    int result(InstallSemiTether());
 #endif
-
 
     [pool release];
 
     // XXX: in general, this return 0 happens way too often
-    return 0;
+    return result;
 }
