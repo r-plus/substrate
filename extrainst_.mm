@@ -188,8 +188,13 @@ static int InstallQuasiTether() {
     // further, Saffron used a special filesystem called "unionfs" instead of stashing
     // this prevents us from easily being able to make modifications to the injector
     // it should be noted that we cannot use launchd.conf itself, also due to unionfs
-    // however, comex implemented rename() to work on files in situ (under the mount)
-    // XXX: this means we might be able to rename dirhelper a different injection
+
+    // luckily, comex implemented rename() to work on files in situ (under the mount)
+    // however, most of the programs we can execute from launchctl require /bin/sh
+    // the two that do not: rc.boot (before fstab mount), cc_fips_test (not on 4.3)
+    // so, we really don't have any good options to fix this: we need to mark it buggy
+
+    // XXX: the one remaining option is to unmount /etc, modify injection, and remount
 
     char dirhelper[1024];
     memset(dirhelper, 0, sizeof(dirhelper));
