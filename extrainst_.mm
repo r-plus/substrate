@@ -181,6 +181,26 @@ static int InstallSemiTether() {
 #ifdef __arm__
 
 static int InstallQuasiTether() {
+    // JailbreakMe 3.0 "Saffron" bootstrapped itself using /usr/libexec/dirhelper
+    // unfortunately, dirhelper is run too long after launchd.conf is processed
+    // here we detect whether dirhelper is /boot/untether so as to install tethered
+
+    // further, Saffron used a special filesystem called "unionfs" instead of stashing
+    // this prevents us from easily being able to make modifications to the injector
+    // it should be noted that we cannot use launchd.conf itself, also due to unionfs
+    // however, comex implemented rename() to work on files in situ (under the mount)
+    // XXX: this means we might be able to rename dirhelper a different injection
+
+    char dirhelper[1024];
+    memset(dirhelper, 0, sizeof(dirhelper));
+
+    // we use sizeof(dirhelper) - 1, as readlink() does not NUL-terminate the buffer
+
+    if (readlink("/usr/libexec/dirhelper", dirhelper, sizeof(dirhelper) - 1) > 0)
+        if (strcmp(dirhelper, "/boot/untether") == 0)
+            return InstallTether();
+
+
     // there is a horrible bug in some jailbreaks where fork() causes dirty pages to become codesign invalid
     // as our posix_spawn hook in launchd occurs after a call to fork(), we cannot use that injection mechanism
 
