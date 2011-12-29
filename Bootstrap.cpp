@@ -24,15 +24,16 @@
 #include <unistd.h>
 
 MSInitialize {
-    if (getenv("MSExitZero") != NULL)
+    if (getenv("MSExitZero") != NULL) {
+        // skeels / planetbeing / rpetrich <- reporting SMS crash
+        if (dlopen("/System/Library/PrivateFrameworks/Search.framework/AppIndexer", RTLD_LAZY | RTLD_NOLOAD) != NULL)
+            _exit(EXIT_FAILURE);
+
         _exit(EXIT_SUCCESS);
+    }
 
     // Skype
     if (dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY | RTLD_NOLOAD) == NULL)
-        return;
-
-    // skeels / planetbeing / rpetrich <- reporting SMS crash
-    if (dlopen("/System/Library/PrivateFrameworks/Search.framework/AppIndexer", RTLD_LAZY | RTLD_NOLOAD) != NULL)
         return;
 
     // Maps
