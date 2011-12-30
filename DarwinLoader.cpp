@@ -258,13 +258,23 @@ sigaction(signum, NULL, &old); { \
                         double value;
 
                         number = reinterpret_cast<CFNumberRef>(CFArrayGetValueAtIndex(version, 0));
-                        CFNumberGetValue(number, kCFNumberDoubleType, &value);
+
+                        if (CFGetTypeID(number) != CFNumberGetTypeID() || !CFNumberGetValue(number, kCFNumberDoubleType, &value)) {
+                            MSLog(MSLogLevelError, "MS:Error: Unable to Read CoreFoundationVersion[0]: %@", number);
+                            goto release;
+                        }
+
                         if (value > kCFCoreFoundationVersionNumber)
                             goto release;
 
                         if (count != 1) {
                             number = reinterpret_cast<CFNumberRef>(CFArrayGetValueAtIndex(version, 1));
-                            CFNumberGetValue(number, kCFNumberDoubleType, &value);
+
+                            if (CFGetTypeID(number) != CFNumberGetTypeID() || !CFNumberGetValue(number, kCFNumberDoubleType, &value)) {
+                                MSLog(MSLogLevelError, "MS:Error: Unable to Read CoreFoundationVersion[1]: %@", number);
+                                goto release;
+                            }
+
                             if (value <= kCFCoreFoundationVersionNumber)
                                 goto release;
                         }
