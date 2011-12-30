@@ -39,6 +39,7 @@
 #define ForSaurik 0
 
 static char MSWatch[PATH_MAX];
+static char MSStack[SIGSTKSZ];
 
 static void MSAction(int sig, siginfo_t *info, void *uap) {
     open(MSWatch, O_CREAT | O_RDWR, 0644);
@@ -138,16 +139,16 @@ MSInitialize {
         }
 
         stack_t stack;
-        stack.ss_size = SIGSTKSZ;
+        stack.ss_size = sizeof(MSStack);
         stack.ss_flags = 0;
-        stack.ss_sp = malloc(stack.ss_size);
+        stack.ss_sp = MSStack;
 
-        bool stacked = false;
-        if (stack.ss_sp != NULL) {
-            if (sigaltstack(&stack, NULL) != -1)
-                stacked = true;
-            else
-                MSLog(MSLogLevelWarning, "MS:Error: Cannot Stack: %s", strerror(errno));
+        bool stacked;
+        if (sigaltstack(&stack, NULL) != -1)
+            stacked = true;
+        else {
+            stacked = false;
+            MSLog(MSLogLevelWarning, "MS:Error: Cannot Stack: %s", strerror(errno));
         }
 
         struct sigaction action;
