@@ -138,7 +138,7 @@ MSInitialize {
         }
 
         stack_t stack;
-        stack.ss_size = 8*1024;
+        stack.ss_size = SIGSTKSZ;
         stack.ss_flags = 0;
         stack.ss_sp = malloc(stack.ss_size);
 
