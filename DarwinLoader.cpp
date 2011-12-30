@@ -166,9 +166,12 @@ sigaction(signum, NULL, &old); { \
     sigaction(signum, &action, NULL); \
 }
 
+        HookSignal(SIGQUIT)
+        HookSignal(SIGILL)
         HookSignal(SIGTRAP)
         HookSignal(SIGABRT)
-        HookSignal(SIGILL)
+        HookSignal(SIGEMT)
+        HookSignal(SIGFPE)
         HookSignal(SIGBUS)
         HookSignal(SIGSEGV)
         HookSignal(SIGSYS)
