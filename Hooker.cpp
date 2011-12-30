@@ -24,10 +24,6 @@
 
 #include <sys/mman.h>
 
-#ifdef __APPLE__
-#include <libkern/OSCacheControl.h>
-#endif
-
 #define _trace() do { \
     MSLog(MSLogLevelNotice, "_trace(%u)", __LINE__); \
 } while (false)
@@ -41,22 +37,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
-
-extern "C" void __clear_cache (void *beg, void *end);
-
-static _finline void MSClearCache(void *data, size_t size) {
-#ifdef __APPLE__
-    // Apple removed __clear_cache in iOS 4.1, so we can't rely on it here
-    // however, it also was always a nop, and as no never really worked...
-
-    // XXX: these functions, obviously, are in memory. we therefore cannot call them
-
-    //sys_dcache_flush(data, size);
-    //sys_icache_invalidate(data, size);
-#else
-    __clear_cache(reinterpret_cast<char *>(data), reinterpret_cast<char *>(data) + size);
-#endif
-}
 
 #ifdef __arm__
 /* WebCore (ARM) PC-Relative:
@@ -201,7 +181,6 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
 
         arm[1] = reinterpret_cast<uint32_t>(replace);
 
-        MSClearCache(arm + 1, sizeof(uint32_t) * 1);
         return;
     }
 
@@ -237,8 +216,6 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
 
         for (unsigned offset(0); offset != blank; ++offset)
             trail[offset] = T$nop;
-
-        MSClearCache(area, used);
     }
 
     if (MSDebug) {
@@ -605,8 +582,6 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
 
         arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
         arm[1] = reinterpret_cast<uint32_t>(replace);
-
-        MSClearCache(area, sizeof(uint32_t) * used);
     }
 
     if (MSDebug) {
@@ -789,8 +764,6 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
         MSWriteJump(current, target);
         for (unsigned offset(0); offset != blank; ++offset)
             MSWrite<uint8_t>(current, 0x90);
-
-        MSClearCache(area, used);
     }
 
     if (MSDebug) {

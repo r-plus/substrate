@@ -30,6 +30,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <libkern/OSCacheControl.h>
+
 #ifdef __arm__
 
 #include "MachMessage.hpp"
@@ -145,5 +147,14 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
 extern "C" void SubstrateMemoryRelease(SubstrateMemoryRef memory) {
     if (kern_return_t error = MS_vm_protect(memory->reply_, memory->self_, memory->base_, memory->width_, FALSE, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY))
         MSLog(MSLogLevelError, "MS:Error:vm_protect() = %d", error);
+
+
+    // Apple removed __clear_cache in iOS 4.1, so we can't rely on it here
+    // however, it also was always a nop, and as no never really worked...
+
+    sys_dcache_flush(reinterpret_cast<void *>(memory->base_), memory->width_);
+    sys_icache_invalidate(reinterpret_cast<void *>(memory->base_), memory->width_);
+
+
     delete memory;
 }

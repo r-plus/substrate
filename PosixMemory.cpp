@@ -30,6 +30,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+extern "C" void __clear_cache (void *beg, void *end);
+
 struct __SubstrateMemory {
     void *address_;
     size_t width_;
@@ -67,5 +69,8 @@ extern "C" SubstrateMemoryRef SubstrateMemoryCreate(SubstrateAllocatorRef alloca
 extern "C" void SubstrateMemoryRelease(SubstrateMemoryRef memory) {
     if (mprotect(memory->address_, memory->width_, PROT_READ | PROT_WRITE | PROT_EXEC) == -1)
         MSLog(MSLogLevelError, "MS:Error:mprotect() = %d", errno);
+
+    __clear_cache(reinterpret_cast<char *>(memory->address_), reinterpret_cast<char *>(memory->address_) + memory->width_);
+
     delete memory;
 }
