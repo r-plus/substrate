@@ -82,6 +82,8 @@ deb: ios extrainst_ postrm
 	./package.sh i386
 	./package.sh arm
 
+package: deb
+
 install: deb
 	PATH=/Library/Cydia/bin:/usr/sbin:/usr/bin:/sbin:/bin sudo dpkg -i com.cydia.substrate_$(shell ./version.sh)_cydia.deb
 
@@ -100,4 +102,4 @@ test: TestSuperCall
 	arch -i386 ./TestSuperCall
 	arch -x86_64 ./TestSuperCall
 
-.PHONY: all clean darwin deb install ios test upgrade
+.PHONY: all clean darwin deb install ios test package upgrade
