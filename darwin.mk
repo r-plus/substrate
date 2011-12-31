@@ -52,7 +52,10 @@ MachMemory.o: MachProtect.c
 DarwinInjector.o: Trampoline.t.hpp
 
 %.o: %.cpp
-	$(cycc) $(flags_$(patsubst %.o,%,$@)) -c -Iinclude $<
+	$(cycc) $(flags_$*) -c -Iinclude $<
+
+%.o: %.mm
+	$(cycc) $(flags_$*) -c -Iinclude $<
 
 libsubstrate.dylib: DarwinFindSymbol.o DarwinInjector.o ObjectiveC.o $(lsubstrate)
 	$(cycc) -dynamiclib $(hde64c) -lobjc -install_name $(framework)/CydiaSubstrate
@@ -70,8 +73,10 @@ cynject: cynject.o libsubstrate.dylib
 	$(cycc)
 	ldid -Stask_for_pid.xml $@
 
-%: %.mm LaunchDaemons.mm Cydia.mm
-	$(cycc) $(filter %.mm,$^) -framework CoreFoundation -framework Foundation
+%: %.o
+	$(cycc) -framework CoreFoundation -framework Foundation
+
+extrainst_ postrm: LaunchDaemons.o Cydia.o
 
 deb: ios extrainst_ postrm
 	./package.sh i386
@@ -89,8 +94,9 @@ upgrade: all
 clean:
 	rm -f MachProtect.h MachProtect.c *.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLauncher.dylib SubstrateLoader.dylib extrainst_ postrm cynject
 
-test:
-	./cycc -i2.0 -m10.5 -oTestSuperCall -- TestSuperCall.mm -framework CoreFoundation -framework Foundation -lobjc libsubstrate.dylib
+TestSuperCall: libsubstrate.dylib
+
+test: TestSuperCall
 	arch -i386 ./TestSuperCall
 	arch -x86_64 ./TestSuperCall
 
