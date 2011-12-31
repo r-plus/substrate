@@ -31,6 +31,9 @@ flags_Hooker := -Ihde64c/include
 flags_MachMessage := -Xarch_armv6 -marm
 
 hde64c := -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c
+lsubstrate := Debug.o Hooker.o MachMemory.o MachMessage.o hde64c/src/hde64.c
+
+cycc = ./cycc $(ios) $(mac) -o$@ -- $(flags) $(filter %.o,$^) $(filter %.dylib,$^)
 
 all: darwin
 
@@ -47,27 +50,27 @@ MachMemory.o: MachProtect.c
 DarwinInjector.o: Trampoline.t.hpp
 
 %.o: %.cpp
-	./cycc $(ios) $(mac) -o$@ -- $(flags) $(flags_$(patsubst %.o,%,$@)) -c -Iinclude $<
+	$(cycc) $(flags_$(patsubst %.o,%,$@)) -c -Iinclude $<
 
-libsubstrate.dylib: MachMemory.o Hooker.o ObjectiveC.o DarwinFindSymbol.o DarwinInjector.o Debug.o hde64c/src/hde64.c MachMessage.o
-	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $(filter %.o,$^) $(hde64c) -lobjc \
+libsubstrate.dylib: DarwinFindSymbol.o DarwinInjector.o ObjectiveC.o $(lsubstrate)
+	$(cycc) -dynamiclib $(hde64c) -lobjc \
 	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
 
 SubstrateBootstrap.dylib: Bootstrap.o
-	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $^
+	$(cycc) -dynamiclib
 
-SubstrateLauncher.dylib: DarwinLauncher.o MachMemory.o Hooker.o hde64c/src/hde64.c Debug.o MachMessage.o
-	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $(filter %.o,$^) $(hde64c)
+SubstrateLauncher.dylib: DarwinLauncher.o $(lsubstrate)
+	$(cycc) -dynamiclib $(hde64c)
 
 SubstrateLoader.dylib: DarwinLoader.o Environment.o
-	./cycc $(ios) $(mac) -o$@ -- $(flags) -dynamiclib $^ -framework CoreFoundation
+	$(cycc) -dynamiclib -framework CoreFoundation
 
 cynject: cynject.o libsubstrate.dylib
-	./cycc $(ios) $(mac) -o$@ -- $(flags) $^
+	$(cycc)
 	ldid -Stask_for_pid.xml $@
 
 %: %.mm LaunchDaemons.mm Cydia.mm
-	./cycc $(ios) $(mac) -o$@ -- $(flags) $^ -framework CoreFoundation -framework Foundation
+	$(cycc) $(filter %.mm,$^) -framework CoreFoundation -framework Foundation
 
 deb: ios extrainst_ postrm
 	./package.sh i386
