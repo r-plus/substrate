@@ -33,6 +33,8 @@ flags_MachMessage := -Xarch_armv6 -marm
 hde64c := -Xarch_i386 hde64c/src/hde64.c -Xarch_x86_64 hde64c/src/hde64.c
 lsubstrate := Debug.o Hooker.o MachMemory.o MachMessage.o hde64c/src/hde64.c
 
+framework := /Library/Frameworks/CydiaSubstrate.framework
+
 cycc = ./cycc $(ios) $(mac) -o$@ -- $(flags) $(filter %.o,$^) $(filter %.dylib,$^)
 
 all: darwin
@@ -53,8 +55,7 @@ DarwinInjector.o: Trampoline.t.hpp
 	$(cycc) $(flags_$(patsubst %.o,%,$@)) -c -Iinclude $<
 
 libsubstrate.dylib: DarwinFindSymbol.o DarwinInjector.o ObjectiveC.o $(lsubstrate)
-	$(cycc) -dynamiclib $(hde64c) -lobjc \
-	    -install_name /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
+	$(cycc) -dynamiclib $(hde64c) -lobjc -install_name $(framework)/CydiaSubstrate
 
 SubstrateBootstrap.dylib: Bootstrap.o
 	$(cycc) -dynamiclib
@@ -80,10 +81,10 @@ install: deb
 	PATH=/Library/Cydia/bin:/usr/sbin:/usr/bin:/sbin:/bin sudo dpkg -i com.cydia.substrate_$(shell ./version.sh)_cydia.deb
 
 upgrade: all
-	sudo cp -a libsubstrate.dylib /Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
-	sudo cp -a SubstrateBootstrap.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
-	sudo cp -a SubstrateLauncher.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
-	sudo cp -a SubstrateLoader.dylib /Library/Frameworks/CydiaSubstrate.framework/Libraries
+	sudo cp -a libsubstrate.dylib $(framework)/CydiaSubstrate
+	sudo cp -a SubstrateBootstrap.dylib $(framework)/Libraries
+	sudo cp -a SubstrateLauncher.dylib $(framework)/Libraries
+	sudo cp -a SubstrateLoader.dylib $(framework)/Libraries
 
 clean:
 	rm -f MachProtect.h MachProtect.c *.o libsubstrate.dylib SubstrateBootstrap.dylib SubstrateLauncher.dylib SubstrateLoader.dylib extrainst_ postrm cynject
