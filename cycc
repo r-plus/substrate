@@ -273,8 +273,8 @@ function process() {
 #line 1 "${code}"
 EOF
 
-    sed -e '
-        s/^%hook \(.*[^a-zA-Z_]\)\([a-zA-Z_]*\)(/#undef MSOldCall_'$'\\\n''#define MSOldCall_ _\2'$'\\\n''MSHook(\1, \2, /;
+    /usr/bin/sed -e '
+        s/^%hook \(.*[^a-zA-Z0-9_]\)\([a-zA-Z_][a-zA-Z_0-9]*\)(/#undef MSOldCall_'$'\\\n''#define MSOldCall_ _\2'$'\\\n''MSHook(\1, \2, /;
         s/^%class \(.*\)/MSHookClass(\1)/;
         s/%original/MSOldCall_/g;
         /^%/ s/^.*//;
