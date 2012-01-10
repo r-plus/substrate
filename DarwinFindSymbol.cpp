@@ -253,8 +253,10 @@ static void MSFindSymbols(MSImageRef image, size_t count, const char *names[], v
             // XXX: maybe avoid this happening at all? a flag to NSMachONameList_?
             for (size_t index(0); index != count; ++index) {
                 MSSymbolData &item(items[index]);
-                if (item.name_ == NULL && item.value_ == 0)
+                if (item.name_ == NULL && item.value_ == 0) {
+                    ++result;
                     item.name_ = names[index];
+                }
             }
 
             remain -= count - result;
