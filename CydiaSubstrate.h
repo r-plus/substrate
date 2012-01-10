@@ -286,8 +286,8 @@ static inline void MSHookFunction(Type_ *symbol, Type_ *replace) {
 }
 
 template <typename Type_>
-static inline void MSHookSymbol(Type_ *&value, const char *name, void *handle = RTLD_DEFAULT) {
-    value = reinterpret_cast<Type_ *>(dlsym(handle, name));
+static inline void MSHookSymbol(Type_ *&value, const char *name, MSImageRef image = NULL) {
+    value = reinterpret_cast<Type_ *>(MSFindSymbol(image, name));
 }
 
 template <typename Type_>
