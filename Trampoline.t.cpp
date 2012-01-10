@@ -21,8 +21,8 @@
 
 #include "DarwinThreadInternal.hpp"
 
-#include "CydiaSubstrate/CydiaSubstrate.h"
 #include "Baton.hpp"
+#include "CydiaSubstrate.h"
 
 template <typename Type_>
 static _finline void dlset(Baton *baton, Type_ &function, const char *name, void *handle = RTLD_DEFAULT) {
