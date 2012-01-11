@@ -202,59 +202,32 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
         MSLogHexEx(area, used + sizeof(uint16_t), 2, name);
     }
 
-    {
-        SubstrateHookMemory code(process, area, used);
+    if (result != NULL) {
 
-        if (align != 0)
-            area[0] = T$nop;
-
-        thumb[0] = T$bx(A$pc);
-        thumb[1] = T$nop;
-
-        arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
-        arm[1] = reinterpret_cast<uint32_t>(replace);
-
-        for (unsigned offset(0); offset != blank; ++offset)
-            trail[offset] = T$nop;
-    }
-
-    if (MSDebug) {
-        char name[16];
-        sprintf(name, "%p", area);
-        MSLogHexEx(area, used + sizeof(uint16_t), 2, name);
-    }
-
-    if (result == NULL)
-        return;
-
-    // XXX: impedence mismatch
-    used /= sizeof(uint16_t);
-
-    size_t size(used);
-    for (unsigned offset(0); offset != used; ++offset)
+    size_t length(used);
+    for (unsigned offset(0); offset != used / sizeof(uint16_t); ++offset)
         if (T$pcrel$ldr(backup[offset]))
-            size += 3;
+            length += 3 * sizeof(uint16_t);
         else if (T$pcrel$b(backup[offset]))
-            size += 6;
+            length += 6 * sizeof(uint16_t);
         else if (T2$pcrel$b(backup + offset)) {
-            size += 5;
+            length += 5 * sizeof(uint16_t);
             ++offset;
         } else if (T$pcrel$bl(backup + offset)) {
-            size += 5;
+            length += 5 * sizeof(uint16_t);
             ++offset;
         } else if (T$pcrel$cbz(backup[offset])) {
-            size += 16;
+            length += 16 * sizeof(uint16_t);
         } else if (T$pcrel$ldrw(backup[offset])) {
-            size += 4;
+            length += 4 * sizeof(uint16_t);
             ++offset;
         } else if (T$pcrel$add(backup[offset]))
-            size += 6;
+            length += 6 * sizeof(uint16_t);
         else if (T$32bit$i(backup[offset]))
             ++offset;
 
-    unsigned pad((size & 0x1) == 0 ? 0 : 1);
-    size += pad + 2 + 2 * sizeof(uint32_t) / sizeof(uint16_t);
-    size_t length(sizeof(uint16_t) * size);
+    unsigned pad((length & 0x2) == 0 ? 0 : 1);
+    length += (pad + 2) * sizeof(uint16_t) + 2 * sizeof(uint32_t);
 
     uint16_t *buffer(reinterpret_cast<uint16_t *>(mmap(
         NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
@@ -269,16 +242,12 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
     if (false) fail: {
         munmap(buffer, length);
         *result = NULL;
-
-        SubstrateHookMemory code(process, area, used);
-        memcpy(area, backup, sizeof(backup));
-
         return;
     }
 
-    size_t start(pad), end(size);
+    size_t start(pad), end(length / sizeof(uint16_t));
     uint32_t *trailer(reinterpret_cast<uint32_t *>(buffer + end));
-    for (unsigned offset(0); offset != used; ++offset) {
+    for (unsigned offset(0); offset != used / sizeof(uint16_t); ++offset) {
         if (T$pcrel$ldr(backup[offset])) {
             union {
                 uint16_t value;
@@ -544,7 +513,7 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
 
     uint32_t *transfer = reinterpret_cast<uint32_t *>(buffer + start);
     transfer[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
-    transfer[1] = reinterpret_cast<uint32_t>(area + used) + 1;
+    transfer[1] = reinterpret_cast<uint32_t>(area + used / sizeof(uint16_t)) + 1;
 
     if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
         MSLog(MSLogLevelError, "MS:Error:mprotect():%d", errno);
@@ -558,6 +527,30 @@ static void SubstrateHookFunctionThumb(SubstrateProcessRef process, void *symbol
         sprintf(name, "%p", *result);
         MSLogHexEx(buffer, length, 2, name);
     }
+
+    }
+
+    {
+        SubstrateHookMemory code(process, area, used);
+
+        if (align != 0)
+            area[0] = T$nop;
+
+        thumb[0] = T$bx(A$pc);
+        thumb[1] = T$nop;
+
+        arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
+        arm[1] = reinterpret_cast<uint32_t>(replace);
+
+        for (unsigned offset(0); offset != blank; ++offset)
+            trail[offset] = T$nop;
+    }
+
+    if (MSDebug) {
+        char name[16];
+        sprintf(name, "%p", area);
+        MSLogHexEx(area, used + sizeof(uint16_t), 2, name);
+    }
 }
 
 static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, void *replace, void **result) {
@@ -567,48 +560,33 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
     uint32_t *area(reinterpret_cast<uint32_t *>(symbol));
     uint32_t *arm(area);
 
-    const size_t used(2);
+    const size_t used(8);
 
-    uint32_t backup[used] = {arm[0], arm[1]};
-
-    if (MSDebug) {
-        char name[16];
-        sprintf(name, "%p", area);
-        MSLogHexEx(area, (used + 1) * sizeof(uint32_t), 4, name);
-    }
-
-    {
-        SubstrateHookMemory code(process, symbol, 8);
-
-        arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
-        arm[1] = reinterpret_cast<uint32_t>(replace);
-    }
+    uint32_t backup[used / sizeof(uint32_t)] = {arm[0], arm[1]};
 
     if (MSDebug) {
         char name[16];
         sprintf(name, "%p", area);
-        MSLogHexEx(area, (used + 1) * sizeof(uint32_t), 4, name);
+        MSLogHexEx(area, used + sizeof(uint32_t), 4, name);
     }
 
-    if (result == NULL)
-        return;
+    if (result != NULL) {
 
     if (backup[0] == A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8)) {
         *result = reinterpret_cast<void *>(backup[1]);
         return;
     }
 
-    size_t size(used);
-    for (unsigned offset(0); offset != used; ++offset)
+    size_t length(used);
+    for (unsigned offset(0); offset != used / sizeof(uint32_t); ++offset)
         if (A$pcrel$r(backup[offset])) {
             if ((backup[offset] & 0x02000000) == 0 || (backup[offset] & 0x0000f000 >> 12) != (backup[offset] & 0x0000000f))
-                size += 2;
+                length += 2 * sizeof(uint32_t);
             else
-                size += 4;
+                length += 4 * sizeof(uint32_t);
         }
 
-    size += 2;
-    size_t length(sizeof(uint32_t) * size);
+    length += 2 * sizeof(uint32_t);
 
     uint32_t *buffer(reinterpret_cast<uint32_t *>(mmap(
         NULL, length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0
@@ -623,16 +601,12 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
     if (false) fail: {
         munmap(buffer, length);
         *result = NULL;
-
-        SubstrateHookMemory code(process, area, used);
-        memcpy(area, backup, sizeof(backup));
-
         return;
     }
 
-    size_t start(0), end(size);
+    size_t start(0), end(length / sizeof(uint32_t));
     uint32_t *trailer(reinterpret_cast<uint32_t *>(buffer + end));
-    for (unsigned offset(0); offset != used; ++offset)
+    for (unsigned offset(0); offset != used / sizeof(uint32_t); ++offset)
         if (A$pcrel$r(backup[offset])) {
             union {
                 uint32_t value;
@@ -681,7 +655,7 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
             buffer[start++] = backup[offset];
 
     buffer[start+0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
-    buffer[start+1] = reinterpret_cast<uint32_t>(area + used);
+    buffer[start+1] = reinterpret_cast<uint32_t>(area + used / sizeof(uint32_t));
 
     if (mprotect(buffer, length, PROT_READ | PROT_EXEC) == -1) {
         MSLog(MSLogLevelError, "MS:Error:mprotect():%d", errno);
@@ -694,6 +668,21 @@ static void SubstrateHookFunctionARM(SubstrateProcessRef process, void *symbol, 
         char name[16];
         sprintf(name, "%p", *result);
         MSLogHexEx(buffer, length, 4, name);
+    }
+
+    }
+
+    {
+        SubstrateHookMemory code(process, symbol, used);
+
+        arm[0] = A$ldr_rd_$rn_im$(A$pc, A$pc, 4 - 8);
+        arm[1] = reinterpret_cast<uint32_t>(replace);
+    }
+
+    if (MSDebug) {
+        char name[16];
+        sprintf(name, "%p", area);
+        MSLogHexEx(area, used + sizeof(uint32_t), 4, name);
     }
 }
 
@@ -757,23 +746,7 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
     uint8_t backup[used];
     memcpy(backup, area, used);
 
-    {
-        SubstrateHookMemory code(process, area, used);
-
-        uint8_t *current(area);
-        MSWriteJump(current, target);
-        for (unsigned offset(0); offset != blank; ++offset)
-            MSWrite<uint8_t>(current, 0x90);
-    }
-
-    if (MSDebug) {
-        char name[16];
-        sprintf(name, "%p", area);
-        MSLogHex(area, used + sizeof(uint16_t), name);
-    }
-
-    if (result == NULL)
-        return;
+    if (result != NULL) {
 
     if (backup[0] == 0xe9) {
         *result = reinterpret_cast<void *>(source + 5 + *reinterpret_cast<uint32_t *>(backup + 1));
@@ -849,10 +822,6 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
     if (false) fail: {
         munmap(buffer, length);
         *result = NULL;
-
-        SubstrateHookMemory code(process, area, used);
-        memcpy(area, backup, sizeof(backup));
-
         return;
     }
 
@@ -928,6 +897,23 @@ static void SubstrateHookFunction(SubstrateProcessRef process, void *symbol, voi
         char name[16];
         sprintf(name, "%p", *result);
         MSLogHex(buffer, length, name);
+    }
+
+    }
+
+    {
+        SubstrateHookMemory code(process, area, used);
+
+        uint8_t *current(area);
+        MSWriteJump(current, target);
+        for (unsigned offset(0); offset != blank; ++offset)
+            MSWrite<uint8_t>(current, 0x90);
+    }
+
+    if (MSDebug) {
+        char name[16];
+        sprintf(name, "%p", area);
+        MSLogHex(area, used + sizeof(uint16_t), name);
     }
 }
 #endif
